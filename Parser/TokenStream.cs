@@ -1,4 +1,4 @@
-namespace Verifex;
+namespace Verifex.Parser;
 
 public class TokenStream
 {
@@ -11,9 +11,11 @@ public class TokenStream
     {
         _source = source.AsMemory();
         _current = 0;
-        _currentToken = new Token(TokenType.SOF, 0, 1);
+        _currentToken = new Token(TokenType.SOF, null);
         _nextToken = FetchNext();
     }
+    
+    public Token Current => _currentToken;
 
     public Token Next()
     {
@@ -28,7 +30,7 @@ public class TokenStream
     private Token FetchNext()
     {
         if (_current >= _source.Length)
-            return new Token(TokenType.EOF, _current, _current);
+            return new Token(TokenType.EOF, null);
         
         SkipWhitespace();
         
@@ -39,39 +41,45 @@ public class TokenStream
         if (char.IsDigit(first))
         {
             ConsumeDigits();
-            return new Token(TokenType.Number, start, _current);
+            return new Token(TokenType.Number, _source[start.._current]);
         }
         
         if (first == '"')
         {
             ConsumeString();
-            return new Token(TokenType.String, start, _current);
+            return new Token(TokenType.String, _source[start.._current]);
         }
 
         switch (first)
         {
-            case '=': return new Token(TokenType.Equals, _current, ++_current);
-            case ';': return new Token(TokenType.Semicolon, _current, ++_current);
+            case '=': return new Token(TokenType.Equals, _source[_current..++_current]);
+            case ';': return new Token(TokenType.Semicolon, _source[_current..++_current]);
+            case '+': return new Token(TokenType.Plus, _source[_current..++_current]);
+            case '-': return new Token(TokenType.Minus, _source[_current..++_current]);
+            case '*': return new Token(TokenType.Star, _source[_current..++_current]);
+            case '/': return new Token(TokenType.Slash, _source[_current..++_current]);
+            case '(': return new Token(TokenType.LeftParenthesis, _source[_current..++_current]);
+            case ')': return new Token(TokenType.RightParenthesis, _source[_current..++_current]);
         }
         
         ConsumeIdentifier();
 
         switch (_source[start.._current].Span)
         {
-            case "let": return new Token(TokenType.Let, start, _current);
+            case "let": return new Token(TokenType.Let, _source[start.._current]);
         }
         
         if (start != _current)
-            return new Token(TokenType.Identifier, start, _current);
+            return new Token(TokenType.Identifier, _source[start.._current]);
         else
-            return new Token(TokenType.Unknown, _current, _current + 1);
+            return new Token(TokenType.Unknown, null);
     }
 
     private void ConsumeDigits()
     {
         var remaining = _source.Span;
 
-        while (char.IsDigit(remaining[_current]))
+        while (_current < remaining.Length && char.IsDigit(remaining[_current]))
             _current++;
     }
 
@@ -79,7 +87,7 @@ public class TokenStream
     {
         var remaining = _source.Span;
 
-        while (char.IsAsciiLetterOrDigit(remaining[_current]))
+        while (_current < remaining.Length && char.IsAsciiLetterOrDigit(remaining[_current]))
             _current++;
     }
 
@@ -108,7 +116,7 @@ public class TokenStream
     {
         var remaining = _source.Span;
 
-        while (char.IsWhiteSpace(remaining[_current]))
+        while (_current < remaining.Length && char.IsWhiteSpace(remaining[_current]))
             _current++;
     }
 }

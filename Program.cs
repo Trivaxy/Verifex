@@ -1,13 +1,11 @@
 ﻿// See https://aka.ms/new-console-template for more information
 
 using Verifex;
+using Verifex.Parser;
 
-string program = "let foobar = 992;";
-
+string program = "abc + 8 * 9 / 3;";
 var tokenStream = new TokenStream(program);
+var parser = new Parser(tokenStream);
+var ast = parser.Expression(0);
 
-while (tokenStream.Peek().Type is not TokenType.EOF)
-{
-    var token = tokenStream.Next();
-    Console.WriteLine($"[{token.Type}: {token.Start}..{token.End}] {program[token.Start..token.End]}");
-}
+Console.WriteLine(ast);

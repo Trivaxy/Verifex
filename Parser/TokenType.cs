@@ -1,4 +1,4 @@
-namespace Verifex;
+namespace Verifex.Parser;
 
 public enum TokenType
 {
@@ -11,4 +11,10 @@ public enum TokenType
     Semicolon,
     String,
     Identifier,
+    Plus,
+    Minus,
+    Star,
+    Slash,
+    LeftParenthesis,
+    RightParenthesis,
 }
