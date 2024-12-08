@@ -17,4 +17,6 @@ public enum TokenType
     Slash,
     LeftParenthesis,
     RightParenthesis,
+    LeftCurlyBrace,
+    RightCurlyBrace,
 }

@@ -60,6 +60,8 @@ public class TokenStream
             case '/': return new Token(TokenType.Slash, _source[_current..++_current]);
             case '(': return new Token(TokenType.LeftParenthesis, _source[_current..++_current]);
             case ')': return new Token(TokenType.RightParenthesis, _source[_current..++_current]);
+            case '{': return new Token(TokenType.LeftCurlyBrace, _source[_current..++_current]);
+            case '}': return new Token(TokenType.RightCurlyBrace, _source[_current..++_current]);
         }
         
         ConsumeIdentifier();

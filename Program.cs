@@ -3,9 +3,9 @@
 using Verifex;
 using Verifex.Parser;
 
-string program = "abc + 8 * 9 / 3;";
+string program = "let three = (3 + 2) / 3;";
 var tokenStream = new TokenStream(program);
 var parser = new Parser(tokenStream);
-var ast = parser.Expression(0);
+var ast = parser.Statement();
 
 Console.WriteLine(ast);
