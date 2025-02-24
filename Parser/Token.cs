@@ -1,9 +1,9 @@
 namespace Verifex.Parser;
 
-public readonly struct Token(TokenType type, ReadOnlyMemory<char> text)
+public readonly struct Token(TokenType type, Range range)
 {
     public readonly TokenType Type = type;
-    public readonly ReadOnlyMemory<char> Text = text;
+    public readonly Range Range = range;
 
-    public override string ToString() => $"[{Type}: {Text}]";
+    public override string ToString() => $"[{Type}]";
 }

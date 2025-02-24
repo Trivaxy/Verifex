@@ -1,6 +1,6 @@
 namespace Verifex.Parser;
 
-public enum TokenType
+public enum TokenType : byte
 {
     SOF,
     EOF,
@@ -9,6 +9,8 @@ public enum TokenType
     Number,
     Equals,
     Semicolon,
+    Colon,
+    Comma,
     String,
     Identifier,
     Plus,
@@ -19,4 +21,6 @@ public enum TokenType
     RightParenthesis,
     LeftCurlyBrace,
     RightCurlyBrace,
+    Fn,
+    Arrow,
 }

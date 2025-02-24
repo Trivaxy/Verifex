@@ -4,25 +4,24 @@ public class TokenStream
 {
     private ReadOnlyMemory<char> _source;
     private int _current;
-    private Token _currentToken;
     private Token _nextToken;
 
     public TokenStream(string source)
     {
         _source = source.AsMemory();
         _current = 0;
-        _currentToken = new Token(TokenType.SOF, null);
+        Current = new Token(TokenType.SOF, 0..0);
         _nextToken = FetchNext();
     }
     
-    public Token Current => _currentToken;
-
+    public Token Current { get; private set; }
+    
     public Token Next()
     {
-        _currentToken = _nextToken;
+        Current = _nextToken;
         _nextToken = FetchNext();
-
-        return _currentToken;
+        
+        return Current;
     }
 
     public Token Peek() => _nextToken;
@@ -30,7 +29,7 @@ public class TokenStream
     private Token FetchNext()
     {
         if (_current >= _source.Length)
-            return new Token(TokenType.EOF, null);
+            return new Token(TokenType.EOF, _source.Length.._source.Length);
         
         SkipWhitespace();
         
@@ -41,40 +40,44 @@ public class TokenStream
         if (char.IsDigit(first))
         {
             ConsumeDigits();
-            return new Token(TokenType.Number, _source[start.._current]);
+            return new Token(TokenType.Number, start.._current);
         }
         
         if (first == '"')
         {
             ConsumeString();
-            return new Token(TokenType.String, _source[start.._current]);
+            return new Token(TokenType.String, start.._current);
         }
 
         switch (first)
         {
-            case '=': return new Token(TokenType.Equals, _source[_current..++_current]);
-            case ';': return new Token(TokenType.Semicolon, _source[_current..++_current]);
-            case '+': return new Token(TokenType.Plus, _source[_current..++_current]);
-            case '-': return new Token(TokenType.Minus, _source[_current..++_current]);
-            case '*': return new Token(TokenType.Star, _source[_current..++_current]);
-            case '/': return new Token(TokenType.Slash, _source[_current..++_current]);
-            case '(': return new Token(TokenType.LeftParenthesis, _source[_current..++_current]);
-            case ')': return new Token(TokenType.RightParenthesis, _source[_current..++_current]);
-            case '{': return new Token(TokenType.LeftCurlyBrace, _source[_current..++_current]);
-            case '}': return new Token(TokenType.RightCurlyBrace, _source[_current..++_current]);
+            case '=': return new Token(TokenType.Equals, _current..++_current);
+            case ';': return new Token(TokenType.Semicolon, _current..++_current);
+            case ':': return new Token(TokenType.Colon, _current..++_current);
+            case ',': return new Token(TokenType.Comma, _current..++_current);
+            case '+': return new Token(TokenType.Plus, _current..++_current);
+            case '-': return new Token(TokenType.Minus, _current..++_current);
+            case '*': return new Token(TokenType.Star, _current..++_current);
+            case '/': return new Token(TokenType.Slash, _current..++_current);
+            case '(': return new Token(TokenType.LeftParenthesis, _current..++_current);
+            case ')': return new Token(TokenType.RightParenthesis, _current..++_current);
+            case '{': return new Token(TokenType.LeftCurlyBrace, _current..++_current);
+            case '}': return new Token(TokenType.RightCurlyBrace, _current..++_current);
         }
         
         ConsumeIdentifier();
 
         switch (_source[start.._current].Span)
         {
-            case "let": return new Token(TokenType.Let, _source[start.._current]);
+            case "let": return new Token(TokenType.Let, start.._current);
+            case "fn": return new Token(TokenType.Fn, start.._current);
+            case "->": return new Token(TokenType.Arrow, start.._current);
         }
         
         if (start != _current)
-            return new Token(TokenType.Identifier, _source[start.._current]);
-        else
-            return new Token(TokenType.Unknown, null);
+            return new Token(TokenType.Identifier, start.._current);
+        
+        return new Token(TokenType.Unknown, start.._current);
     }
 
     private void ConsumeDigits()

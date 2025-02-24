@@ -5,7 +5,7 @@ using Verifex.Parser;
 
 string program = "let three = (3 + 2) / 3;";
 var tokenStream = new TokenStream(program);
-var parser = new Parser(tokenStream);
+var parser = new Parser(tokenStream, program.AsMemory());
 var ast = parser.Statement();
 
 Console.WriteLine(ast);

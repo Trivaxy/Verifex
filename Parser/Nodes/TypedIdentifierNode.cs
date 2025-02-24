@@ -2,5 +2,5 @@
 
 public class TypedIdentifierNode(string name, string type) : IdentifierNode(name)
 {
-    public readonly String TypeName = type;
+    public readonly string TypeName = type;
 }
