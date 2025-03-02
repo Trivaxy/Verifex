@@ -40,6 +40,14 @@ public class TokenStream
         if (char.IsDigit(first))
         {
             ConsumeDigits();
+            
+            // if there is no decimal, no fractional part - return
+            if (_current >= _source.Length || _source.Span[_current] != '.')
+                return new Token(TokenType.Number, start.._current);
+            
+            _current++;
+            ConsumeDigits();
+            
             return new Token(TokenType.Number, start.._current);
         }
         

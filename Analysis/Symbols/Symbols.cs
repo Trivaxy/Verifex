@@ -28,10 +28,13 @@ public class Symbols
     public ValueLocation GetLocal(string name) => _locals[name];
     
     public VerifexType GetType(string name) => _types[name];
+    
+    public void ClearLocals() => _locals.Clear();
 
     private void RegisterCoreTypes()
     {
         AddType(new IntegerType());
+        AddType(new RealType());
         AddType(new VoidType());
     }
 }
