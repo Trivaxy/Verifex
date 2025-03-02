@@ -50,6 +50,17 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
         { TokenType.LeftParenthesis, 10 }
     };
 
+    public ProgramNode Program()
+    {
+        List<AstNode> nodes = [];
+        while (tokens.Peek().Type != TokenType.EOF)
+        {
+            nodes.Add(Do(FnDeclaration));
+        }
+
+        return new ProgramNode(nodes.AsReadOnly());
+    }
+
     public AstNode Statement()
     {
         AstNode statement = Do<AstNode>(tokens.Peek().Type switch
@@ -62,7 +73,7 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
         return statement;
     }
 
-    public AstNode LetDeclaration()
+    public VarDeclNode LetDeclaration()
     {
         Expect(TokenType.Let);
         Token name = Expect(TokenType.Identifier);

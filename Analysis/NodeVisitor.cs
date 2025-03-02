@@ -4,6 +4,8 @@ namespace Verifex.Analysis;
 
 public abstract class NodeVisitor
 {
+    public virtual void Visit(ProgramNode node) {}
+    
     public virtual void Visit(BinaryOperationNode node) {}
 
     public virtual void Visit(BlockNode node) {}
@@ -26,6 +28,9 @@ public abstract class NodeVisitor
     {
         switch (node)
         {
+            case ProgramNode program:
+                Visit(program);
+                break;
             case BinaryOperationNode binaryOperationNode:
                 Visit(binaryOperationNode);
                 break;

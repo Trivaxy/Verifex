@@ -1,11 +1,14 @@
 ﻿// See https://aka.ms/new-console-template for more information
 
 using Verifex;
+using Verifex.CodeGen;
 using Verifex.Parser;
 
-string program = "let three = (3 + 2) / 3;";
+string program = "fn test() { let a = 10 + 2; }";
 var tokenStream = new TokenStream(program);
 var parser = new Parser(tokenStream, program.AsMemory());
-var ast = parser.Statement();
+var ast = parser.Program();
+var gen = new AssemblyGen();
 
-Console.WriteLine(ast);
+gen.Visit(ast);
+gen.Save("Generated.dll");
