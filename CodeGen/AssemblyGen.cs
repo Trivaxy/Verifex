@@ -59,6 +59,7 @@ public class AssemblyGen : NodeVisitor
     {
         MethodBuilder method = _type.DefineMethod(node.Name, MethodAttributes.Public | MethodAttributes.Static);
         _il = method.GetILGenerator();
+        _symbols.ClearLocals();
         
         Visit(node.Body);
         _il.Emit(OpCodes.Ret);
@@ -73,7 +74,10 @@ public class AssemblyGen : NodeVisitor
 
     public override void Visit(NumberNode node)
     {
-        _il.Emit(OpCodes.Ldc_I4, node.Value);
+        if (node.NumberType == NumberType.Integer)
+            _il.Emit(OpCodes.Ldc_I4, int.Parse(node.Value));
+        else
+            _il.Emit(OpCodes.Ldc_R8, double.Parse(node.Value));
     }
 
     public override void Visit(TypedIdentifierNode node)
@@ -89,7 +93,8 @@ public class AssemblyGen : NodeVisitor
 
     public override void Visit(VarDeclNode node)
     {
-        ValueLocation value = _symbols.AddLocal(node.Name, new IntegerType());
+        VerifexType type = node.Type != null ? _symbols.GetType(node.Type) : new IntegerType();
+        ValueLocation value = _symbols.AddLocal(node.Name, type);
         
         _il.DeclareLocal(value.Type.IlType);
         Visit(node.Value);

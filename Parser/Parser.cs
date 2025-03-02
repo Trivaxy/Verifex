@@ -8,7 +8,7 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
     {
         { TokenType.Minus, (parser, _) => new UnaryNegationNode(parser.Expression(0)) },
         { TokenType.Plus, (parser, _) => parser.Expression(0) },
-        { TokenType.Number, (parser, token) => new NumberNode(int.Parse(parser.Fetch(token).Span)) },
+        { TokenType.Number, (parser, token) => new NumberNode(parser.Fetch(token).ToString()) },
         { TokenType.Identifier, (parser, token) => new IdentifierNode(parser.Fetch(token).ToString()) },
         { TokenType.LeftParenthesis, (parser, _) =>
         {
@@ -77,10 +77,18 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
     {
         Expect(TokenType.Let);
         Token name = Expect(TokenType.Identifier);
+        string? type = null;
+        
+        if (tokens.Peek().Type == TokenType.Colon)
+        {
+            tokens.Next(); // consume colon
+            type = Fetch(Expect(TokenType.Identifier)).ToString();
+        }
+        
         Expect(TokenType.Equals);
         AstNode value = Do(Expression);
 
-        return new VarDeclNode(Fetch(name).ToString(), value);
+        return new VarDeclNode(Fetch(name).ToString(), type, value);
     }
 
     public FunctionDeclNode FnDeclaration()
