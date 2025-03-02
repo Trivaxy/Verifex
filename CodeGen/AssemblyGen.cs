@@ -61,6 +61,7 @@ public class AssemblyGen : NodeVisitor
         _il = method.GetILGenerator();
         
         Visit(node.Body);
+        _il.Emit(OpCodes.Ret);
     }
 
     public override void Visit(IdentifierNode node)
@@ -90,6 +91,7 @@ public class AssemblyGen : NodeVisitor
     {
         ValueLocation value = _symbols.AddLocal(node.Name, new IntegerType());
         
+        _il.DeclareLocal(value.Type.IlType);
         Visit(node.Value);
         _il.Emit(OpCodes.Stloc, value.Index);
     }
