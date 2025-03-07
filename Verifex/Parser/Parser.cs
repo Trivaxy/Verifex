@@ -28,14 +28,18 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
         { TokenType.LeftParenthesis, (parser, left, _) =>
         {
             List<AstNode> parameters = [];
-            while (parser.Peek().Type != TokenType.RightParenthesis)
+            if (parser.Peek().Type != TokenType.RightParenthesis)
             {
                 parameters.Add(parser.Do(parser.Expression));
-                if (parser.Peek().Type != TokenType.RightParenthesis)
-                    parser.Expect(TokenType.Comma);
+                
+                while (parser.Peek().Type == TokenType.Comma)
+                {
+                    parser.Next();
+                    parameters.Add(parser.Do(parser.Expression));
+                }
             }
-
-            parser.Next(); // consume right parens
+            
+            parser.Expect(TokenType.RightParenthesis);
 
             return new FunctionCallNode(left, parameters.AsReadOnly());
         } }
@@ -66,6 +70,15 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
         AstNode statement = Do<AstNode>(tokens.Peek().Type switch
         {
             TokenType.Let => LetDeclaration,
+            TokenType.Identifier => () =>
+            {
+                AstNode expr = Do(Expression);
+
+                if (expr is not FunctionCallNode)
+                    throw new Exception("Expected a statement");
+
+                return expr;
+            },
             _ => throw new Exception("Expected a statement")
         });
 

@@ -64,7 +64,14 @@ public class TokenStream
             case ':': return new Token(TokenType.Colon, _current..++_current);
             case ',': return new Token(TokenType.Comma, _current..++_current);
             case '+': return new Token(TokenType.Plus, _current..++_current);
-            case '-': return new Token(TokenType.Minus, _current..++_current);
+            case '-':
+                if (_current + 1 < _source.Length && remaining[_current + 1] == '>')
+                {
+                    _current += 2;
+                    return new Token(TokenType.Arrow, start.._current);
+                }
+                
+                return new Token(TokenType.Minus, _current..++_current);
             case '*': return new Token(TokenType.Star, _current..++_current);
             case '/': return new Token(TokenType.Slash, _current..++_current);
             case '(': return new Token(TokenType.LeftParenthesis, _current..++_current);
@@ -79,7 +86,6 @@ public class TokenStream
         {
             case "let": return new Token(TokenType.Let, start.._current);
             case "fn": return new Token(TokenType.Fn, start.._current);
-            case "->": return new Token(TokenType.Arrow, start.._current);
         }
         
         if (start != _current)
@@ -107,7 +113,8 @@ public class TokenStream
     private void ConsumeString()
     {
         var remaining = _source.Span;
-
+        _current++; // skip the opening quote
+        
         while (true)
         {
             switch (remaining[_current])

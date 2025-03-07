@@ -46,8 +46,12 @@ public class AssemblyGen : NodeVisitor
 
     public override void Visit(BlockNode node)
     {
+        _symbols.PushScope();
+        
         foreach (AstNode child in node.Nodes)
             Visit(child);
+        
+        _symbols.PopScope();
     }
 
     public override void Visit(FunctionCallNode node)
@@ -59,10 +63,11 @@ public class AssemblyGen : NodeVisitor
     {
         MethodBuilder method = _type.DefineMethod(node.Name, MethodAttributes.Public | MethodAttributes.Static);
         _il = method.GetILGenerator();
-        _symbols.ClearLocals();
         
+        _symbols.PushScope();
         Visit(node.Body);
         _il.Emit(OpCodes.Ret);
+        _symbols.PopScope();
     }
 
     public override void Visit(IdentifierNode node)
@@ -94,7 +99,7 @@ public class AssemblyGen : NodeVisitor
     public override void Visit(VarDeclNode node)
     {
         VerifexType type = node.Type != null ? _symbols.GetType(node.Type) : new IntegerType();
-        ValueLocation value = _symbols.AddLocal(node.Name, type);
+        ValueLocation value = _symbols.AddLocalToCurrentScope(node.Name, type);
         
         _il.DeclareLocal(value.Type.IlType);
         Visit(node.Value);
