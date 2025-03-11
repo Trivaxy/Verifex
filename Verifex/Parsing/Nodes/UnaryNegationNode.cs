@@ -1,4 +1,4 @@
-namespace Verifex.Parser.Nodes;
+namespace Verifex.Parsing.Nodes;
 
 public class UnaryNegationNode(AstNode operand) : AstNode
 {

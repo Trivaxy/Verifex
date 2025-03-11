@@ -1,4 +1,4 @@
-namespace Verifex.Parser;
+namespace Verifex.Parsing;
 
 public readonly struct Token(TokenType type, Range range)
 {

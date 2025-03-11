@@ -3,8 +3,8 @@ using System.Reflection.Emit;
 using Verifex.Analysis;
 using Verifex.Analysis.Symbols;
 using Verifex.CodeGen.Types;
-using Verifex.Parser;
-using Verifex.Parser.Nodes;
+using Verifex.Parsing;
+using Verifex.Parsing.Nodes;
 
 namespace Verifex.CodeGen;
 

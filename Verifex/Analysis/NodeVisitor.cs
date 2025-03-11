@@ -1,4 +1,4 @@
-using Verifex.Parser.Nodes;
+using Verifex.Parsing.Nodes;
 
 namespace Verifex.Analysis;
 

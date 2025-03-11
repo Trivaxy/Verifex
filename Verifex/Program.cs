@@ -2,7 +2,7 @@
 
 using Verifex;
 using Verifex.CodeGen;
-using Verifex.Parser;
+using Verifex.Parsing;
 
 string program = "fn test() { let a: Real = 10.0 + 2.0; let b: Real = a * (a - a); }";
 var tokenStream = new TokenStream(program);

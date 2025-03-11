@@ -1,4 +1,4 @@
-namespace Verifex.Parser;
+namespace Verifex.Parsing;
 
 public enum TokenType : byte
 {

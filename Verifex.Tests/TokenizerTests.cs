@@ -1,4 +1,4 @@
-﻿using Verifex.Parser;
+﻿using Verifex.Parsing;
 
 namespace Verifex.Tests;
 

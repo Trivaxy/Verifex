@@ -1,6 +1,6 @@
 using System.Collections.ObjectModel;
 
-namespace Verifex.Parser.Nodes;
+namespace Verifex.Parsing.Nodes;
 
 public class FunctionCallNode(AstNode callee, ReadOnlyCollection<AstNode> arguments) : AstNode
 {

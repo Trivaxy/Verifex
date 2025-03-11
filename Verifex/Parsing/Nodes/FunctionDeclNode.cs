@@ -1,6 +1,6 @@
 ﻿using System.Collections.ObjectModel;
 
-namespace Verifex.Parser.Nodes;
+namespace Verifex.Parsing.Nodes;
 
 public class FunctionDeclNode(string name, ReadOnlyCollection<TypedIdentifierNode> parameters, string? returnType, BlockNode body) : AstNode
 {

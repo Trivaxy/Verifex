@@ -39,9 +39,10 @@ public class Symbols
 
     private void RegisterCoreTypes()
     {
+        AddType(new VoidType());
         AddType(new IntegerType());
         AddType(new RealType());
-        AddType(new VoidType());
+        AddType(new StringType());
     }
 
     private class Scope

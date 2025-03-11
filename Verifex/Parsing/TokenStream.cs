@@ -1,4 +1,4 @@
-namespace Verifex.Parser;
+namespace Verifex.Parsing;
 
 public class TokenStream
 {
@@ -114,22 +114,30 @@ public class TokenStream
     {
         var remaining = _source.Span;
         _current++; // skip the opening quote
-        
-        while (true)
+
+        while (_current < remaining.Length)
         {
-            switch (remaining[_current])
+            char c = remaining[_current];
+            _current++; // move to the next character
+            
+            switch (c)
             {
+                case '"': return;
                 case '\\':
-                    _current += 2;
-                    break;
-                case '"':
+                {
+                    // consume the backslash
+                    if (_current >= remaining.Length)
+                        throw new Exception("Unterminated string literal after escape character");
+            
+                    // Just skip the escaped character - actual escape sequence processing
+                    // would happen in the parser when it creates the StringLiteralNode
                     _current++;
-                    return;
-                default:
-                    _current++;
                     break;
+                }
             }
         }
+
+        throw new Exception("Unterminated string literal");
     }
 
     private void SkipWhitespace()

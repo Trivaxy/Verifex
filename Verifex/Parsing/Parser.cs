@@ -1,6 +1,7 @@
-using Verifex.Parser.Nodes;
+using System.Text;
+using Verifex.Parsing.Nodes;
 
-namespace Verifex.Parser;
+namespace Verifex.Parsing;
 
 public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
 {
@@ -10,6 +11,7 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
         { TokenType.Plus, (parser, _) => parser.Expression(0) },
         { TokenType.Number, (parser, token) => new NumberNode(parser.Fetch(token).ToString()) },
         { TokenType.Identifier, (parser, token) => new IdentifierNode(parser.Fetch(token).ToString()) },
+        { TokenType.String, (parser, token) => new StringLiteralNode(ProcessEscapes(parser.Fetch(token).ToString()[1..^1])) },
         { TokenType.LeftParenthesis, (parser, _) =>
         {
             AstNode expression = parser.Do(parser.Expression);
@@ -206,5 +208,33 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
     {
         AstNode right = parser.Expression(TokenPrecedences[token.Type]);
         return new BinaryOperationNode(token, left, right);
+    }
+    
+    private static string ProcessEscapes(string input)
+    {
+        if (string.IsNullOrEmpty(input) || !input.Contains('\\'))
+            return input;
+            
+        StringBuilder result = new StringBuilder(input.Length);
+        
+        for (int i = 0; i < input.Length; i++)
+        {
+            if (input[i] == '\\' && i + 1 < input.Length)
+            {
+                switch (input[++i])
+                {
+                    case 'n': result.Append('\n'); break;
+                    case 't': result.Append('\t'); break;
+                    case 'r': result.Append('\r'); break;
+                    case '"': result.Append('"'); break;
+                    case '\\': result.Append('\\'); break;
+                    default: result.Append('\\').Append(input[i]); break;
+                }
+            }
+            else
+                result.Append(input[i]);
+        }
+        
+        return result.ToString();
     }
 }
