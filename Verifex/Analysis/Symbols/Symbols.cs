@@ -17,21 +17,20 @@ public class Symbols
     
     public ValueLocation AddLocalToCurrentScope(string name, VerifexType type) => _scopes.Peek().AddLocal(name, type);
     
-    public VerifexFunction GetFunction(string name) => _functions[name];
+    public VerifexFunction? GetFunction(string name) => _functions.GetValueOrDefault(name);
 
-    public ValueLocation GetLocal(string name)
+    public ValueLocation? GetLocal(string name)
     {
-        // .NET stacks iterate from top to bottom, which is what we need
         foreach (Scope scope in _scopes)
         {
             if (scope.HasLocal(name))
                 return scope.GetLocal(name);
         }
         
-        throw new Exception($"Symbol `{name}` not found");
+        return null;
     }
+    public VerifexType? GetType(string name) => _types.GetValueOrDefault(name);
     
-    public VerifexType GetType(string name) => _types[name];
 
     public void PushScope() => _scopes.Push(new Scope());
 
