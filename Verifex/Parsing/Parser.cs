@@ -81,6 +81,7 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
 
                 return expr;
             },
+            TokenType.Return => Return,
             _ => throw new Exception("Expected a statement")
         });
 
@@ -154,6 +155,18 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
         Expect(TokenType.RightCurlyBrace);
 
         return new BlockNode(statements.AsReadOnly());
+    }
+
+    public ReturnNode Return()
+    {
+        Expect(TokenType.Return);
+        
+        // if no expression is provided, return empty
+        if (!PrefixParsers.ContainsKey(tokens.Peek().Type))
+            return new ReturnNode();
+        
+        AstNode expression = Do(Expression);
+        return new ReturnNode(expression);
     }
 
     public AstNode Expression() => Expression(0);

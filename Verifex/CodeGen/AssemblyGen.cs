@@ -25,11 +25,31 @@ public class AssemblyGen : NodeVisitor
         _module = _assembly.DefineDynamicModule("Test");
         _type = _module.DefineType("Main", TypeAttributes.Public);
 
+        SetupMethodBuilders();
+    }
+
+    private void SetupMethodBuilders()
+    {
         foreach (VerifexFunction function in _symbols.Functions)
         {
-            if (function.IsBuiltin) continue;
+            if (function is BuiltinFunction builtin)
+            {
+                _methodInfos.Add(builtin, builtin.Method);
+                continue;
+            }
             
             MethodBuilder method = _type.DefineMethod(function.Name, MethodAttributes.Public | MethodAttributes.Static);
+            Type returnType = function.ReturnType.IlType;
+            Type[] parameterTypes = new Type[function.Parameters.Count];
+            for (int i = 0; i < function.Parameters.Count; i++)
+            {
+                ParameterInfo parameter = function.Parameters[i];
+                parameterTypes[i] = parameter.Type.IlType;
+            }
+            
+            method.SetReturnType(returnType);
+            method.SetParameters(parameterTypes);
+            
             _il = method.GetILGenerator();
             
             _methodInfos.Add(function, method);
@@ -73,9 +93,10 @@ public class AssemblyGen : NodeVisitor
         IdentifierNode identifier = (IdentifierNode)node.Callee;
         VerifexFunction function = _symbols.GetFunction(identifier.Identifier);
         
-        // the function's name in IL is the same as in Verifex
-        // assume they all live in the same module and class
-        MethodInfo method = _type.GetMethod(function.Name);
+        foreach (AstNode argument in node.Arguments)
+            Visit(argument);
+        
+        _il.Emit(OpCodes.Call, _methodInfos[function]);
     }
 
     public override void Visit(FunctionDeclNode node)
@@ -84,8 +105,20 @@ public class AssemblyGen : NodeVisitor
         _il = _methodILGenerators[function];
         
         _symbols.PushScope();
+        
+        // add parameters to the current scope
+        for (int i = 0; i < function.Parameters.Count; i++)
+        {
+            ParameterInfo parameter = function.Parameters[i];
+            _symbols.AddLocalToCurrentScope(parameter.Name, parameter.Type, LocationType.Parameter);
+        }
+        
         Visit(node.Body);
-        _il.Emit(OpCodes.Ret);
+        
+        // if the function has a void return type and doesn't end with a return statement, emit a return implicitly
+        if (function.ReturnType is VoidType && (node.Body.Nodes.Count == 0 || node.Body.Nodes[^1] is not ReturnNode)) 
+            _il.Emit(OpCodes.Ret);
+        
         _symbols.PopScope();
     }
 
@@ -97,7 +130,7 @@ public class AssemblyGen : NodeVisitor
         if (!value.HasValue)
             throw new Exception($"Variable {node.Identifier} has no ValueLocation");
 
-        _il.Emit(OpCodes.Ldloc, value.Value.Index);
+        value.Value.EmitLoad(_il);
     }
 
     public override void Visit(NumberNode node)
@@ -122,11 +155,19 @@ public class AssemblyGen : NodeVisitor
     public override void Visit(VarDeclNode node)
     {
         VerifexType type = node.Type != null ? _symbols.GetType(node.Type) : new IntegerType();
-        ValueLocation value = _symbols.AddLocalToCurrentScope(node.Name, type);
+        ValueLocation value = _symbols.AddLocalToCurrentScope(node.Name, type, LocationType.Local);
         
-        _il.DeclareLocal(value.Type.IlType);
+        _il.DeclareLocal(value.ValueType.IlType);
         Visit(node.Value);
         _il.Emit(OpCodes.Stloc, value.Index);
+    }
+    
+    public override void Visit(ReturnNode node)
+    {
+        if (node.Value != null)
+            Visit(node.Value);
+        
+        _il.Emit(OpCodes.Ret);
     }
 
     public void Save(string path)

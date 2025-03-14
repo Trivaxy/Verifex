@@ -1,9 +1,21 @@
-﻿using Verifex.CodeGen.Types;
+﻿using System.Reflection.Emit;
+using Verifex.CodeGen.Types;
 
 namespace Verifex.CodeGen;
 
-public readonly struct ValueLocation(VerifexType type, int index)
+public readonly record struct ValueLocation(VerifexType ValueType, int Index, LocationType LocationType)
 {
-    public readonly VerifexType Type = type;
-    public readonly int Index = index;
+    public void EmitLoad(ILGenerator il)
+    {
+        if (LocationType == LocationType.Local)
+            il.Emit(OpCodes.Ldloc, Index);
+        else if (LocationType == LocationType.Parameter)
+            il.Emit(OpCodes.Ldarg, Index);
+    }
+}
+
+public enum LocationType
+{
+    Local,
+    Parameter,
 }

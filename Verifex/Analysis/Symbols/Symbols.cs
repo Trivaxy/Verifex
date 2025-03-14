@@ -20,7 +20,8 @@ public class Symbols
     
     public void AddType(VerifexType type) => _types.Add(type.Name, type);
     
-    public ValueLocation AddLocalToCurrentScope(string name, VerifexType type) => _scopes.Peek().AddLocal(name, type);
+    public ValueLocation AddLocalToCurrentScope(string name, VerifexType type, LocationType location)
+        => _scopes.Peek().AddLocal(name, type, location);
     
     public VerifexFunction? GetFunction(string name) => _functions.GetValueOrDefault(name);
 
@@ -34,8 +35,8 @@ public class Symbols
         
         return null;
     }
-    public VerifexType? GetType(string name) => _types.GetValueOrDefault(name);
     
+    public VerifexType? GetType(string name) => _types.GetValueOrDefault(name);
 
     public void PushScope() => _scopes.Push(new Scope());
 
@@ -58,11 +59,11 @@ public class Symbols
     private void RegisterCoreFunctions()
     {
         // print function
-        VerifexFunction printFunction = new VerifexFunction(
+        BuiltinFunction printFunction = new BuiltinFunction(
             "print",
             new List<ParameterInfo> { new ParameterInfo("value", GetType("String")) }.AsReadOnly(),
             GetType("Void"),
-            true);
+            typeof(Console).GetMethod("WriteLine", new [] { typeof(int) }));
         
         AddFunction(printFunction);
     }
@@ -71,9 +72,9 @@ public class Symbols
     {
         private readonly Dictionary<string, ValueLocation> _locals = new Dictionary<string, ValueLocation>();
         
-        public ValueLocation AddLocal(string name, VerifexType type)
+        public ValueLocation AddLocal(string name, VerifexType type, LocationType location)
         {
-            ValueLocation value = new ValueLocation(type, _locals.Count);
+            ValueLocation value = new ValueLocation(type, _locals.Count, location);
             _locals.Add(name, value);
 
             return value;

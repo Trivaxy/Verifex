@@ -23,4 +23,5 @@ public enum TokenType : byte
     RightCurlyBrace,
     Fn,
     Arrow,
+    Return,
 }

@@ -5,7 +5,18 @@ using Verifex.Analysis.Symbols;
 using Verifex.CodeGen;
 using Verifex.Parsing;
 
-string program = "fn test() { let a: Real = 10.0 + 2.0; let b: Real = a * (a - a); }";
+string program = """
+fn add(x: Int, y: Int) -> Int {
+    return x + y;
+}
+
+fn main() {
+    let a: Int = 5;
+    let b: Int = 10;
+    let c: Int = add(a, b);
+    print(c);
+}
+""";
 var tokenStream = new TokenStream(program);
 var parser = new Parser(tokenStream, program.AsMemory());
 var ast = parser.Program();

@@ -46,6 +46,14 @@ public abstract class NodeVisitor
 
     public virtual void Visit(VarDeclNode node) => Visit(node.Value);
     
+    public virtual void Visit(StringLiteralNode node) {}
+    
+    public virtual void Visit(ReturnNode node)
+    {
+        if (node.Value != null)
+            Visit(node.Value);
+    }
+    
     public void Visit(AstNode node)
     {
         switch (node)
@@ -79,6 +87,12 @@ public abstract class NodeVisitor
                 break;
             case VarDeclNode varDeclNode:
                 Visit(varDeclNode);
+                break;
+            case StringLiteralNode stringLiteralNode:
+                Visit(stringLiteralNode);
+                break;
+            case ReturnNode returnNode:
+                Visit(returnNode);
                 break;
         }
     }
