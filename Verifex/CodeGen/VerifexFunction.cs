@@ -3,12 +3,13 @@ using Verifex.CodeGen.Types;
 
 namespace Verifex.CodeGen;
 
-public class VerifexFunction(string name, ReadOnlyCollection<ParameterInfo> parameters, VerifexType returnType)
+public class VerifexFunction(string name, ReadOnlyCollection<ParameterInfo> parameters, VerifexType returnType, bool builtin)
     : IEquatable<VerifexFunction>
 {
     public readonly string Name = name;
     public readonly ReadOnlyCollection<ParameterInfo> Parameters = parameters;
     public readonly VerifexType ReturnType = returnType;
+    public readonly bool IsBuiltin = builtin;
 
     public override bool Equals(object? obj)
     {

@@ -3,13 +3,18 @@ using Verifex.CodeGen.Types;
 
 namespace Verifex.Analysis.Symbols;
 
+
 public class Symbols
 {
     private readonly Dictionary<string, VerifexFunction> _functions = new Dictionary<string, VerifexFunction>();
     private readonly Dictionary<string, VerifexType> _types = new Dictionary<string, VerifexType>();
     private readonly Stack<Scope> _scopes = new Stack<Scope>();
 
-    public Symbols() => RegisterCoreTypes();
+    public Symbols() => RegisterCoreSymbols();
+    
+    public IEnumerable<VerifexFunction> Functions => _functions.Values;
+    
+    public IEnumerable<VerifexType> Types => _types.Values;
     
     public void AddFunction(VerifexFunction function) => _functions.Add(function.Name, function);
     
@@ -36,12 +41,30 @@ public class Symbols
 
     public void PopScope() => _scopes.Pop();
 
+    private void RegisterCoreSymbols()
+    {
+        RegisterCoreTypes();
+        RegisterCoreFunctions();
+    }
+    
     private void RegisterCoreTypes()
     {
         AddType(new VoidType());
         AddType(new IntegerType());
         AddType(new RealType());
         AddType(new StringType());
+    }
+
+    private void RegisterCoreFunctions()
+    {
+        // print function
+        VerifexFunction printFunction = new VerifexFunction(
+            "print",
+            new List<ParameterInfo> { new ParameterInfo("value", GetType("String")) }.AsReadOnly(),
+            GetType("Void"),
+            true);
+        
+        AddFunction(printFunction);
     }
 
     private class Scope

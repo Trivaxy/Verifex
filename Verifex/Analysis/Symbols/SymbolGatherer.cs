@@ -15,7 +15,8 @@ public class SymbolGatherer : NodeVisitor
                 .Select(typedIdent => new ParameterInfo(typedIdent.Identifier, _symbols.GetType(typedIdent.TypeName)))
                 .ToList()
                 .AsReadOnly(),
-            node.ReturnType != null ? _symbols.GetType(node.ReturnType) : _symbols.GetType("Void"));
+            node.ReturnType != null ? _symbols.GetType(node.ReturnType) : _symbols.GetType("Void"),
+            false);
         
         _symbols.AddFunction(function);
     }
