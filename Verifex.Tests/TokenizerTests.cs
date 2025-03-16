@@ -77,17 +77,13 @@ public class TokenizerTests
     public void TokenStream_Keywords_ReturnsCorrectTokens()
     {
         // Arrange
-        var tokenStream = new TokenStream("let fn ->");
+        var tokenStream = new TokenStream("let fn -> return");
         
         // Act & Assert
-        var token1 = tokenStream.Next();
-        Assert.Equal(TokenType.Let, token1.Type);
-        
-        var token2 = tokenStream.Next();
-        Assert.Equal(TokenType.Fn, token2.Type);
-        
-        var token3 = tokenStream.Next();
-        Assert.Equal(TokenType.Arrow, token3.Type);
+        Assert.Equal(TokenType.Let, tokenStream.Next().Type);
+        Assert.Equal(TokenType.Fn, tokenStream.Next().Type);
+        Assert.Equal(TokenType.Arrow, tokenStream.Next().Type);
+        Assert.Equal(TokenType.Return, tokenStream.Next().Type);
     }
     
     [Fact]

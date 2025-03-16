@@ -234,6 +234,16 @@ public class ParserTests
         Assert.Equal("print", ((IdentifierNode)((FunctionCallNode)result).Callee).Identifier);
     }
     
+    [Fact]
+    public void Parse_Statement_RecognizesReturnStatement()
+    {
+        var parser = CreateParser("return 42;");
+        var result = parser.Statement();
+        
+        Assert.IsType<ReturnNode>(result);
+        Assert.IsType<NumberNode>(((ReturnNode)result).Value);
+    }
+    
     // Program tests
     [Fact]
     public void Parse_Program_ReturnsProgramNode()
