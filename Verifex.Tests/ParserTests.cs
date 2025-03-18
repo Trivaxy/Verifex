@@ -154,7 +154,7 @@ public class ParserTests
         
         Assert.IsType<VarDeclNode>(result);
         Assert.Equal("x", result.Name);
-        Assert.Null(result.Type);
+        Assert.Null(result.TypeHint);
         Assert.IsType<NumberNode>(result.Value);
     }
     
@@ -166,7 +166,7 @@ public class ParserTests
         
         Assert.IsType<VarDeclNode>(result);
         Assert.Equal("x", result.Name);
-        Assert.Equal("int", result.Type);
+        Assert.Equal("int", result.TypeHint);
         Assert.IsType<NumberNode>(result.Value);
     }
     

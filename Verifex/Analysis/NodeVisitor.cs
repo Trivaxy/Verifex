@@ -4,55 +4,18 @@ namespace Verifex.Analysis;
 
 public abstract class NodeVisitor
 {
-    public virtual void Visit(ProgramNode node)
-    {
-        foreach (AstNode child in node.Nodes)
-            Visit(child);
-    }
-
-    public virtual void Visit(BinaryOperationNode node)
-    {
-        Visit(node.Left);
-        Visit(node.Right);
-    }
-
-    public virtual void Visit(BlockNode node)
-    {
-        foreach (AstNode child in node.Nodes)
-            Visit(child);
-    }
-
-    public virtual void Visit(FunctionCallNode node)
-    {
-        Visit(node.Callee);
-        foreach (AstNode argument in node.Arguments)
-            Visit(argument);
-    }
-
-    public virtual void Visit(FunctionDeclNode node)
-    {
-        foreach (TypedIdentifierNode parameter in node.Parameters)
-            Visit(parameter);
-        Visit(node.Body);
-    }
-
-    public virtual void Visit(IdentifierNode node) {}
-    
-    public virtual void Visit(NumberNode node) {}
-
-    public virtual void Visit(TypedIdentifierNode node) {}
-
-    public virtual void Visit(UnaryNegationNode node) => Visit(node.Operand);
-
-    public virtual void Visit(VarDeclNode node) => Visit(node.Value);
-    
-    public virtual void Visit(StringLiteralNode node) {}
-    
-    public virtual void Visit(ReturnNode node)
-    {
-        if (node.Value != null)
-            Visit(node.Value);
-    }
+    public abstract void Visit(ProgramNode node);
+    public abstract void Visit(BinaryOperationNode node);
+    public abstract void Visit(BlockNode node);
+    public abstract void Visit(FunctionCallNode node);
+    public abstract void Visit(FunctionDeclNode node);
+    public abstract void Visit(IdentifierNode node);
+    public abstract void Visit(NumberNode node);
+    public abstract void Visit(TypedIdentifierNode node);
+    public abstract void Visit(UnaryNegationNode node);
+    public abstract void Visit(VarDeclNode node);
+    public abstract void Visit(StringLiteralNode node);
+    public abstract void Visit(ReturnNode node);
     
     public void Visit(AstNode node)
     {

@@ -3,28 +3,28 @@ using Verifex.Parsing.Nodes;
 
 namespace Verifex.Analysis.Symbols;
 
-public class SymbolGatherer : NodeVisitor
+public class SymbolGatherer : DefaultNodeVisitor
 {
-    private readonly Symbols _symbols = new Symbols();
+    private readonly SymbolTable _symbolTable = new SymbolTable();
     
     public override void Visit(FunctionDeclNode node)
     {
         VerifexFunction function = new VerifexFunction(
             node.Name,
             node.Parameters
-                .Select(typedIdent => new ParameterInfo(typedIdent.Identifier, _symbols.GetType(typedIdent.TypeName)))
+                .Select(typedIdent => new ParameterInfo(typedIdent.Identifier, _symbolTable.GetType(typedIdent.TypeName)))
                 .ToList()
                 .AsReadOnly(),
-            node.ReturnType != null ? _symbols.GetType(node.ReturnType) : _symbols.GetType("Void"));
+            node.ReturnType != null ? _symbolTable.GetType(node.ReturnType) : _symbolTable.GetType("Void"));
         
-        _symbols.AddFunction(function);
+        _symbolTable.AddFunction(function);
     }
 
-    public static Symbols Gather(ProgramNode program)
+    public static SymbolTable Gather(ProgramNode program)
     {
         SymbolGatherer gatherer = new SymbolGatherer();
         gatherer.Visit(program);
         
-        return gatherer._symbols;
+        return gatherer._symbolTable;
     }
 }

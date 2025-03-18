@@ -4,13 +4,19 @@ using Verifex.CodeGen.Types;
 namespace Verifex.Analysis.Symbols;
 
 
-public class Symbols
+public class SymbolTable
 {
     private readonly Dictionary<string, VerifexFunction> _functions = new Dictionary<string, VerifexFunction>();
     private readonly Dictionary<string, VerifexType> _types = new Dictionary<string, VerifexType>();
     private readonly Stack<Scope> _scopes = new Stack<Scope>();
+    
+    // Primitive types
+    public readonly VerifexType Void = new VoidType();
+    public readonly VerifexType Integer = new IntegerType();
+    public readonly VerifexType Real = new RealType();
+    public readonly VerifexType String = new StringType();
 
-    public Symbols() => RegisterCoreSymbols();
+    public SymbolTable() => RegisterCoreSymbols();
     
     public IEnumerable<VerifexFunction> Functions => _functions.Values;
     
@@ -50,10 +56,10 @@ public class Symbols
     
     private void RegisterCoreTypes()
     {
-        AddType(new VoidType());
-        AddType(new IntegerType());
-        AddType(new RealType());
-        AddType(new StringType());
+        AddType(Void);
+        AddType(Integer);
+        AddType(Real);
+        AddType(String);
     }
 
     private void RegisterCoreFunctions()
