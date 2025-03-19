@@ -1,5 +1,9 @@
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Reflection.Metadata;
+using System.Reflection.Metadata.Ecma335;
+using System.Reflection.PortableExecutable;
+using System.Runtime.Versioning;
 using Verifex.Analysis;
 using Verifex.Analysis.Symbols;
 using Verifex.CodeGen.Types;
@@ -21,10 +25,17 @@ public class AssemblyGen : NodeVisitor
     public AssemblyGen(SymbolTable symbolTable)
     {
         _symbolTable = symbolTable;
-        _assembly = new PersistedAssemblyBuilder(new AssemblyName("TestProgram"), typeof(object).Assembly);
+        var assemblyName = new AssemblyName("TestProgram");
+        _assembly = new PersistedAssemblyBuilder(assemblyName, typeof(object).Assembly);
+        
+        CustomAttributeBuilder targetFramework = new CustomAttributeBuilder(
+            typeof(TargetFrameworkAttribute).GetConstructor([typeof(string)]),
+            [".NETCoreApp,Version=v8.0"]);
+        
+        _assembly.SetCustomAttribute(targetFramework);
+                
         _module = _assembly.DefineDynamicModule("Test");
-        _type = _module.DefineType("Main", TypeAttributes.Public);
-
+        _type = _module.DefineType("Program", TypeAttributes.Public);
         SetupMethodBuilders();
     }
 
@@ -177,7 +188,53 @@ public class AssemblyGen : NodeVisitor
 
     public void Save(string path)
     {
+        CreateEntrypoint();
         _type.CreateType();
-        _assembly.Save(path);
+        _module.CreateGlobalFunctions();
+        
+        SaveExecutableImage(_assembly, path);
+    }
+
+    private void CreateEntrypoint()
+    {
+        MethodBuilder entryPoint = _type.DefineMethod(
+            "Main",
+            MethodAttributes.Public | MethodAttributes.Static,
+            typeof(void),
+            Type.EmptyTypes);
+        
+        // if there's a "main" function, call it
+        VerifexFunction? mainFunction = _symbolTable.GetFunction("main");
+        if (mainFunction == null) return;
+        
+        ILGenerator il = entryPoint.GetILGenerator();
+        il.Emit(OpCodes.Call, _methodInfos[mainFunction]);
+        il.Emit(OpCodes.Ret);
+    }
+    
+    private static void SaveExecutableImage(PersistedAssemblyBuilder ab, string assemblyFileName)
+    {
+        MetadataBuilder metadataBuilder = ab.GenerateMetadata(out BlobBuilder ilStream, out _, out MetadataBuilder pdbBuilder);
+
+        BlobBuilder portablePdbBlob = new BlobBuilder();
+        PortablePdbBuilder portablePdbBuilder = new PortablePdbBuilder(pdbBuilder, metadataBuilder.GetRowCounts(), entryPoint: default);
+        BlobContentId pdbContentId = portablePdbBuilder.Serialize(portablePdbBlob);
+        using FileStream pdbFileStream = new FileStream($"{assemblyFileName}.pdb", FileMode.Create, FileAccess.Write);
+        portablePdbBlob.WriteContentTo(pdbFileStream);
+
+        DebugDirectoryBuilder debugDirectoryBuilder = new DebugDirectoryBuilder();
+        debugDirectoryBuilder.AddCodeViewEntry($"{assemblyFileName}.pdb", pdbContentId, portablePdbBuilder.FormatVersion);
+
+        ManagedPEBuilder peBuilder = new ManagedPEBuilder(
+            header: new PEHeaderBuilder(imageCharacteristics: Characteristics.ExecutableImage | Characteristics.Dll),
+            metadataRootBuilder: new MetadataRootBuilder(metadataBuilder),
+            ilStream: ilStream,
+            debugDirectoryBuilder: debugDirectoryBuilder);
+
+        BlobBuilder peBlob = new BlobBuilder();
+        peBuilder.Serialize(peBlob);
+        
+        using var dllFileStream = new FileStream($"{assemblyFileName}.dll", FileMode.Create, FileAccess.Write);
+        peBlob.WriteContentTo(dllFileStream);
     }
 }
