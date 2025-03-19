@@ -24,4 +24,4 @@ var symbols = SymbolGatherer.Gather(ast);
 var gen = new AssemblyGen(symbols);
 
 gen.Visit(ast);
-gen.Save("Generated");
+gen.Save("Generated.exe");

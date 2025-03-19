@@ -30,7 +30,7 @@ public class AssemblyGen : NodeVisitor
         
         CustomAttributeBuilder targetFramework = new CustomAttributeBuilder(
             typeof(TargetFrameworkAttribute).GetConstructor([typeof(string)]),
-            [".NETCoreApp,Version=v8.0"]);
+            [".NETCoreApp,Version=v9.0"]);
         
         _assembly.SetCustomAttribute(targetFramework);
                 
@@ -188,53 +188,46 @@ public class AssemblyGen : NodeVisitor
 
     public void Save(string path)
     {
-        CreateEntrypoint();
+        CreateEntryPoint();
         _type.CreateType();
         _module.CreateGlobalFunctions();
-        
-        SaveExecutableImage(_assembly, path);
+        SaveExecutableImage(path);
     }
 
-    private void CreateEntrypoint()
+    private void CreateEntryPoint()
     {
         MethodBuilder entryPoint = _type.DefineMethod(
             "Main",
-            MethodAttributes.Public | MethodAttributes.Static,
+            MethodAttributes.HideBySig | MethodAttributes.Public | MethodAttributes.Static,
+            CallingConventions.Standard,
             typeof(void),
             Type.EmptyTypes);
         
-        // if there's a "main" function, call it
-        VerifexFunction? mainFunction = _symbolTable.GetFunction("main");
-        if (mainFunction == null) return;
-        
         ILGenerator il = entryPoint.GetILGenerator();
-        il.Emit(OpCodes.Call, _methodInfos[mainFunction]);
+        VerifexFunction? verifexMainFunction = _symbolTable.GetFunction("main");
+        
+        if (verifexMainFunction != null)
+            il.Emit(OpCodes.Call, _methodInfos[verifexMainFunction]);
+        
         il.Emit(OpCodes.Ret);
     }
     
-    private static void SaveExecutableImage(PersistedAssemblyBuilder ab, string assemblyFileName)
+    private void SaveExecutableImage(string assemblyFileName)
     {
-        MetadataBuilder metadataBuilder = ab.GenerateMetadata(out BlobBuilder ilStream, out _, out MetadataBuilder pdbBuilder);
-
-        BlobBuilder portablePdbBlob = new BlobBuilder();
-        PortablePdbBuilder portablePdbBuilder = new PortablePdbBuilder(pdbBuilder, metadataBuilder.GetRowCounts(), entryPoint: default);
-        BlobContentId pdbContentId = portablePdbBuilder.Serialize(portablePdbBlob);
-        using FileStream pdbFileStream = new FileStream($"{assemblyFileName}.pdb", FileMode.Create, FileAccess.Write);
-        portablePdbBlob.WriteContentTo(pdbFileStream);
-
-        DebugDirectoryBuilder debugDirectoryBuilder = new DebugDirectoryBuilder();
-        debugDirectoryBuilder.AddCodeViewEntry($"{assemblyFileName}.pdb", pdbContentId, portablePdbBuilder.FormatVersion);
-
+        MetadataBuilder metadata = _assembly.GenerateMetadata(out BlobBuilder ilStream, out BlobBuilder mappedFieldData);
+        
         ManagedPEBuilder peBuilder = new ManagedPEBuilder(
-            header: new PEHeaderBuilder(imageCharacteristics: Characteristics.ExecutableImage | Characteristics.Dll),
-            metadataRootBuilder: new MetadataRootBuilder(metadataBuilder),
+            header: PEHeaderBuilder.CreateExecutableHeader(),
+            metadataRootBuilder: new MetadataRootBuilder(metadata),
             ilStream: ilStream,
-            debugDirectoryBuilder: debugDirectoryBuilder);
-
+            mappedFieldData: mappedFieldData,
+            entryPoint: MetadataTokens.MethodDefinitionHandle(_type.GetMethod("Main").MetadataToken)
+        );
+        
         BlobBuilder peBlob = new BlobBuilder();
         peBuilder.Serialize(peBlob);
         
-        using var dllFileStream = new FileStream($"{assemblyFileName}.dll", FileMode.Create, FileAccess.Write);
-        peBlob.WriteContentTo(dllFileStream);
+        using FileStream stream = new FileStream(assemblyFileName, FileMode.Create, FileAccess.Write);
+        peBlob.WriteContentTo(stream);
     }
 }
