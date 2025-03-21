@@ -4,18 +4,18 @@ namespace Verifex.Analysis;
 
 public abstract class NodeVisitor
 {
-    public abstract void Visit(ProgramNode node);
-    public abstract void Visit(BinaryOperationNode node);
-    public abstract void Visit(BlockNode node);
-    public abstract void Visit(FunctionCallNode node);
-    public abstract void Visit(FunctionDeclNode node);
-    public abstract void Visit(IdentifierNode node);
-    public abstract void Visit(NumberNode node);
-    public abstract void Visit(TypedIdentifierNode node);
-    public abstract void Visit(UnaryNegationNode node);
-    public abstract void Visit(VarDeclNode node);
-    public abstract void Visit(StringLiteralNode node);
-    public abstract void Visit(ReturnNode node);
+    protected abstract void Visit(ProgramNode node);
+    protected abstract void Visit(BinaryOperationNode node);
+    protected abstract void Visit(BlockNode node);
+    protected abstract void Visit(FunctionCallNode node);
+    protected abstract void Visit(FunctionDeclNode node);
+    protected abstract void Visit(IdentifierNode node);
+    protected abstract void Visit(NumberNode node);
+    protected abstract void Visit(TypedIdentifierNode node);
+    protected abstract void Visit(UnaryNegationNode node);
+    protected abstract void Visit(VarDeclNode node);
+    protected abstract void Visit(StringLiteralNode node);
+    protected abstract void Visit(ReturnNode node);
     
     public void Visit(AstNode node)
     {

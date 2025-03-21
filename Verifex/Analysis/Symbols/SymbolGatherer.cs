@@ -7,7 +7,7 @@ public class SymbolGatherer : DefaultNodeVisitor
 {
     private readonly SymbolTable _symbolTable = new SymbolTable();
     
-    public override void Visit(FunctionDeclNode node)
+    protected override void Visit(FunctionDeclNode node)
     {
         VerifexFunction function = new VerifexFunction(
             node.Name,

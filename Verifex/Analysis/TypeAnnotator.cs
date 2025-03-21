@@ -6,7 +6,7 @@ namespace Verifex.Analysis;
 
 public class TypeAnnotator(SymbolTable symbolTable) : NodeVisitor
 {
-    public override void Visit(BinaryOperationNode node)
+    protected override void Visit(BinaryOperationNode node)
     {
         Visit(node.Left);
         Visit(node.Right);
@@ -15,7 +15,7 @@ public class TypeAnnotator(SymbolTable symbolTable) : NodeVisitor
         node.Type = node.Left.Type;
     }
 
-    public override void Visit(FunctionCallNode node)
+    protected override void Visit(FunctionCallNode node)
     {
         Visit(node.Callee);
         
@@ -33,28 +33,28 @@ public class TypeAnnotator(SymbolTable symbolTable) : NodeVisitor
             Visit(argument);
     }
 
-    public override void Visit(IdentifierNode node) => node.Type = symbolTable.GetType(node.Identifier);
+    protected override void Visit(IdentifierNode node) => node.Type = symbolTable.GetType(node.Identifier);
 
-    public override void Visit(NumberNode node) =>
+    protected override void Visit(NumberNode node) =>
         node.Type = node.NumberType == NumberType.Integer ? symbolTable.Integer : symbolTable.Real;
 
-    public override void Visit(TypedIdentifierNode node) => node.Type = symbolTable.GetType(node.TypeName);
+    protected override void Visit(TypedIdentifierNode node) => node.Type = symbolTable.GetType(node.TypeName);
 
-    public override void Visit(UnaryNegationNode node)
+    protected override void Visit(UnaryNegationNode node)
     {
         Visit(node.Operand);
         node.Type = node.Operand.Type;
     }
 
-    public override void Visit(VarDeclNode node)
+    protected override void Visit(VarDeclNode node)
     {
         Visit(node.Value);
         node.Type = node.Value.Type;
     }
 
-    public override void Visit(StringLiteralNode node) => node.Type = symbolTable.String;
+    protected override void Visit(StringLiteralNode node) => node.Type = symbolTable.String;
 
-    public override void Visit(ReturnNode node)
+    protected override void Visit(ReturnNode node)
     {
         if (node.Value == null) return; 
         
@@ -62,15 +62,15 @@ public class TypeAnnotator(SymbolTable symbolTable) : NodeVisitor
         node.Type = node.Value.Type;
     }
     
-    public override void Visit(BlockNode node)
+    protected override void Visit(BlockNode node)
     {
         foreach (AstNode child in node.Nodes)
             Visit(child);
     }
 
-    public override void Visit(FunctionDeclNode node) => Visit(node.Body);
+    protected override void Visit(FunctionDeclNode node) => Visit(node.Body);
 
-    public override void Visit(ProgramNode node)
+    protected override void Visit(ProgramNode node)
     {
         foreach (AstNode child in node.Nodes)
             Visit(child);

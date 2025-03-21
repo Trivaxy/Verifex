@@ -68,13 +68,13 @@ public class AssemblyGen : NodeVisitor
         }
     }
 
-    public override void Visit(ProgramNode program)
+    protected override void Visit(ProgramNode program)
     {
         foreach (AstNode node in program.Nodes)
             Visit(node);
     }
 
-    public override void Visit(BinaryOperationNode node)
+    protected override void Visit(BinaryOperationNode node)
     {
         Visit(node.Left);
         Visit(node.Right);
@@ -89,7 +89,7 @@ public class AssemblyGen : NodeVisitor
         });
     }
 
-    public override void Visit(BlockNode node)
+    protected override void Visit(BlockNode node)
     {
         _symbolTable.PushScope();
         
@@ -99,7 +99,7 @@ public class AssemblyGen : NodeVisitor
         _symbolTable.PopScope();
     }
 
-    public override void Visit(FunctionCallNode node)
+    protected override void Visit(FunctionCallNode node)
     {
         IdentifierNode identifier = (IdentifierNode)node.Callee;
         VerifexFunction function = _symbolTable.GetFunction(identifier.Identifier);
@@ -110,7 +110,7 @@ public class AssemblyGen : NodeVisitor
         _il.Emit(OpCodes.Call, _methodInfos[function]);
     }
 
-    public override void Visit(FunctionDeclNode node)
+    protected override void Visit(FunctionDeclNode node)
     {
         VerifexFunction function = _symbolTable.GetFunction(node.Name);
         _il = _methodILGenerators[function];
@@ -133,7 +133,7 @@ public class AssemblyGen : NodeVisitor
         _symbolTable.PopScope();
     }
 
-    public override void Visit(IdentifierNode node)
+    protected override void Visit(IdentifierNode node)
     {
         // TODO: Use shorter opcodes
         ValueLocation? value = _symbolTable.GetLocal(node.Identifier);
@@ -144,7 +144,7 @@ public class AssemblyGen : NodeVisitor
         value.Value.EmitLoad(_il);
     }
 
-    public override void Visit(NumberNode node)
+    protected override void Visit(NumberNode node)
     {
         if (node.NumberType == NumberType.Integer)
             _il.Emit(OpCodes.Ldc_I4, int.Parse(node.Value));
@@ -152,18 +152,18 @@ public class AssemblyGen : NodeVisitor
             _il.Emit(OpCodes.Ldc_R8, double.Parse(node.Value));
     }
 
-    public override void Visit(TypedIdentifierNode node)
+    protected override void Visit(TypedIdentifierNode node)
     {
         throw new NotImplementedException();
     }
 
-    public override void Visit(UnaryNegationNode node)
+    protected override void Visit(UnaryNegationNode node)
     {
         Visit(node.Operand);
         _il.Emit(OpCodes.Neg);
     }
 
-    public override void Visit(VarDeclNode node)
+    protected override void Visit(VarDeclNode node)
     {
         VerifexType type = node.TypeHint != null ? _symbolTable.GetType(node.TypeHint) : new IntegerType();
         ValueLocation value = _symbolTable.AddLocalToCurrentScope(node.Name, type, LocationType.Local);
@@ -173,7 +173,7 @@ public class AssemblyGen : NodeVisitor
         _il.Emit(OpCodes.Stloc, value.Index);
     }
     
-    public override void Visit(ReturnNode node)
+    protected override void Visit(ReturnNode node)
     {
         if (node.Value != null)
             Visit(node.Value);
@@ -181,7 +181,7 @@ public class AssemblyGen : NodeVisitor
         _il.Emit(OpCodes.Ret);
     }
 
-    public override void Visit(StringLiteralNode node)
+    protected override void Visit(StringLiteralNode node)
     {
         throw new NotImplementedException();
     }
