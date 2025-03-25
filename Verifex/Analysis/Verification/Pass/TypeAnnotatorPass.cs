@@ -1,10 +1,11 @@
 using Verifex.Analysis.Symbols;
+using Verifex.Analysis.Verification.Pass;
 using Verifex.CodeGen;
 using Verifex.Parsing.Nodes;
 
-namespace Verifex.Analysis;
+namespace Verifex.Analysis.Verification.Pass;
 
-public class TypeAnnotator(SymbolTable symbolTable) : NodeVisitor
+public class TypeAnnotatorPass(SymbolTable symbolTable) : VerificationPass(symbolTable)
 {
     protected override void Visit(BinaryOperationNode node)
     {
@@ -22,7 +23,7 @@ public class TypeAnnotator(SymbolTable symbolTable) : NodeVisitor
         // Check if the callee is a function
         if (node.Callee is IdentifierNode identifier)
         {
-            VerifexFunction? function = symbolTable.GetFunction(identifier.Identifier);
+            VerifexFunction? function = SymbolTable.GetFunction(identifier.Identifier);
             if (function != null)
                 node.Type = function.ReturnType;
         }
@@ -33,12 +34,12 @@ public class TypeAnnotator(SymbolTable symbolTable) : NodeVisitor
             Visit(argument);
     }
 
-    protected override void Visit(IdentifierNode node) => node.Type = symbolTable.GetType(node.Identifier);
+    protected override void Visit(IdentifierNode node) => node.Type = SymbolTable.GetType(node.Identifier);
 
     protected override void Visit(NumberNode node) =>
-        node.Type = node.NumberType == NumberType.Integer ? symbolTable.Integer : symbolTable.Real;
+        node.Type = node.NumberType == NumberType.Integer ? SymbolTable.Integer : SymbolTable.Real;
 
-    protected override void Visit(TypedIdentifierNode node) => node.Type = symbolTable.GetType(node.TypeName);
+    protected override void Visit(TypedIdentifierNode node) => node.Type = SymbolTable.GetType(node.TypeName);
 
     protected override void Visit(UnaryNegationNode node)
     {
@@ -52,7 +53,7 @@ public class TypeAnnotator(SymbolTable symbolTable) : NodeVisitor
         node.Type = node.Value.Type;
     }
 
-    protected override void Visit(StringLiteralNode node) => node.Type = symbolTable.String;
+    protected override void Visit(StringLiteralNode node) => node.Type = SymbolTable.String;
 
     protected override void Visit(ReturnNode node)
     {

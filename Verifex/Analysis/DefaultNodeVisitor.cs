@@ -1,3 +1,4 @@
+using Verifex.Analysis.Symbols;
 using Verifex.Parsing.Nodes;
 
 namespace Verifex.Analysis;

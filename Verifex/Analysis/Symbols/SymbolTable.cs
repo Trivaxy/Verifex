@@ -47,6 +47,8 @@ public class SymbolTable
     public void PushScope() => _scopes.Push(new Scope());
 
     public void PopScope() => _scopes.Pop();
+    
+    public bool HasSymbol(string name) => _functions.ContainsKey(name) || _types.ContainsKey(name) || GetLocal(name) != null;
 
     private void RegisterCoreSymbols()
     {
