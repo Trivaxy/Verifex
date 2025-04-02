@@ -105,8 +105,8 @@ public class TokenStream
         if (start != _current)
             return new Token(TokenType.Identifier, start.._current);
         
-        // nudge current forward to skip the unknown character, otherwise we get stuck
-        return new Token(TokenType.Unknown, start.._current++);
+        ConsumeUnknown();
+        return new Token(TokenType.Unknown, start.._current);
     }
 
     private void ConsumeDigits()
@@ -153,6 +153,15 @@ public class TokenStream
         }
 
         throw new Exception("Unterminated string literal");
+    }
+    
+    private void ConsumeUnknown()
+    {
+        var remaining = _sourceMemory.Span;
+
+        while (_current < remaining.Length && !char.IsAsciiLetterOrDigit(remaining[_current]) && 
+               !char.IsWhiteSpace(remaining[_current]) && !SingleCharTokens.ContainsKey(remaining[_current]))
+            _current++;
     }
 
     private void SkipWhitespace()

@@ -1,10 +1,27 @@
+using System.Collections.ObjectModel;
 using System.Text;
-using Verifex.Parsing.Nodes;
+using Verifex.Analysis;
 
 namespace Verifex.Parsing;
 
 public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
 {
+    private readonly List<CompileDiagnostic> _diagnostics = [];
+    
+    public ReadOnlyCollection<CompileDiagnostic> Diagnostics => _diagnostics.AsReadOnly();
+    
+    // Synchronization token sets for error recovery
+    private static readonly HashSet<TokenType> StatementSyncTokens =
+    [
+        TokenType.Let, TokenType.Return, TokenType.Identifier, TokenType.RightCurlyBrace
+    ];
+    
+    private static readonly HashSet<TokenType> DeclarationSyncTokens = [TokenType.Fn, TokenType.EOF];
+    
+    private static readonly HashSet<TokenType> ParameterSyncTokens = [
+        TokenType.RightParenthesis, TokenType.Identifier, TokenType.Arrow, TokenType.LeftCurlyBrace
+    ];
+    
     private static readonly Dictionary<TokenType, Func<Parser, Token, AstNode>> PrefixParsers = new()
     {
         { TokenType.Minus, (parser, _) => new UnaryNegationNode(parser.Expression(0)) },
@@ -61,7 +78,9 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
         List<AstNode> nodes = [];
         while (tokens.Peek().Type != TokenType.EOF)
         {
-            nodes.Add(Do(FnDeclaration));
+            AstNode? function = DoSafe(FnDeclaration, DeclarationSyncTokens);
+            if (function is not null)
+                nodes.Add(function);
         }
 
         return new ProgramNode(nodes.AsReadOnly());
@@ -77,12 +96,12 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
                 AstNode expr = Do(Expression);
 
                 if (expr is not FunctionCallNode)
-                    throw new Exception("Expected a statement");
+                    ThrowError(expr.Location, "Expected function call");
 
                 return expr;
             },
             TokenType.Return => Return,
-            _ => throw new Exception("Expected a statement")
+            _ => () => ThrowError(tokens.Peek().Range, "Expected statement")
         });
 
         Expect(TokenType.Semicolon);
@@ -114,14 +133,29 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
         Expect(TokenType.LeftParenthesis);
 
         List<TypedIdentifierNode> parameters = [];
-        while (tokens.Peek().Type != TokenType.RightParenthesis)
+        while (tokens.Peek().Type != TokenType.RightParenthesis && tokens.Peek().Type != TokenType.EOF)
         {
-            parameters.Add(Do(TypedIdentifier));
-            if (tokens.Peek().Type != TokenType.RightParenthesis)
-                Expect(TokenType.Comma);
-        }
+            TypedIdentifierNode? parameter = DoSafe(TypedIdentifier, ParameterSyncTokens);
+            if (parameter is not null)
+                parameters.Add(parameter);
 
-        Expect(TokenType.RightParenthesis);
+            if (tokens.Peek().Type == TokenType.Comma)
+                tokens.Next();
+            else if (tokens.Peek().Type != TokenType.RightParenthesis)
+            {
+                if (tokens.Peek().Type is TokenType.Arrow or TokenType.LeftCurlyBrace)
+                    break; // heuristic: assume the user forgot to close the parameter list
+                
+                RecordError(tokens.Peek().Range, "expected , or )");
+                Synchronize(ParameterSyncTokens);
+            }
+        }
+        
+        // don't use Expect here, otherwise we might consume a potential -> or { which worsens error recovery
+        if (tokens.Peek().Type != TokenType.RightParenthesis)
+            RecordError(tokens.Peek().Range, "expected )");
+        else
+            tokens.Next();
         
         Token? returnType = null;
         if (tokens.Peek().Type == TokenType.Arrow)
@@ -130,7 +164,7 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
             returnType = Expect(TokenType.Identifier);
         }
 
-        BlockNode body = Do(Block);
+        BlockNode body = DoSafe(Block, DeclarationSyncTokens) ?? new BlockNode(ReadOnlyCollection<AstNode>.Empty);
         string? returnTypeName = returnType.HasValue ? Fetch(returnType.Value).ToString() : null;
         return new FunctionDeclNode(Fetch(name).ToString(), parameters.AsReadOnly(), returnTypeName, body);
     }
@@ -149,8 +183,12 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
         Expect(TokenType.LeftCurlyBrace);
 
         List<AstNode> statements = [];
-        while (tokens.Peek().Type != TokenType.RightCurlyBrace)
-            statements.Add(Do(Statement));
+        while (tokens.Peek().Type != TokenType.RightCurlyBrace && tokens.Peek().Type != TokenType.EOF)
+        {
+            AstNode? statement = DoSafe(Statement, StatementSyncTokens);
+            if (statement is not null)
+                statements.Add(statement);
+        }
         
         Expect(TokenType.RightCurlyBrace);
 
@@ -176,9 +214,9 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
         Token token = tokens.Next();
         
         if (!PrefixParsers.TryGetValue(token.Type, out var prefixParser))
-            throw new Exception($"Parser `{token.Type}` is not supported");
+            ThrowError(token.Range, $"unexpected token {Fetch(token)}");
         
-        AstNode left = prefixParser(this, token);
+        AstNode left = prefixParser!(this, token);
         
         while (precedence < FetchTokenPrecedence())
         {
@@ -194,10 +232,27 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
         var start = tokens.Peek().Range.Start;
         T node = parser();
         var end = tokens.Current.Range.End;
-
         node.Location = start..end;
-        
         return node;
+    }
+    
+    private T? DoSafe<T>(Func<T> parser, HashSet<TokenType> syncTokens) where T : AstNode
+    {
+        try
+        {
+            return Do(parser);
+        }
+        catch (ParseException) // error message already recorded
+        {
+            Synchronize(syncTokens);
+            return null;
+        }
+    }
+    
+    private void Synchronize(HashSet<TokenType> syncTokens)
+    {
+        while (Peek().Type != TokenType.EOF && !syncTokens.Contains(Peek().Type))
+            Next();
     }
     
     private Token Peek() => tokens.Peek();
@@ -212,7 +267,7 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
     {
         Token next = Next();
         if (next.Type != type)
-            throw new Exception("Expected " + type + " but got " + next.Type);
+            ThrowError(next.Range, $"expected {type}");
         
         return next;
     }
@@ -250,4 +305,15 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
         
         return result.ToString();
     }
+
+    private void RecordError(Range location, string message)
+        => _diagnostics.Add(new CompileDiagnostic(location, message, DiagnosticLevel.Error));
+    
+    private AstNode ThrowError(Range location, string message)
+    {
+        RecordError(location, message);
+        throw new ParseException();
+    }
+
+    private class ParseException : Exception;
 }

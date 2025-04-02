@@ -1,5 +1,5 @@
+using Verifex.Analysis;
 using Verifex.Parsing;
-using Verifex.Parsing.Nodes;
 
 namespace Verifex.Tests;
 
@@ -329,6 +329,127 @@ public class ParserTests
     
         Assert.IsType<StringLiteralNode>(result);
         var stringNode = (StringLiteralNode)result;
-        Assert.Equal("unknown \\escape \\x sequence", stringNode.Value);
+        Assert.Equal(@"unknown \escape \x sequence", stringNode.Value);
+    }
+    
+    // Error reporting and recovery tests
+    [Fact]
+    public void Parse_ErrorAddsDiagnostic_RecordsDiagnostic()
+    {
+        var parser = CreateParser("let x = @;");
+        
+        try 
+        {
+            parser.Statement();
+        }
+        catch { /* Ignore exception */ }
+        
+        Assert.NotEmpty(parser.Diagnostics);
+        Assert.Equal(DiagnosticLevel.Error, parser.Diagnostics[0].Level);
+    }
+    
+    [Fact]
+    public void Parse_MismatchedParenthesis_RecordsDiagnostic()
+    {
+        // Missing closing parenthesis after parameter list
+        var parser = CreateParser("fn test(a: int, b: int { let sum = a + b; return sum; }");
+        
+        var result = parser.FnDeclaration();
+        
+        // Verify diagnostics
+        Assert.NotEmpty(parser.Diagnostics);
+        var diagnostic = parser.Diagnostics.FirstOrDefault(d => d.Message.Contains("expected )"));
+        Assert.NotNull(diagnostic);
+        Assert.Equal(DiagnosticLevel.Error, diagnostic.Level);
+        
+        // Verify recovery - function should still parse correctly
+        Assert.Equal("test", result.Name);
+        Assert.Equal(2, result.Parameters.Count);
+        Assert.Equal("a", result.Parameters[0].Identifier);
+        Assert.Equal("int", result.Parameters[0].TypeName);
+        Assert.Equal("b", result.Parameters[1].Identifier);
+        Assert.Equal("int", result.Parameters[1].TypeName);
+        
+        // Verify the body was still parsed correctly despite the error
+        Assert.NotNull(result.Body);
+        Assert.Equal(2, result.Body.Nodes.Count);
+        Assert.IsType<VarDeclNode>(result.Body.Nodes[0]);
+        Assert.IsType<ReturnNode>(result.Body.Nodes[1]);
+    }
+    
+    [Fact]
+    public void Parse_RecoveryInBlock_ContinuesParsing()
+    {
+        var parser = CreateParser("{ let x = 1; let y = @%$; let z = 3; }");
+        
+        var block = parser.Block();
+        
+        Assert.NotEmpty(parser.Diagnostics);
+        // Should recover and continue parsing
+        Assert.Equal(2, block.Nodes.Count);
+        Assert.Equal("x", ((VarDeclNode)block.Nodes[0]).Name);
+        Assert.Equal("z", ((VarDeclNode)block.Nodes[1]).Name);
+    }
+    
+    [Fact]
+    public void Parse_RecoveryInParameter_ContinuesParsing()
+    {
+        var parser = CreateParser("fn test(a: int, b: , c: int) { }");
+        
+        var result = parser.FnDeclaration();
+        
+        Assert.NotEmpty(parser.Diagnostics);
+        // Should recover and continue parsing
+        Assert.Equal(2, result.Parameters.Count);
+        Assert.Equal("a", result.Parameters[0].Identifier);
+        Assert.Equal("c", result.Parameters[1].Identifier);
+    }
+    
+    [Fact]
+    public void Parse_MultipleErrors_RecordsAllDiagnostics()
+    {
+        var source = "fn test(a: ) { let x = @; return }";
+        var parser = CreateParser(source);
+        
+        parser.FnDeclaration();
+        
+        Assert.True(parser.Diagnostics.Count >= 2);
+    }
+    
+    [Fact]
+    public void Parse_ErrorInProgram_RecoversToParseFunctions()
+    {
+        var source = "fn valid() { return 1; } invalid token fn another() { return 2; }";
+        var parser = CreateParser(source);
+        
+        var program = parser.Program();
+        
+        Assert.NotEmpty(parser.Diagnostics);
+        Assert.Equal(2, program.Nodes.Count);
+        Assert.Equal("valid", ((FunctionDeclNode)program.Nodes[0]).Name);
+        Assert.Equal("another", ((FunctionDeclNode)program.Nodes[1]).Name);
+    }
+    
+    [Fact]
+    public void Parse_DiagnosticMessage_ContainsLocationInfo()
+    {
+        var source = "fn test() { let x = @; }";
+        var parser = CreateParser(source);
+        
+        try 
+        {
+            parser.FnDeclaration();
+        }
+        catch { /* Ignore exception */ }
+        
+        Assert.NotEmpty(parser.Diagnostics);
+        var diagnostic = parser.Diagnostics[0];
+        Assert.True(diagnostic.Location.Start.Value > 0);
+        Assert.True(diagnostic.Location.End.Value > diagnostic.Location.Start.Value);
+        
+        var message = diagnostic.GetMessage(source.AsSpan());
+        Assert.Contains("error:", message);
+        Assert.Contains("@", message);
     }
 }
+

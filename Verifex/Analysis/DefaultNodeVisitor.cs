@@ -1,5 +1,4 @@
-using Verifex.Analysis.Symbols;
-using Verifex.Parsing.Nodes;
+using Verifex.Parsing;
 
 namespace Verifex.Analysis;
 

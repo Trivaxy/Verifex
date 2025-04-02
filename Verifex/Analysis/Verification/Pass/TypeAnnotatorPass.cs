@@ -1,7 +1,7 @@
 using Verifex.Analysis.Symbols;
 using Verifex.Analysis.Verification.Pass;
 using Verifex.CodeGen;
-using Verifex.Parsing.Nodes;
+using Verifex.Parsing;
 
 namespace Verifex.Analysis.Verification.Pass;
 

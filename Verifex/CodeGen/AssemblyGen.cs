@@ -8,7 +8,6 @@ using Verifex.Analysis;
 using Verifex.Analysis.Symbols;
 using Verifex.CodeGen.Types;
 using Verifex.Parsing;
-using Verifex.Parsing.Nodes;
 
 namespace Verifex.CodeGen;
 

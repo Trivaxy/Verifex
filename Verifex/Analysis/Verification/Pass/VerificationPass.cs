@@ -1,6 +1,6 @@
 using System.Collections.ObjectModel;
 using Verifex.Analysis.Symbols;
-using Verifex.Parsing.Nodes;
+using Verifex.Parsing;
 
 namespace Verifex.Analysis.Verification.Pass;
 

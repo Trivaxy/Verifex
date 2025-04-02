@@ -242,4 +242,19 @@ public class TokenizerTests
         // Assert
         Assert.Equal(TokenType.String, token.Type);
     }
+
+    [Fact]
+    public void TokenStream_UnknownTokens_ReturnsUnknownType()
+    {
+        // Arrange
+        var tokenStream = new TokenStream("## @@#5let#");
+        
+        // Act & Assert
+        Assert.Equal(TokenType.Unknown, tokenStream.Next().Type);
+        Assert.Equal(TokenType.Unknown, tokenStream.Next().Type);
+        Assert.Equal(TokenType.Number, tokenStream.Next().Type);
+        Assert.Equal(TokenType.Let, tokenStream.Next().Type);
+        Assert.Equal(TokenType.Unknown, tokenStream.Next().Type);
+    }
+    
 }

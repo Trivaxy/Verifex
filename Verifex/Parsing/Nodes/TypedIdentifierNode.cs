@@ -1,6 +1,0 @@
-﻿namespace Verifex.Parsing.Nodes;
-
-public class TypedIdentifierNode(string name, string type) : IdentifierNode(name)
-{
-    public readonly string TypeName = type;
-}
