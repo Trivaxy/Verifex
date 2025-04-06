@@ -8,7 +8,7 @@ namespace Verifex.Analysis.Pass;
 public abstract class VerificationPass(SymbolTable symbols) : DefaultNodeVisitor
 {
     private readonly List<CompileDiagnostic> _diagnostics = [];
-    public readonly SymbolTable Symbols = symbols;
+    protected readonly SymbolTable Symbols = symbols;
     
     public ReadOnlyCollection<CompileDiagnostic> Diagnostics => _diagnostics.AsReadOnly();
 
