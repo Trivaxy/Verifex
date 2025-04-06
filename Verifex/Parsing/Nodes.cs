@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Verifex.Analysis;
 using Verifex.CodeGen.Types;
 
 namespace Verifex.Parsing;
@@ -7,7 +8,14 @@ public abstract class AstNode
 {
     public Range Location { get; set; }
     
-    public VerifexType? Type { get; set; } // Set by the type checker
+    public Symbol? Symbol { get; set; } // set during binding
+
+    private VerifexType? _explicitType; // set for expressions mainly, where there is no symbol (e.g. 2 + 4)
+    public VerifexType? ResolvedType
+    {
+        get => _explicitType ?? Symbol?.ResolvedType;
+        set => _explicitType = value;
+    }
 }
 
 public class BinaryOperationNode(Token operatorToken, AstNode left, AstNode right) : AstNode
@@ -28,10 +36,10 @@ public class FunctionCallNode(AstNode callee, ReadOnlyCollection<AstNode> argume
     public readonly ReadOnlyCollection<AstNode> Arguments = arguments;
 }
 
-public class FunctionDeclNode(string name, ReadOnlyCollection<TypedIdentifierNode> parameters, string? returnType, BlockNode body) : AstNode
+public class FunctionDeclNode(string name, ReadOnlyCollection<ParamDeclNode> parameters, string? returnType, BlockNode body) : AstNode
 {
     public readonly string Name = name;
-    public readonly ReadOnlyCollection<TypedIdentifierNode> Parameters = parameters;
+    public readonly ReadOnlyCollection<ParamDeclNode> Parameters = parameters;
     public readonly string? ReturnType = returnType;
     public readonly BlockNode Body = body;
 }
@@ -72,7 +80,7 @@ public class StringLiteralNode(string value) : AstNode
     public readonly string Value = value;
 }
 
-public class TypedIdentifierNode(string name, string type) : IdentifierNode(name)
+public class ParamDeclNode(string name, string type) : IdentifierNode(name)
 {
     public readonly string TypeName = type;
 }

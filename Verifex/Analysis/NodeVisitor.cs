@@ -11,7 +11,7 @@ public abstract class NodeVisitor
     protected abstract void Visit(FunctionDeclNode node);
     protected abstract void Visit(IdentifierNode node);
     protected abstract void Visit(NumberNode node);
-    protected abstract void Visit(TypedIdentifierNode node);
+    protected abstract void Visit(ParamDeclNode node);
     protected abstract void Visit(UnaryNegationNode node);
     protected abstract void Visit(VarDeclNode node);
     protected abstract void Visit(StringLiteralNode node);
@@ -36,7 +36,7 @@ public abstract class NodeVisitor
             case FunctionDeclNode functionDeclNode:
                 Visit(functionDeclNode);
                 break;
-            case TypedIdentifierNode typedIdentifierNode:
+            case ParamDeclNode typedIdentifierNode:
                 Visit(typedIdentifierNode);
                 break;
             case IdentifierNode identifierNode:

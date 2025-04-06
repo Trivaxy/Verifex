@@ -1,9 +1,7 @@
 ﻿// See https://aka.ms/new-console-template for more information
 
-using Verifex;
 using Verifex.Analysis;
-using Verifex.Analysis.Symbols;
-using Verifex.Analysis.Verification.Pass;
+using Verifex.Analysis.Pass;
 using Verifex.CodeGen;
 using Verifex.Parsing;
 
@@ -14,8 +12,7 @@ fn add(x: Int, y: Int) -> Int {
 
 fn main() {
     let a: Int = 5;
-    let b: Int = 10;
-    let b: Int = 20;
+    let b: Int = 2;
     let c: Int = add(a, b);
     print(c);
 }
@@ -24,9 +21,8 @@ fn main() {
 var tokenStream = new TokenStream(program);
 var parser = new Parser(tokenStream, program.AsMemory());
 var ast = parser.Program();
-var symbolTable = new SymbolTable();
-var passes = VerificationPass.CreateRegularPasses(symbolTable);
-var diagnostics = new List<CompileDiagnostic>();
+var passes = VerificationPass.CreateRegularPasses(out SymbolTable symbols);
+var diagnostics = parser.Diagnostics.ToList();
 
 foreach (var pass in passes)
 {
@@ -41,7 +37,6 @@ if (diagnostics.Count > 0)
     return;
 }
 
-var gen = new AssemblyGen(symbolTable);
-
-gen.Visit(ast);
+var gen = new AssemblyGen(symbols);
+gen.Consume(ast);
 gen.Save("Generated.exe");

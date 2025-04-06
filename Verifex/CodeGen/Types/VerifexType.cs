@@ -9,6 +9,8 @@ public abstract class VerifexType : IEquatable<VerifexType>
     
     public abstract TypeInfo IlType { get; }
 
+    public static VerifexType Delayed(Func<VerifexType> resolver) => new DelayedType(resolver);
+
     public override bool Equals(object? obj)
     {
         return obj is VerifexType other && Equals(other);
@@ -35,5 +37,37 @@ public abstract class VerifexType : IEquatable<VerifexType>
     public static bool operator !=(VerifexType? left, VerifexType? right)
     {
         return !(left == right);
+    }
+    
+    private class DelayedType(Func<VerifexType> resolver) : VerifexType
+    {
+        private VerifexType? _resolvedType;
+
+        public override string Name
+        {
+            get
+            {
+                EnsureResolved();
+                return _resolvedType!.Name;
+            }
+        }
+
+        public override TypeInfo IlType
+        {
+            get
+            {
+                EnsureResolved();
+                return _resolvedType!.IlType;
+            }
+        }
+
+        private void EnsureResolved()
+        {
+            if (_resolvedType == null)
+                _resolvedType = resolver();
+            
+            if (_resolvedType == null)
+                throw new InvalidOperationException("Type resolution failed");
+        }
     }
 }

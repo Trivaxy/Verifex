@@ -31,7 +31,7 @@ public class DefaultNodeVisitor : NodeVisitor
 
     protected override void Visit(FunctionDeclNode node)
     {
-        foreach (TypedIdentifierNode parameter in node.Parameters)
+        foreach (ParamDeclNode parameter in node.Parameters)
             Visit(parameter);
         Visit(node.Body);
     }
@@ -40,7 +40,7 @@ public class DefaultNodeVisitor : NodeVisitor
 
     protected override void Visit(NumberNode node) {}
 
-    protected override void Visit(TypedIdentifierNode node) {}
+    protected override void Visit(ParamDeclNode node) {}
 
     protected override void Visit(UnaryNegationNode node) => Visit(node.Operand);
 

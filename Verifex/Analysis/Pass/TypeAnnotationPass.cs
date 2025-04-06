@@ -1,0 +1,58 @@
+using Verifex.Parsing;
+
+namespace Verifex.Analysis.Pass;
+
+// Attach type info to expression nodes, and give symbols types
+public class TypeAnnotationPass(SymbolTable symbols) : VerificationPass(symbols)
+{
+    protected override void Visit(BinaryOperationNode node)
+    {
+        base.Visit(node);
+        
+        if (node.Left.ResolvedType == null || node.Right.ResolvedType == null)
+            return;
+
+        if (node.Left.ResolvedType == node.Right.ResolvedType)
+            node.ResolvedType = node.Left.ResolvedType;
+    }
+
+    protected override void Visit(UnaryNegationNode node)
+    {
+        base.Visit(node);
+        node.ResolvedType = node.Operand.ResolvedType;
+    }
+    
+    protected override void Visit(FunctionCallNode node)
+    {
+        base.Visit(node);
+
+        if (node.Callee is not IdentifierNode functionName)
+        {
+            ErrorAt(node.Callee, "function call must be an identifier");
+            return;
+        }
+
+        if (!Symbols.TryLookupSymbol(functionName.Identifier, out FunctionSymbol? functionSymbol))
+        {
+            ErrorAt(node.Callee, "function call must be an identifier");
+            return;
+        }
+
+        node.ResolvedType = functionSymbol!.Function.ReturnType;
+    }
+
+    protected override void Visit(VarDeclNode node)
+    {
+        base.Visit(node);
+
+        if (node.TypeHint != null)
+        {
+            if (Symbols.TryLookupGlobalSymbol(node.TypeHint, out BuiltinTypeSymbol? typeSymbol))
+                node.Symbol!.ResolvedType = typeSymbol.ResolvedType;
+            else
+                ErrorAt(node, $"unknown type '{node.TypeHint}'");
+        }
+        else
+            node.Symbol!.ResolvedType = node.ResolvedType;
+    }
+}

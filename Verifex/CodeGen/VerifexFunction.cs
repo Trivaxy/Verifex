@@ -3,11 +3,11 @@ using Verifex.CodeGen.Types;
 
 namespace Verifex.CodeGen;
 
-public class VerifexFunction(string name, ReadOnlyCollection<ParameterInfo> parameters, VerifexType returnType)
+public class VerifexFunction(string name, IList<ParameterInfo> parameters, VerifexType returnType)
     : IEquatable<VerifexFunction>
 {
     public readonly string Name = name;
-    public readonly ReadOnlyCollection<ParameterInfo> Parameters = parameters;
+    public readonly ReadOnlyCollection<ParameterInfo> Parameters = new(parameters);
     public readonly VerifexType ReturnType = returnType;
 
     public override bool Equals(object? obj)
@@ -26,9 +26,7 @@ public class VerifexFunction(string name, ReadOnlyCollection<ParameterInfo> para
         if (Parameters.Count != other.Parameters.Count) return false;
         
         for (int i = 0; i < Parameters.Count; i++)
-        {
             if (!Parameters[i].Equals(other.Parameters[i])) return false;
-        }
     
         return true;
     }

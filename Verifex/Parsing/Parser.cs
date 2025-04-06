@@ -132,10 +132,10 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
         Token name = Expect(TokenType.Identifier);
         Expect(TokenType.LeftParenthesis);
 
-        List<TypedIdentifierNode> parameters = [];
+        List<ParamDeclNode> parameters = [];
         while (tokens.Peek().Type != TokenType.RightParenthesis && tokens.Peek().Type != TokenType.EOF)
         {
-            TypedIdentifierNode? parameter = DoSafe(TypedIdentifier, ParameterSyncTokens);
+            ParamDeclNode? parameter = DoSafe(ParameterDeclaration, ParameterSyncTokens);
             if (parameter is not null)
                 parameters.Add(parameter);
 
@@ -169,13 +169,13 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
         return new FunctionDeclNode(Fetch(name).ToString(), parameters.AsReadOnly(), returnTypeName, body);
     }
 
-    public TypedIdentifierNode TypedIdentifier()
+    public ParamDeclNode ParameterDeclaration()
     {
         Token name = Expect(TokenType.Identifier);
         Expect(TokenType.Colon);
         Token type = Expect(TokenType.Identifier);
 
-        return new TypedIdentifierNode(Fetch(name).ToString(), Fetch(type).ToString());
+        return new ParamDeclNode(Fetch(name).ToString(), Fetch(type).ToString());
     }
 
     public BlockNode Block()
@@ -216,7 +216,7 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
         if (!PrefixParsers.TryGetValue(token.Type, out var prefixParser))
             ThrowError(token.Range, $"unexpected token {Fetch(token)}");
         
-        AstNode left = prefixParser!(this, token);
+        AstNode left = Do(() => prefixParser!(this, token));
         
         while (precedence < FetchTokenPrecedence())
         {

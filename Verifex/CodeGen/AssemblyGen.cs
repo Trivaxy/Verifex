@@ -5,30 +5,30 @@ using System.Reflection.Metadata.Ecma335;
 using System.Reflection.PortableExecutable;
 using System.Runtime.Versioning;
 using Verifex.Analysis;
-using Verifex.Analysis.Symbols;
 using Verifex.CodeGen.Types;
 using Verifex.Parsing;
 
 namespace Verifex.CodeGen;
 
-public class AssemblyGen : NodeVisitor
+public class AssemblyGen : DefaultNodeVisitor
 {
     private PersistedAssemblyBuilder _assembly;
     private ModuleBuilder _module;
     private TypeBuilder _type;
     private ILGenerator _il; // for the current method being generated
     private SymbolTable _symbolTable;
-    private Dictionary<VerifexFunction, MethodInfo> _methodInfos = new Dictionary<VerifexFunction, MethodInfo>();
-    private Dictionary<VerifexFunction, ILGenerator> _methodILGenerators = new Dictionary<VerifexFunction, ILGenerator>();
+    private Dictionary<VerifexFunction, MethodInfo> _methodInfos = new();
+    private Dictionary<VerifexFunction, ILGenerator> _methodILGenerators = new();
 
     public AssemblyGen(SymbolTable symbolTable)
     {
         _symbolTable = symbolTable;
+        
         var assemblyName = new AssemblyName("TestProgram");
         _assembly = new PersistedAssemblyBuilder(assemblyName, typeof(object).Assembly);
         
         CustomAttributeBuilder targetFramework = new CustomAttributeBuilder(
-            typeof(TargetFrameworkAttribute).GetConstructor([typeof(string)]),
+            typeof(TargetFrameworkAttribute).GetConstructor([typeof(string)])!,
             [".NETCoreApp,Version=v9.0"]);
         
         _assembly.SetCustomAttribute(targetFramework);
@@ -40,8 +40,9 @@ public class AssemblyGen : NodeVisitor
 
     private void SetupMethodBuilders()
     {
-        foreach (VerifexFunction function in _symbolTable.Functions)
+        foreach (FunctionSymbol functionSymbol in _symbolTable.GetGlobalSymbols<FunctionSymbol>())
         {
+            VerifexFunction function = functionSymbol.Function;
             if (function is BuiltinFunction builtin)
             {
                 _methodInfos.Add(builtin, builtin.Method);
@@ -66,6 +67,8 @@ public class AssemblyGen : NodeVisitor
             _methodILGenerators.Add(function, _il);
         }
     }
+    
+    public void Consume(ProgramNode program) => Visit(program);
 
     protected override void Visit(ProgramNode program)
     {
@@ -90,19 +93,13 @@ public class AssemblyGen : NodeVisitor
 
     protected override void Visit(BlockNode node)
     {
-        _symbolTable.PushScope();
-        
         foreach (AstNode child in node.Nodes)
             Visit(child);
-        
-        _symbolTable.PopScope();
     }
 
     protected override void Visit(FunctionCallNode node)
     {
-        IdentifierNode identifier = (IdentifierNode)node.Callee;
-        VerifexFunction function = _symbolTable.GetFunction(identifier.Identifier);
-        
+        VerifexFunction function = _symbolTable.GetGlobalSymbol<FunctionSymbol>((node.Callee as IdentifierNode)!.Identifier).Function;
         foreach (AstNode argument in node.Arguments)
             Visit(argument);
         
@@ -111,36 +108,31 @@ public class AssemblyGen : NodeVisitor
 
     protected override void Visit(FunctionDeclNode node)
     {
-        VerifexFunction function = _symbolTable.GetFunction(node.Name);
+        VerifexFunction function = (node.Symbol as FunctionSymbol)!.Function;
         _il = _methodILGenerators[function];
-        
-        _symbolTable.PushScope();
-        
-        // add parameters to the current scope
-        for (int i = 0; i < function.Parameters.Count; i++)
-        {
-            ParameterInfo parameter = function.Parameters[i];
-            _symbolTable.AddLocalToCurrentScope(parameter.Name, parameter.Type, LocationType.Parameter);
-        }
         
         Visit(node.Body);
         
         // if the function has a void return type and doesn't end with a return statement, emit a return implicitly
-        if (function.ReturnType is VoidType && (node.Body.Nodes.Count == 0 || node.Body.Nodes[^1] is not ReturnNode)) 
+        if (function.ReturnType.IlType == typeof(void) && (node.Body.Nodes.Count == 0 || node.Body.Nodes[^1] is not ReturnNode)) 
             _il.Emit(OpCodes.Ret);
+    }
+
+    protected override void Visit(VarDeclNode node)
+    {
+        Visit(node.Value);
         
-        _symbolTable.PopScope();
+        LocalVarSymbol local = (node.Symbol as LocalVarSymbol)!;
+        _il.DeclareLocal(local.ResolvedType!.IlType);
+        _il.Emit(OpCodes.Stloc, (node.Symbol as LocalVarSymbol)!.Index);
     }
 
     protected override void Visit(IdentifierNode node)
     {
-        // TODO: Use shorter opcodes
-        ValueLocation? value = _symbolTable.GetLocal(node.Identifier);
-        
-        if (!value.HasValue)
-            throw new Exception($"Variable {node.Identifier} has no ValueLocation");
-
-        value.Value.EmitLoad(_il);
+        if (node.Symbol is LocalVarSymbol local)
+            _il.Emit(local.IsParameter ? OpCodes.Ldarg : OpCodes.Ldloc, local.Index);
+        else
+            throw new InvalidOperationException("Identifier node does not have an appropriate symbol");
     }
 
     protected override void Visit(NumberNode node)
@@ -151,25 +143,10 @@ public class AssemblyGen : NodeVisitor
             _il.Emit(OpCodes.Ldc_R8, double.Parse(node.Value));
     }
 
-    protected override void Visit(TypedIdentifierNode node)
-    {
-        throw new NotImplementedException();
-    }
-
     protected override void Visit(UnaryNegationNode node)
     {
         Visit(node.Operand);
         _il.Emit(OpCodes.Neg);
-    }
-
-    protected override void Visit(VarDeclNode node)
-    {
-        VerifexType type = node.TypeHint != null ? _symbolTable.GetType(node.TypeHint) : new IntegerType();
-        ValueLocation value = _symbolTable.AddLocalToCurrentScope(node.Name, type, LocationType.Local);
-        
-        _il.DeclareLocal(value.ValueType.IlType);
-        Visit(node.Value);
-        _il.Emit(OpCodes.Stloc, value.Index);
     }
     
     protected override void Visit(ReturnNode node)
@@ -203,10 +180,12 @@ public class AssemblyGen : NodeVisitor
             Type.EmptyTypes);
         
         ILGenerator il = entryPoint.GetILGenerator();
-        VerifexFunction? verifexMainFunction = _symbolTable.GetFunction("main");
-        
-        if (verifexMainFunction != null)
+
+        if (_symbolTable.TryLookupGlobalSymbol("main", out FunctionSymbol? function))
+        {
+            VerifexFunction verifexMainFunction = function.Function;
             il.Emit(OpCodes.Call, _methodInfos[verifexMainFunction]);
+        }
         
         il.Emit(OpCodes.Ret);
     }
