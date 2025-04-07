@@ -12,11 +12,7 @@ public abstract class VerificationPass(SymbolTable symbols) : DefaultNodeVisitor
     
     public ReadOnlyCollection<CompileDiagnostic> Diagnostics => _diagnostics.AsReadOnly();
 
-    protected void ErrorAt(AstNode node, string message) =>
-        _diagnostics.Add(new CompileDiagnostic(node.Location, message, DiagnosticLevel.Error));
-    
-    protected void WarningAt(AstNode node, string message) =>
-        _diagnostics.Add(new CompileDiagnostic(node.Location, message, DiagnosticLevel.Warning));
+    protected void LogDiagnostic(CompileDiagnostic diagnostic) => _diagnostics.Add(diagnostic);
 
     public static VerificationPass[] CreateRegularPasses(out SymbolTable symbols)
     {
@@ -27,7 +23,8 @@ public abstract class VerificationPass(SymbolTable symbols) : DefaultNodeVisitor
             new TopLevelGatheringPass(symbols),
             new BindingPass(symbols),
             new PrimitiveTypeAnnotationPass(symbols),
-            new TypeAnnotationPass(symbols)
+            new TypeAnnotationPass(symbols),
+            new TypeMismatchPass(symbols),
         ];
     }
 

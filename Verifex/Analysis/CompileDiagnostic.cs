@@ -1,9 +1,12 @@
 using System.Text;
+using Verifex.Parsing;
 
 namespace Verifex.Analysis;
 
-public record CompileDiagnostic(Range Location, string Message, DiagnosticLevel Level)
+public record CompileDiagnostic(DiagnosticLevel Level, string Message)
 {
+    public required Range Location { get; init; }
+    
     public override string ToString()
         => $"{Location} {(Level == DiagnosticLevel.Error ? "error" : "warning")}: {Message}";
 
@@ -46,8 +49,57 @@ public record CompileDiagnostic(Range Location, string Message, DiagnosticLevel 
     }
 }
 
+// Parser errors
+public record Expected(string What)
+    : CompileDiagnostic(DiagnosticLevel.Error, $"expected {What}");
+
+public record UnexpectedToken(string What)
+    : CompileDiagnostic(DiagnosticLevel.Error, $"unexpected token {What}");
+
+// Verification errors
+
+public record VarNameAlreadyDeclared(string VarName)
+    : CompileDiagnostic(DiagnosticLevel.Error, $"variable '{VarName}' already declared");
+
+public record ParameterAlreadyDeclared(string ParamName)
+    : CompileDiagnostic(DiagnosticLevel.Error, $"parameter {ParamName} already declared");
+
+public record UnknownIdentifier(string Name)
+    : CompileDiagnostic(DiagnosticLevel.Error, $"unknown variable, function, or type {Name}");
+
+public record DuplicateTopLevelSymbol(string Name)
+    : CompileDiagnostic(DiagnosticLevel.Error, $"a top-level symbol with the same name {Name} already exists");
+
+public record InvalidFunctionCall()
+    : CompileDiagnostic(DiagnosticLevel.Error, "function call must be an identifier");
+
+public record UnknownType(string TypeName)
+    : CompileDiagnostic(DiagnosticLevel.Error, $"unknown type '{TypeName}'");
+
+public record BinaryOpTypeMismatch(string Operator, string LeftType, string RightType)
+    : CompileDiagnostic(DiagnosticLevel.Error, $"cannot apply operator '{Operator}' to types '{LeftType}' and '{RightType}'");
+
+public record TypeCannotDoArithmetic(string Type)
+    : CompileDiagnostic(DiagnosticLevel.Error, $"cannot do arithmetic on type '{Type}'");
+
+public record ReturnTypeMismatch(string FunctionName, string ExpectedType, string ActualType)
+    : CompileDiagnostic(DiagnosticLevel.Error, $"function '{FunctionName}' has return type '{ExpectedType}', but got '{ActualType}'");
+
+public record VarDeclTypeMismatch(string VarName, string ExpectedType, string ActualType)
+    : CompileDiagnostic(DiagnosticLevel.Error, $"variable '{VarName}' has type '{ExpectedType}', but got '{ActualType}'");
+
+public record ParamTypeMismatch(string ParamName, string ExpectedType, string ActualType)
+    : CompileDiagnostic(DiagnosticLevel.Error, $"parameter '{ParamName}' has type '{ExpectedType}', but got '{ActualType}'");
+
+public record NotEnoughArguments(string FunctionName, int Expected, int Actual)
+    : CompileDiagnostic(DiagnosticLevel.Error, $"function '{FunctionName}' expects {Expected} arguments, but got {Actual}");
+
+public record TooManyArguments(string FunctionName, int Expected, int Actual)
+    : CompileDiagnostic(DiagnosticLevel.Error, $"function '{FunctionName}' expects {Expected} arguments, but got {Actual}");
+
 public enum DiagnosticLevel
 {
     Error,
     Warning,
 }
+

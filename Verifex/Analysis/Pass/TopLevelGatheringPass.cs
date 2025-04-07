@@ -19,9 +19,9 @@ public class TopLevelGatheringPass(SymbolTable symbols) : VerificationPass(symbo
                 return new ParameterInfo(p.Identifier, VerifexType.Delayed(() => Symbols.GetType(p.TypeName)));
             }).ToList(), VerifexType.Delayed(() => Symbols.GetType(node.ReturnType ?? "Void")))
         };
-        
+
         if (!Symbols.TryAddGlobalSymbol(function))
-            ErrorAt(node, "a top-level symbol with the same name already exists");
+            LogDiagnostic(new DuplicateTopLevelSymbol(function.Name) { Location = node.Location });
         else
             node.Symbol = function;
     }

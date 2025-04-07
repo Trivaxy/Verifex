@@ -37,7 +37,7 @@ public class BindingPass(SymbolTable symbols) : VerificationPass(symbols)
         };
 
         if (!Symbols.TryAddSymbol(local))
-            ErrorAt(node, $"{node.Name} already declared in this scope");
+            LogDiagnostic(new VarNameAlreadyDeclared(node.Name) { Location = node.Location });
         else
         {
             node.Symbol = local;
@@ -59,7 +59,7 @@ public class BindingPass(SymbolTable symbols) : VerificationPass(symbols)
         };
 
         if (!Symbols.TryAddSymbol(parameter))
-            ErrorAt(node, $"parameter {parameter.Name} already declared");
+            LogDiagnostic(new ParameterAlreadyDeclared(parameter.Name) { Location = node.Location });
         else
         {
             node.Symbol = parameter;
@@ -72,6 +72,6 @@ public class BindingPass(SymbolTable symbols) : VerificationPass(symbols)
         if (Symbols.TryLookupSymbol(node.Identifier, out Symbol? symbol))
             node.Symbol = symbol;
         else
-            ErrorAt(node, $"unknown variable, function, or type {node.Identifier}");
+            LogDiagnostic(new UnknownIdentifier(node.Identifier) { Location = node.Location });
     }
 }

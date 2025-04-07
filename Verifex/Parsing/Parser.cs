@@ -96,12 +96,12 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
                 AstNode expr = Do(Expression);
 
                 if (expr is not FunctionCallNode)
-                    ThrowError(expr.Location, "Expected function call");
+                    ThrowError(new Expected("statement") { Location = expr.Location });
 
                 return expr;
             },
             TokenType.Return => Return,
-            _ => () => ThrowError(tokens.Peek().Range, "Expected statement")
+            _ => () => ThrowError(new Expected("statement") { Location = tokens.Peek().Range })
         });
 
         Expect(TokenType.Semicolon);
@@ -146,14 +146,14 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
                 if (tokens.Peek().Type is TokenType.Arrow or TokenType.LeftCurlyBrace)
                     break; // heuristic: assume the user forgot to close the parameter list
                 
-                RecordError(tokens.Peek().Range, "expected , or )");
+                LogDiagnostic(new Expected(", or )") { Location = tokens.Peek().Range });
                 Synchronize(ParameterSyncTokens);
             }
         }
         
         // don't use Expect here, otherwise we might consume a potential -> or { which worsens error recovery
         if (tokens.Peek().Type != TokenType.RightParenthesis)
-            RecordError(tokens.Peek().Range, "expected )");
+            LogDiagnostic(new Expected(")") { Location = tokens.Peek().Range });
         else
             tokens.Next();
         
@@ -212,9 +212,9 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
     public AstNode Expression(int precedence)
     {
         Token token = tokens.Next();
-        
+
         if (!PrefixParsers.TryGetValue(token.Type, out var prefixParser))
-            ThrowError(token.Range, $"unexpected token {Fetch(token)}");
+            ThrowError(new UnexpectedToken(Fetch(token).ToString()) { Location = token.Range });
         
         AstNode left = Do(() => prefixParser!(this, token));
         
@@ -267,7 +267,7 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
     {
         Token next = Next();
         if (next.Type != type)
-            ThrowError(next.Range, $"expected {type}");
+            ThrowError(new Expected(type.ToString()) { Location = next.Range });
         
         return next;
     }
@@ -306,12 +306,11 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
         return result.ToString();
     }
 
-    private void RecordError(Range location, string message)
-        => _diagnostics.Add(new CompileDiagnostic(location, message, DiagnosticLevel.Error));
+    private void LogDiagnostic(CompileDiagnostic diagnostic) => _diagnostics.Add(diagnostic);
     
-    private AstNode ThrowError(Range location, string message)
+    private AstNode ThrowError(CompileDiagnostic diagnostic)
     {
-        RecordError(location, message);
+        LogDiagnostic(diagnostic);
         throw new ParseException();
     }
 

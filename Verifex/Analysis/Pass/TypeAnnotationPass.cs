@@ -28,13 +28,13 @@ public class TypeAnnotationPass(SymbolTable symbols) : VerificationPass(symbols)
 
         if (node.Callee is not IdentifierNode functionName)
         {
-            ErrorAt(node.Callee, "function call must be an identifier");
+            LogDiagnostic(new InvalidFunctionCall() { Location = node.Callee.Location });
             return;
         }
 
         if (!Symbols.TryLookupSymbol(functionName.Identifier, out FunctionSymbol? functionSymbol))
         {
-            ErrorAt(node.Callee, "function call must be an identifier");
+            LogDiagnostic(new InvalidFunctionCall() { Location = node.Callee.Location });
             return;
         }
 
@@ -48,11 +48,24 @@ public class TypeAnnotationPass(SymbolTable symbols) : VerificationPass(symbols)
         if (node.TypeHint != null)
         {
             if (Symbols.TryLookupGlobalSymbol(node.TypeHint, out BuiltinTypeSymbol? typeSymbol))
-                node.Symbol!.ResolvedType = typeSymbol.ResolvedType;
+                node.Symbol!.ResolvedType = typeSymbol!.ResolvedType;
             else
-                ErrorAt(node, $"unknown type '{node.TypeHint}'");
+                LogDiagnostic(new UnknownType(node.TypeHint) { Location = node.Location });
         }
         else
-            node.Symbol!.ResolvedType = node.ResolvedType;
+            node.Symbol!.ResolvedType = node.Value.ResolvedType;
+    }
+
+    protected override void Visit(ParamDeclNode node)
+    {
+        base.Visit(node);
+        
+        if (!Symbols.TryLookupGlobalSymbol(node.TypeName, out BuiltinTypeSymbol? typeSymbol))
+        {
+            LogDiagnostic(new UnknownType(node.TypeName) { Location = node.Location });
+            return;
+        }
+        
+        node.Symbol!.ResolvedType = typeSymbol!.ResolvedType;
     }
 }
