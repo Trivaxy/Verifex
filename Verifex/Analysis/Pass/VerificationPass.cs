@@ -16,7 +16,7 @@ public abstract class VerificationPass(SymbolTable symbols) : DefaultNodeVisitor
 
     public static VerificationPass[] CreateRegularPasses(out SymbolTable symbols)
     {
-        symbols = CreateDefaultSymbolTable();
+        symbols = SymbolTable.CreateDefaultTable();
 
         return
         [
@@ -26,21 +26,5 @@ public abstract class VerificationPass(SymbolTable symbols) : DefaultNodeVisitor
             new TypeAnnotationPass(symbols),
             new TypeMismatchPass(symbols),
         ];
-    }
-
-    private static SymbolTable CreateDefaultSymbolTable()
-    {
-        SymbolTable symbols = new();
-        symbols.TryAddGlobalSymbol(BuiltinTypeSymbol.Create(new IntegerType()));
-        symbols.TryAddGlobalSymbol(BuiltinTypeSymbol.Create(new RealType()));
-        symbols.TryAddGlobalSymbol(BuiltinTypeSymbol.Create(new VoidType()));
-        symbols.TryAddGlobalSymbol(BuiltinTypeSymbol.Create(new StringType()));
-
-        symbols.TryAddGlobalSymbol(BuiltinFunctionSymbol.Create(new BuiltinFunction("print",
-            [new ParameterInfo("value", symbols.GetSymbol<Symbol>("Int").ResolvedType!)],
-            symbols.GetSymbol<Symbol>("Void").ResolvedType!,
-            typeof(Console).GetMethod("WriteLine", [typeof(int)])!)));
-        
-        return symbols;
     }
 }

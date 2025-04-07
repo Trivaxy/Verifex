@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using Verifex.CodeGen;
 using Verifex.CodeGen.Types;
 
 namespace Verifex.Analysis;
@@ -85,6 +86,22 @@ public class SymbolTable
             return symbol.ResolvedType;
         
         throw new InvalidOperationException($"Type {name} not found");
+    }
+    
+    public static SymbolTable CreateDefaultTable()
+    {
+        SymbolTable symbols = new();
+        symbols.TryAddGlobalSymbol(BuiltinTypeSymbol.Create(new IntegerType()));
+        symbols.TryAddGlobalSymbol(BuiltinTypeSymbol.Create(new RealType()));
+        symbols.TryAddGlobalSymbol(BuiltinTypeSymbol.Create(new VoidType()));
+        symbols.TryAddGlobalSymbol(BuiltinTypeSymbol.Create(new StringType()));
+
+        symbols.TryAddGlobalSymbol(BuiltinFunctionSymbol.Create(new BuiltinFunction("print",
+            [new ParameterInfo("value", symbols.GetSymbol<Symbol>("Int").ResolvedType!)],
+            symbols.GetSymbol<Symbol>("Void").ResolvedType!,
+            typeof(Console).GetMethod("WriteLine", [typeof(int)])!)));
+        
+        return symbols;
     }
 }
 
