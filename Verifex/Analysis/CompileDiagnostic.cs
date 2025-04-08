@@ -82,6 +82,12 @@ public record BinaryOpTypeMismatch(string Operator, string LeftType, string Righ
 public record TypeCannotDoArithmetic(string Type)
     : CompileDiagnostic(DiagnosticLevel.Error, $"cannot do arithmetic on type '{Type}'");
 
+public record TypeCannotDoBoolOps(string Type)
+    : CompileDiagnostic(DiagnosticLevel.Error, $"cannot apply boolean operators on type '{Type}'");
+
+public record TypeCannotDoComparison(string Type)
+    : CompileDiagnostic(DiagnosticLevel.Error, $"cannot apply comparison operators on type '{Type}'");
+
 public record ReturnTypeMismatch(string FunctionName, string ExpectedType, string ActualType)
     : CompileDiagnostic(DiagnosticLevel.Error, $"function '{FunctionName}' has return type '{ExpectedType}', but got '{ActualType}'");
 

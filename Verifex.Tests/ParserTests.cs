@@ -41,6 +41,22 @@ public class ParserTests
     }
     
     [Fact]
+    public void Parse_BoolLiteral_ReturnsBoolNode()
+    {
+        var result = ParseExpression("true");
+        
+        Assert.IsType<BoolLiteralNode>(result);
+        var boolNode = (BoolLiteralNode)result;
+        Assert.True(boolNode.Value);
+        
+        result = ParseExpression("false");
+        
+        Assert.IsType<BoolLiteralNode>(result);
+        boolNode = (BoolLiteralNode)result;
+        Assert.False(boolNode.Value);
+    }
+    
+    [Fact]
     public void Parse_Identifier_ReturnsIdentifierNode()
     {
         var result = ParseExpression("variable");
@@ -50,12 +66,12 @@ public class ParserTests
     }
     
     [Fact]
-    public void Parse_UnaryNegation_ReturnsUnaryNegationNode()
+    public void Parse_MinusNegation_ReturnsMinusNegationNode()
     {
         var result = ParseExpression("-42");
         
-        Assert.IsType<UnaryNegationNode>(result);
-        var operand = ((UnaryNegationNode)result).Operand;
+        Assert.IsType<MinusNegationNode>(result);
+        var operand = ((MinusNegationNode)result).Operand;
         Assert.IsType<NumberNode>(operand);
         Assert.Equal("42", ((NumberNode)operand).Value);
     }
@@ -67,6 +83,17 @@ public class ParserTests
         
         Assert.IsType<NumberNode>(result);
         Assert.Equal("42", ((NumberNode)result).Value);
+    }
+    
+    [Fact]
+    public void Parse_NotNegation_ReturnsNotNegationNode()
+    {
+        var result = ParseExpression("!true");
+        
+        Assert.IsType<NotNegationNode>(result);
+        var operand = ((NotNegationNode)result).Operand;
+        Assert.IsType<BoolLiteralNode>(operand);
+        Assert.True(((BoolLiteralNode)operand).Value);
     }
     
     [Fact]
@@ -94,18 +121,32 @@ public class ParserTests
     [Fact]
     public void Parse_OperatorPrecedence_RespectsCorrectOrder()
     {
-        var result = ParseExpression("a + b * c");
+        var result = ParseExpression("a + b * c && d");
         
+        // Should parse as: (a + (b * c)) && d
         Assert.IsType<BinaryOperationNode>(result);
-        var binOp = (BinaryOperationNode)result;
-        Assert.Equal(TokenType.Plus, binOp.Operator.Type);
-        Assert.IsType<IdentifierNode>(binOp.Left);
-        Assert.IsType<BinaryOperationNode>(binOp.Right);
+        var andOp = (BinaryOperationNode)result;
+        Assert.Equal(TokenType.And, andOp.Operator.Type);
         
-        var rightBinOp = (BinaryOperationNode)binOp.Right;
-        Assert.Equal(TokenType.Star, rightBinOp.Operator.Type);
-        Assert.Equal("b", ((IdentifierNode)rightBinOp.Left).Identifier);
-        Assert.Equal("c", ((IdentifierNode)rightBinOp.Right).Identifier);
+        // Left side should be (a + (b * c))
+        Assert.IsType<BinaryOperationNode>(andOp.Left);
+        var plusOp = (BinaryOperationNode)andOp.Left;
+        Assert.Equal(TokenType.Plus, plusOp.Operator.Type);
+        Assert.IsType<IdentifierNode>(plusOp.Left);
+        Assert.Equal("a", ((IdentifierNode)plusOp.Left).Identifier);
+        
+        // The multiplication should be the right operand of addition
+        Assert.IsType<BinaryOperationNode>(plusOp.Right);
+        var mulOp = (BinaryOperationNode)plusOp.Right;
+        Assert.Equal(TokenType.Star, mulOp.Operator.Type);
+        Assert.IsType<IdentifierNode>(mulOp.Left);
+        Assert.Equal("b", ((IdentifierNode)mulOp.Left).Identifier);
+        Assert.IsType<IdentifierNode>(mulOp.Right);
+        Assert.Equal("c", ((IdentifierNode)mulOp.Right).Identifier);
+        
+        // Right side of && should be d
+        Assert.IsType<IdentifierNode>(andOp.Right);
+        Assert.Equal("d", ((IdentifierNode)andOp.Right).Identifier);
     }
     
     [Fact]

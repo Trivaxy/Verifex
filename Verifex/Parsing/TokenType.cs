@@ -35,13 +35,14 @@ public enum TokenType : byte
     Not,
     BitwiseAnd,
     BitwiseOr,
+    Bool,
 }
 
 public static class TokenTypeExtensions
 {
-    public static string ToSimpleString(this TokenType tokenType)
+    public static string ToSimpleString(this TokenType token)
     {
-        return tokenType switch
+        return token switch
         {
             TokenType.SOF => "[SOF]",
             TokenType.EOF => "[EOF]",
@@ -76,7 +77,14 @@ public static class TokenTypeExtensions
             TokenType.Not => "!",
             TokenType.BitwiseAnd => "&",
             TokenType.BitwiseOr => "|",
-            _ => throw new ArgumentOutOfRangeException(nameof(tokenType), tokenType, null)
+            TokenType.Bool => "bool",
+            _ => throw new ArgumentOutOfRangeException(nameof(token), token, null)
         };
     }
+    
+    public static bool IsBoolOp(this TokenType token) => token is TokenType.And or TokenType.Or;
+    
+    public static bool IsComparisonOp(this TokenType token)
+        => token is TokenType.GreaterThan or TokenType.LessThan or TokenType.GreaterThanOrEqual
+            or TokenType.LessThanOrEqual or TokenType.EqualEqual or TokenType.NotEqual;
 }

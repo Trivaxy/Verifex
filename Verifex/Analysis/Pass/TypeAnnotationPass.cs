@@ -8,6 +8,12 @@ public class TypeAnnotationPass(SymbolTable symbols) : VerificationPass(symbols)
     protected override void Visit(BinaryOperationNode node)
     {
         base.Visit(node);
+
+        if (node.Operator.Type.IsBoolOp() || node.Operator.Type.IsComparisonOp())
+        {
+            node.ResolvedType = Symbols.GetType("Bool");
+            return;
+        }
         
         if (node.Left.ResolvedType == null || node.Right.ResolvedType == null)
             return;
@@ -16,12 +22,18 @@ public class TypeAnnotationPass(SymbolTable symbols) : VerificationPass(symbols)
             node.ResolvedType = node.Left.ResolvedType;
     }
 
-    protected override void Visit(UnaryNegationNode node)
+    protected override void Visit(MinusNegationNode node)
     {
         base.Visit(node);
         node.ResolvedType = node.Operand.ResolvedType;
     }
-    
+
+    protected override void Visit(NotNegationNode node)
+    {
+        base.Visit(node);
+        node.ResolvedType = Symbols.GetType("Bool");
+    }
+
     protected override void Visit(FunctionCallNode node)
     {
         base.Visit(node);

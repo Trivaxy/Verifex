@@ -12,10 +12,12 @@ public abstract class NodeVisitor
     protected abstract void Visit(IdentifierNode node);
     protected abstract void Visit(NumberNode node);
     protected abstract void Visit(ParamDeclNode node);
-    protected abstract void Visit(UnaryNegationNode node);
+    protected abstract void Visit(MinusNegationNode node);
     protected abstract void Visit(VarDeclNode node);
     protected abstract void Visit(StringLiteralNode node);
     protected abstract void Visit(ReturnNode node);
+    protected abstract void Visit(BoolLiteralNode node);
+    protected abstract void Visit(NotNegationNode node);
     
     public void Visit(AstNode node)
     {
@@ -45,7 +47,7 @@ public abstract class NodeVisitor
             case NumberNode numberNode:
                 Visit(numberNode);
                 break;
-            case UnaryNegationNode unaryNegationNode:
+            case MinusNegationNode unaryNegationNode:
                 Visit(unaryNegationNode);
                 break;
             case VarDeclNode varDeclNode:
@@ -56,6 +58,12 @@ public abstract class NodeVisitor
                 break;
             case ReturnNode returnNode:
                 Visit(returnNode);
+                break;
+            case BoolLiteralNode boolLiteralNode:
+                Visit(boolLiteralNode);
+                break;
+            case NotNegationNode notNegationNode:
+                Visit(notNegationNode);
                 break;
         }
     }

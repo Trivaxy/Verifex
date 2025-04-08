@@ -77,13 +77,17 @@ public class TokenizerTests
     public void TokenStream_Keywords_ReturnsCorrectTokens()
     {
         // Arrange
-        var tokenStream = new TokenStream("let fn -> return");
+        var tokenStream = new TokenStream("let fn -> return true false");
         
         // Act & Assert
         Assert.Equal(TokenType.Let, tokenStream.Next().Type);
         Assert.Equal(TokenType.Fn, tokenStream.Next().Type);
         Assert.Equal(TokenType.Arrow, tokenStream.Next().Type);
         Assert.Equal(TokenType.Return, tokenStream.Next().Type);
+        Assert.Equal(TokenType.Bool, tokenStream.Next().Type);
+        Assert.Equal(17..21, tokenStream.Current.Range); // "true"
+        Assert.Equal(TokenType.Bool, tokenStream.Next().Type);
+        Assert.Equal(22..27, tokenStream.Current.Range); // "false"
     }
     
     [Fact]

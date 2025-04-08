@@ -80,15 +80,54 @@ public class AssemblyGen : DefaultNodeVisitor
     {
         Visit(node.Left);
         Visit(node.Right);
-        
-        _il.Emit(node.Operator.Type switch
+
+        switch (node.Operator.Type)
         {
-            TokenType.Plus => OpCodes.Add,
-            TokenType.Minus => OpCodes.Sub,
-            TokenType.Star => OpCodes.Mul,
-            TokenType.Slash => OpCodes.Div,
-            _ => throw new NotImplementedException(),
-        });
+            case TokenType.Plus:
+                _il.Emit(OpCodes.Add);
+                break;
+            case TokenType.Minus:
+                _il.Emit(OpCodes.Sub);
+                break;
+            case TokenType.Star:
+                _il.Emit(OpCodes.Mul);
+                break;
+            case TokenType.Slash:
+                _il.Emit(OpCodes.Div);
+                break;
+            case TokenType.GreaterThan:
+                _il.Emit(OpCodes.Cgt);
+                break;
+            case TokenType.LessThan:
+                _il.Emit(OpCodes.Clt);
+                break;
+            case TokenType.GreaterThanOrEqual:
+                _il.Emit(OpCodes.Clt);
+                _il.Emit(OpCodes.Ldc_I4_0);
+                _il.Emit(OpCodes.Ceq);
+                break;
+            case TokenType.LessThanOrEqual:
+                _il.Emit(OpCodes.Cgt);
+                _il.Emit(OpCodes.Ldc_I4_0);
+                _il.Emit(OpCodes.Ceq);
+                break;
+            case TokenType.EqualEqual:
+                _il.Emit(OpCodes.Ceq);
+                break;
+            case TokenType.NotEqual:
+                _il.Emit(OpCodes.Ceq);
+                _il.Emit(OpCodes.Ldc_I4_0);
+                _il.Emit(OpCodes.Ceq);
+                break;
+            case TokenType.And:
+                _il.Emit(OpCodes.And);
+                break;
+            case TokenType.Or:
+                _il.Emit(OpCodes.Or);
+                break;
+            default:
+                throw new NotImplementedException($"Unsupported operator {node.Operator.Type}");
+        }
     }
 
     protected override void Visit(BlockNode node)
@@ -143,7 +182,7 @@ public class AssemblyGen : DefaultNodeVisitor
             _il.Emit(OpCodes.Ldc_R8, double.Parse(node.Value));
     }
 
-    protected override void Visit(UnaryNegationNode node)
+    protected override void Visit(MinusNegationNode node)
     {
         Visit(node.Operand);
         _il.Emit(OpCodes.Neg);
@@ -160,6 +199,15 @@ public class AssemblyGen : DefaultNodeVisitor
     protected override void Visit(StringLiteralNode node)
     {
         throw new NotImplementedException();
+    }
+
+    protected override void Visit(BoolLiteralNode node) => _il.Emit(node.Value ? OpCodes.Ldc_I4_1 : OpCodes.Ldc_I4_0);
+
+    protected override void Visit(NotNegationNode node)
+    {
+        Visit(node.Operand);
+        _il.Emit(OpCodes.Ldc_I4_0);
+        _il.Emit(OpCodes.Ceq);
     }
 
     public void Save(string path)

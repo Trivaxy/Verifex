@@ -10,7 +10,9 @@ public class BindingPass(SymbolTable symbols) : VerificationPass(symbols)
 
     protected override void Visit(FunctionDeclNode node)
     {
+        Symbols.EnterNewScope(); // ensures parameters are properly scoped
         base.Visit(node);
+        Symbols.ExitScope();
 
         _nextLocalIndex = 0;
         _nextParameterIndex = 0;
@@ -36,10 +38,14 @@ public class BindingPass(SymbolTable symbols) : VerificationPass(symbols)
             Index = _nextLocalIndex
         };
 
-        if (!Symbols.TryAddSymbol(local))
+        if (Symbols.TryLookupSymbol(node.Name, out Symbol? existingSymbol))
+        {
             LogDiagnostic(new VarNameAlreadyDeclared(node.Name) { Location = node.Location });
+            node.Symbol = existingSymbol; // point to existing symbol, makes things easier for the next passes
+        }
         else
         {
+            Symbols.TryAddSymbol(local);
             node.Symbol = local;
             _nextLocalIndex++;
         }

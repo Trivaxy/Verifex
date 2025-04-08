@@ -85,7 +85,7 @@ public class ParamDeclNode(string name, string type) : IdentifierNode(name)
     public readonly string TypeName = type;
 }
 
-public class UnaryNegationNode(AstNode operand) : AstNode
+public class MinusNegationNode(AstNode operand) : AstNode
 {
     public readonly AstNode Operand = operand;
 }
@@ -95,4 +95,14 @@ public class VarDeclNode(string name, string? typeHint, AstNode value) : AstNode
     public readonly string Name = name;
     public readonly string? TypeHint = typeHint;
     public readonly AstNode Value = value;
+}
+
+public class BoolLiteralNode(bool value) : AstNode
+{
+    public readonly bool Value = value;
+}
+
+public class NotNegationNode(AstNode operand) : AstNode
+{
+    public readonly AstNode Operand = operand;
 }

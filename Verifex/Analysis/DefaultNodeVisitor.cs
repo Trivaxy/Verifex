@@ -42,7 +42,7 @@ public class DefaultNodeVisitor : NodeVisitor
 
     protected override void Visit(ParamDeclNode node) {}
 
-    protected override void Visit(UnaryNegationNode node) => Visit(node.Operand);
+    protected override void Visit(MinusNegationNode node) => Visit(node.Operand);
 
     protected override void Visit(VarDeclNode node) => Visit(node.Value);
 
@@ -53,4 +53,8 @@ public class DefaultNodeVisitor : NodeVisitor
         if (node.Value != null)
             Visit(node.Value);
     }
+
+    protected override void Visit(BoolLiteralNode node) {}
+
+    protected override void Visit(NotNegationNode node) => Visit(node.Operand);
 }

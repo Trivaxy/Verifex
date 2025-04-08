@@ -27,13 +27,6 @@ public class TokenStream
         ['|'] = TokenType.BitwiseOr,
     };
 
-    private static readonly Dictionary<string, TokenType> Keywords = new()
-    {
-        ["let"] = TokenType.Let,
-        ["fn"] = TokenType.Fn,
-        ["return"] = TokenType.Return
-    };
-
     public TokenStream(string source)
     {
         _sourceMemory = source.AsMemory();
@@ -121,6 +114,7 @@ public class TokenStream
             case "let": return new Token(TokenType.Let, start.._current);
             case "fn": return new Token(TokenType.Fn, start.._current);
             case "return": return new Token(TokenType.Return, start.._current);
+            case "true" or "false": return new Token(TokenType.Bool, start.._current);
         }
 
         if (start != _current)

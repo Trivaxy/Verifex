@@ -23,6 +23,13 @@ public class StringType : VerifexType
     public override TypeInfo IlType => typeof(string).GetTypeInfo();
 }
 
+public class BoolType : VerifexType
+{
+    public override string Name => "Bool";
+
+    public override TypeInfo IlType => typeof(bool).GetTypeInfo();
+}
+
 public class VoidType : VerifexType
 {
     public override string Name => "Void";

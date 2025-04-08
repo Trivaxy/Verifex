@@ -24,11 +24,13 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
     
     private static readonly Dictionary<TokenType, Func<Parser, Token, AstNode>> PrefixParsers = new()
     {
-        { TokenType.Minus, (parser, _) => new UnaryNegationNode(parser.Expression(0)) },
+        { TokenType.Minus, (parser, _) => new MinusNegationNode(parser.Expression(0)) },
+        { TokenType.Not, (parser, _) => new NotNegationNode(parser.Expression(0)) },
         { TokenType.Plus, (parser, _) => parser.Expression(0) },
-        { TokenType.Number, (parser, token) => new NumberNode(parser.Fetch(token).ToString()) },
-        { TokenType.Identifier, (parser, token) => new IdentifierNode(parser.Fetch(token).ToString()) },
-        { TokenType.String, (parser, token) => new StringLiteralNode(ProcessEscapes(parser.Fetch(token).ToString()[1..^1])) },
+        { TokenType.Number, (parser, token) => new NumberNode(parser.Fetch(token).ToString()) { Location = token.Range } },
+        { TokenType.Identifier, (parser, token) => new IdentifierNode(parser.Fetch(token).ToString()) { Location = token.Range } },
+        { TokenType.Bool, (parser, token) => new BoolLiteralNode(bool.Parse(parser.Fetch(token).ToString())) { Location = token.Range } },
+        { TokenType.String, (parser, token) => new StringLiteralNode(ProcessEscapes(parser.Fetch(token).ToString()[1..^1])) { Location = token.Range } },
         { TokenType.LeftParenthesis, (parser, _) =>
         {
             AstNode expression = parser.Do(parser.Expression);
@@ -44,6 +46,14 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
         { TokenType.Minus, InfixOp },
         { TokenType.Star, InfixOp },
         { TokenType.Slash, InfixOp },
+        { TokenType.GreaterThan, InfixOp },
+        { TokenType.LessThan, InfixOp },
+        { TokenType.GreaterThanOrEqual, InfixOp },
+        { TokenType.LessThanOrEqual, InfixOp },
+        { TokenType.EqualEqual, InfixOp },
+        { TokenType.NotEqual, InfixOp },
+        { TokenType.Or, InfixOp },
+        { TokenType.And, InfixOp },
         { TokenType.LeftParenthesis, (parser, left, _) =>
         {
             List<AstNode> parameters = [];
@@ -66,10 +76,18 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
 
     private static readonly Dictionary<TokenType, int> TokenPrecedences = new()
     {
-        { TokenType.Plus, 2 },
-        { TokenType.Minus, 2 },
-        { TokenType.Star, 3 },
-        { TokenType.Slash, 3 },
+        { TokenType.Or, 1 },
+        { TokenType.And, 2 },
+        { TokenType.EqualEqual, 3 },
+        { TokenType.NotEqual, 3 },
+        { TokenType.GreaterThan, 4 },
+        { TokenType.LessThan, 4 },
+        { TokenType.GreaterThanOrEqual, 4 },
+        { TokenType.LessThanOrEqual, 4 },
+        { TokenType.Plus, 5 },
+        { TokenType.Minus, 5 },
+        { TokenType.Star, 6 },
+        { TokenType.Slash, 6 },
         { TokenType.LeftParenthesis, 10 }
     };
 
@@ -215,7 +233,7 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
 
         if (!PrefixParsers.TryGetValue(token.Type, out var prefixParser))
             ThrowError(new UnexpectedToken(Fetch(token).ToString()) { Location = token.Range });
-        
+
         AstNode left = Do(() => prefixParser!(this, token));
         
         while (precedence < FetchTokenPrecedence())
@@ -226,13 +244,18 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
 
         return left;
     }
-
+    
+    // Note: Do and DoSafe don't properly set locations if the node is one token long, those node locations are set directly elsewhere
     public T Do<T>(Func<T> parser) where T : AstNode
     {
         var start = tokens.Peek().Range.Start;
         T node = parser();
         var end = tokens.Current.Range.End;
-        node.Location = start..end;
+        
+        // don't set location if the node is a single token, whose location is set in the prefix parsers
+        if (node.Location.Start.Value == 0 && node.Location.End.Value == 0) 
+            node.Location = start..end;
+        
         return node;
     }
     
@@ -274,7 +297,7 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
 
     private static AstNode InfixOp(Parser parser, AstNode left, Token token)
     {
-        AstNode right = parser.Expression(TokenPrecedences[token.Type]);
+        AstNode right = parser.Do(() => parser.Expression(TokenPrecedences[token.Type]));
         return new BinaryOperationNode(token, left, right);
     }
     

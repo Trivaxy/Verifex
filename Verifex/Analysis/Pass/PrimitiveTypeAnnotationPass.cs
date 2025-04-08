@@ -20,4 +20,12 @@ public class PrimitiveTypeAnnotationPass(SymbolTable symbols) : VerificationPass
 
         node.ResolvedType = symbol.ResolvedType;
     }
+    
+    protected override void Visit(BoolLiteralNode node)
+    {
+        if (!Symbols.TryLookupSymbol("Bool", out Symbol? symbol))
+            throw new Exception("Failed to find boolean type symbol");
+
+        node.ResolvedType = symbol.ResolvedType;
+    }
 }
