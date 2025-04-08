@@ -262,24 +262,24 @@ public class ParserTests
     public void Parse_MissingClosingParenthesis_ThrowsException()
     {
         var parser = CreateParser("(1 + 2");
-        var ex = Assert.Throws<Exception>(() => parser.Expression());
-        Assert.Contains("Expected RightParenthesis", ex.Message);
+        parser.DoSafe(parser.Expression, []);
+        Assert.Contains(parser.Diagnostics, d => d is ExpectedToken { What: ")" });
     }
     
     [Fact]
     public void Parse_UnsupportedPrefix_ThrowsException()
     {
         var parser = CreateParser("@");
-        var ex = Assert.Throws<Exception>(() => parser.Expression());
-        Assert.Contains("is not supported", ex.Message);
+        parser.DoSafe(parser.Expression, []);
+        Assert.Contains(parser.Diagnostics, d => d is UnexpectedToken { What: "@" });
     }
     
     [Fact]
     public void Parse_InvalidStatement_ThrowsException()
     {
         var parser = CreateParser("42;");
-        var ex = Assert.Throws<Exception>(() => parser.Statement());
-        Assert.Contains("Expected a statement", ex.Message);
+        parser.DoSafe(parser.Statement, []);
+        Assert.Contains(parser.Diagnostics, d => d is UnexpectedToken { What: "42" });
     }
     
     

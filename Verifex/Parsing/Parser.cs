@@ -96,12 +96,12 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
                 AstNode expr = Do(Expression);
 
                 if (expr is not FunctionCallNode)
-                    ThrowError(new Expected("statement") { Location = expr.Location });
+                    ThrowError(new ExpectedToken("statement") { Location = expr.Location });
 
                 return expr;
             },
             TokenType.Return => Return,
-            _ => () => ThrowError(new Expected("statement") { Location = tokens.Peek().Range })
+            _ => () => ThrowError(new UnexpectedToken(Fetch(tokens.Peek()).ToString()) { Location = tokens.Peek().Range })
         });
 
         Expect(TokenType.Semicolon);
@@ -146,14 +146,14 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
                 if (tokens.Peek().Type is TokenType.Arrow or TokenType.LeftCurlyBrace)
                     break; // heuristic: assume the user forgot to close the parameter list
                 
-                LogDiagnostic(new Expected(", or )") { Location = tokens.Peek().Range });
+                LogDiagnostic(new ExpectedToken(", or )") { Location = tokens.Peek().Range });
                 Synchronize(ParameterSyncTokens);
             }
         }
         
         // don't use Expect here, otherwise we might consume a potential -> or { which worsens error recovery
         if (tokens.Peek().Type != TokenType.RightParenthesis)
-            LogDiagnostic(new Expected(")") { Location = tokens.Peek().Range });
+            LogDiagnostic(new ExpectedToken(")") { Location = tokens.Peek().Range });
         else
             tokens.Next();
         
@@ -227,7 +227,7 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
         return left;
     }
 
-    private T Do<T>(Func<T> parser) where T : AstNode
+    public T Do<T>(Func<T> parser) where T : AstNode
     {
         var start = tokens.Peek().Range.Start;
         T node = parser();
@@ -236,7 +236,7 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
         return node;
     }
     
-    private T? DoSafe<T>(Func<T> parser, HashSet<TokenType> syncTokens) where T : AstNode
+    public T? DoSafe<T>(Func<T> parser, HashSet<TokenType> syncTokens) where T : AstNode
     {
         try
         {
@@ -267,7 +267,7 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
     {
         Token next = Next();
         if (next.Type != type)
-            ThrowError(new Expected(type.ToString()) { Location = next.Range });
+            ThrowError(new ExpectedToken(type.ToSimpleString()) { Location = next.Range });
         
         return next;
     }

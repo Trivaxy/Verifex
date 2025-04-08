@@ -50,7 +50,7 @@ public record CompileDiagnostic(DiagnosticLevel Level, string Message)
 }
 
 // Parser errors
-public record Expected(string What)
+public record ExpectedToken(string What)
     : CompileDiagnostic(DiagnosticLevel.Error, $"expected {What}");
 
 public record UnexpectedToken(string What)
