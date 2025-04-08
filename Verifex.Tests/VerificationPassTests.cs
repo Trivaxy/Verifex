@@ -455,4 +455,99 @@ public class VerificationPassTests
         // Verify all diagnostics are errors
         Assert.All(typeMismatches, error => Assert.Equal(DiagnosticLevel.Error, error.Level));
     }
+
+    [Fact]
+    public void TypeMismatchPass_DetectsNonBooleanIfCondition()
+    {
+        var source = """
+        fn test() {
+            let x = 5;
+            let s = "hello";
+            if (true) {}
+            if (x) {}
+            if (s) {}
+        }
+        """;
+        
+        var ast = Parse(source);
+        RunAllPasses(ast, out var passes);
+        
+        // Find all ConditionMustBeBool diagnostics
+        var conditionErrors = passes
+            .SelectMany(p => p.Diagnostics)
+            .OfType<ConditionMustBeBool>()
+            .ToList();
+        
+        // Should have two errors: one for Int type and one for String type
+        Assert.Equal(2, conditionErrors.Count);
+        
+        // All errors should be for 'if' statements
+        Assert.All(conditionErrors, error => Assert.Equal("if", error.StatementType));
+        
+        // Verify diagnostic level
+        Assert.All(conditionErrors, error => Assert.Equal(DiagnosticLevel.Error, error.Level));
+    }
+
+    [Fact]
+    public void TypeMismatchPass_ValidatesComplexIfConditions()
+    {
+        var source = """
+        fn test() {
+            let x = 5;
+            let y = 10;
+            let s = "hello";
+            if (x > y) {}
+            else if (x == 5 && y < 20) {}
+            else {}
+
+            if (x + y) {}
+        }
+        """;
+        
+        var ast = Parse(source);
+        RunAllPasses(ast, out var passes);
+        
+        // Find all ConditionMustBeBool diagnostics
+        var conditionErrors = passes
+            .SelectMany(p => p.Diagnostics)
+            .OfType<ConditionMustBeBool>()
+            .ToList();
+        
+        // Should have one error for (x + y) which is Int, not Bool
+        Assert.Single(conditionErrors);
+        Assert.Equal("if", conditionErrors[0].StatementType);
+        Assert.Equal(DiagnosticLevel.Error, conditionErrors[0].Level);
+    }
+
+    [Fact]
+    public void TypeMismatchPass_NestedIfStatements()
+    {
+        var source = """
+        fn test() {
+            let x = 5;
+            let y = 10;
+            let flag = true;
+
+            if (flag) {
+                if (x < y) {}
+            }
+            
+            if (x + y) {}
+        }
+        """;
+        
+        var ast = Parse(source);
+        RunAllPasses(ast, out var passes);
+        
+        // Find all ConditionMustBeBool diagnostics
+        var conditionErrors = passes
+            .SelectMany(p => p.Diagnostics)
+            .OfType<ConditionMustBeBool>()
+            .ToList();
+        
+        // Should have one error for (x + y) which is Int, not Bool
+        Assert.Single(conditionErrors);
+        Assert.Equal("if", conditionErrors[0].StatementType);
+        Assert.Equal(DiagnosticLevel.Error, conditionErrors[0].Level);
+    }
 }

@@ -36,6 +36,8 @@ public enum TokenType : byte
     BitwiseAnd,
     BitwiseOr,
     Bool,
+    If,
+    Else,
 }
 
 public static class TokenTypeExtensions
@@ -78,6 +80,8 @@ public static class TokenTypeExtensions
             TokenType.BitwiseAnd => "&",
             TokenType.BitwiseOr => "|",
             TokenType.Bool => "bool",
+            TokenType.If => "if",
+            TokenType.Else => "else",
             _ => throw new ArgumentOutOfRangeException(nameof(token), token, null)
         };
     }

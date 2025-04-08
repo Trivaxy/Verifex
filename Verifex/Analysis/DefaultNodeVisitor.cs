@@ -57,4 +57,12 @@ public class DefaultNodeVisitor : NodeVisitor
     protected override void Visit(BoolLiteralNode node) {}
 
     protected override void Visit(NotNegationNode node) => Visit(node.Operand);
+
+    protected override void Visit(IfElseNode node)
+    {
+        Visit(node.Condition);
+        Visit(node.IfBody);
+        if (node.ElseBody != null)
+            Visit(node.ElseBody);
+    }
 }

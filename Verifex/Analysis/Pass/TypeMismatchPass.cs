@@ -136,5 +136,16 @@ public class TypeMismatchPass(SymbolTable symbols) : VerificationPass(symbols)
         }
     }
 
+    protected override void Visit(IfElseNode node)
+    {
+        base.Visit(node);
+        
+        if (node.Condition.ResolvedType == null)
+            return;
+            
+        if (node.Condition.ResolvedType.Name != "Bool")
+            LogDiagnostic(new ConditionMustBeBool("if") { Location = node.Condition.Location });
+    }
+
     private static bool TypeSupportsArithmetic(VerifexType type) => type.Name is "Int" or "Real";
 }

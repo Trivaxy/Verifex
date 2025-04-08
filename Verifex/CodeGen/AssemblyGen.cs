@@ -210,6 +210,30 @@ public class AssemblyGen : DefaultNodeVisitor
         _il.Emit(OpCodes.Ceq);
     }
 
+    protected override void Visit(IfElseNode node)
+    {
+        Label elseLabel = _il.DefineLabel();
+        Label endLabel = _il.DefineLabel();
+
+        Visit(node.Condition);
+
+        _il.Emit(OpCodes.Brfalse, node.ElseBody != null ? elseLabel : endLabel);
+        
+        Visit(node.IfBody);
+
+        if (node.ElseBody != null)
+            _il.Emit(OpCodes.Br, endLabel);
+            
+        if (node.ElseBody != null)
+        {
+            _il.MarkLabel(elseLabel);
+            Visit(node.ElseBody);
+        }
+        
+        // Mark the end of the if-else statement
+        _il.MarkLabel(endLabel);
+    }
+
     public void Save(string path)
     {
         CreateEntryPoint();

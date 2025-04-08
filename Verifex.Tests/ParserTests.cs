@@ -492,5 +492,90 @@ public class ParserTests
         Assert.Contains("error:", message);
         Assert.Contains("@", message);
     }
+    
+    // If-Else statement tests
+    [Fact]
+    public void Parse_IfStatement_ReturnsIfElseNode()
+    {
+        var parser = CreateParser("if (true) { let x = 42; }");
+        var result = parser.IfStatement();
+        
+        Assert.IsType<IfElseNode>(result);
+        Assert.IsType<BoolLiteralNode>(result.Condition);
+        Assert.True(((BoolLiteralNode)result.Condition).Value);
+        Assert.IsType<BlockNode>(result.IfBody);
+        Assert.Single(result.IfBody.Nodes);
+        Assert.IsType<VarDeclNode>(result.IfBody.Nodes[0]);
+        Assert.Null(result.ElseBody);
+    }
+    
+    [Fact]
+    public void Parse_IfElseStatement_ReturnsIfElseNodeWithElseBody()
+    {
+        var parser = CreateParser("if (true) { let x = 42; } else { let y = 24; }");
+        var result = parser.IfStatement();
+        
+        Assert.IsType<IfElseNode>(result);
+        Assert.IsType<BoolLiteralNode>(result.Condition);
+        Assert.True(((BoolLiteralNode)result.Condition).Value);
+        Assert.IsType<BlockNode>(result.IfBody);
+        Assert.Single(result.IfBody.Nodes);
+        Assert.IsType<VarDeclNode>(result.IfBody.Nodes[0]);
+        
+        Assert.NotNull(result.ElseBody);
+        Assert.IsType<BlockNode>(result.ElseBody);
+        Assert.Single(result.ElseBody.Nodes);
+        Assert.IsType<VarDeclNode>(result.ElseBody.Nodes[0]);
+    }
+    
+    [Fact]
+    public void Parse_IfElseIfStatement_ReturnsNestedStructure()
+    {
+        var parser = CreateParser("if (true) { let x = 1; } else if (false) { let y = 2; }");
+        var result = parser.IfStatement();
+        
+        Assert.IsType<IfElseNode>(result);
+        Assert.NotNull(result.ElseBody);
+        Assert.Single(result.ElseBody.Nodes);
+        
+        // The else body should contain a nested if statement
+        Assert.IsType<IfElseNode>(result.ElseBody.Nodes[0]);
+        var nestedIf = (IfElseNode)result.ElseBody.Nodes[0];
+        Assert.IsType<BoolLiteralNode>(nestedIf.Condition);
+        Assert.False(((BoolLiteralNode)nestedIf.Condition).Value);
+    }
+    
+    [Fact]
+    public void Parse_ComplexIfElseChain_ParsesCorrectly()
+    {
+        var source = @"
+        if (a > b) {
+            let max = a;
+        } else if (b > a) {
+            let max = b;
+        } else {
+            let max = a; // they're equal
+        }";
+        
+        var parser = CreateParser(source);
+        var result = parser.IfStatement();
+        
+        Assert.IsType<IfElseNode>(result);
+        Assert.NotNull(result.ElseBody);
+        Assert.Single(result.ElseBody.Nodes);
+        
+        // First else contains an if
+        var elseIf = (IfElseNode)result.ElseBody.Nodes[0];
+        Assert.NotNull(elseIf.ElseBody);
+    }
+    
+    [Fact]
+    public void Parse_Statement_RecognizesIfStatement()
+    {
+        var parser = CreateParser("if (true) { return 42; }");
+        var result = parser.Statement();
+        
+        Assert.IsType<IfElseNode>(result);
+    }
 }
 

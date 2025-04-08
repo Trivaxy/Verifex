@@ -106,3 +106,10 @@ public class NotNegationNode(AstNode operand) : AstNode
 {
     public readonly AstNode Operand = operand;
 }
+
+public class IfElseNode(AstNode condition, BlockNode ifBody, BlockNode? elseBody = null) : AstNode
+{
+    public readonly AstNode Condition = condition;
+    public readonly BlockNode IfBody = ifBody;
+    public readonly BlockNode? ElseBody = elseBody;
+}

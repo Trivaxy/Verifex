@@ -119,10 +119,14 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
                 return expr;
             },
             TokenType.Return => Return,
+            TokenType.If => IfStatement,
             _ => () => ThrowError(new UnexpectedToken(Fetch(tokens.Peek()).ToString()) { Location = tokens.Peek().Range })
         });
 
-        Expect(TokenType.Semicolon);
+        // Don't expect a semicolon for if statements - they end with blocks
+        if (statement is not IfElseNode)
+            Expect(TokenType.Semicolon);
+            
         return statement;
     }
 
@@ -223,6 +227,41 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
         
         AstNode expression = Do(Expression);
         return new ReturnNode(expression);
+    }
+
+    public IfElseNode IfStatement()
+    {
+        Expect(TokenType.If);
+        Expect(TokenType.LeftParenthesis);
+        
+        AstNode condition = Do(Expression);
+        
+        Expect(TokenType.RightParenthesis);
+        
+        BlockNode ifBody = Do(Block);
+        
+        BlockNode? elseBody = null;
+        if (tokens.Peek().Type == TokenType.Else)
+        {
+            tokens.Next(); // consume the else
+            
+            // check if this is an "else if"
+            if (tokens.Peek().Type == TokenType.If)
+            {
+                IfElseNode elseIfNode = DoSafe(IfStatement, StatementSyncTokens) ?? 
+                                         new IfElseNode(
+                                             new BoolLiteralNode(false),
+                                             new BlockNode(ReadOnlyCollection<AstNode>.Empty)
+                                         );
+                
+                // turn else-if into else { if... }
+                elseBody = new BlockNode(new ReadOnlyCollection<AstNode>(new[] { elseIfNode }));
+            }
+            else
+                elseBody = Do(Block);
+        }
+        
+        return new IfElseNode(condition, ifBody, elseBody);
     }
 
     public AstNode Expression() => Expression(0);

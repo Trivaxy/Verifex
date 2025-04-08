@@ -103,6 +103,9 @@ public record NotEnoughArguments(string FunctionName, int Expected, int Actual)
 public record TooManyArguments(string FunctionName, int Expected, int Actual)
     : CompileDiagnostic(DiagnosticLevel.Error, $"function '{FunctionName}' expects {Expected} arguments, but got {Actual}");
 
+public record ConditionMustBeBool(string StatementType)
+    : CompileDiagnostic(DiagnosticLevel.Error, $"condition in {StatementType} statement must be of type 'Bool'");
+
 public enum DiagnosticLevel
 {
     Error,
