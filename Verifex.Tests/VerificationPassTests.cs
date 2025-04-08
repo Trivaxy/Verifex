@@ -342,4 +342,117 @@ public class VerificationPassTests
         Assert.Equal(undefinedVarPosition, diagnostic.Location.Start.Value);
         Assert.Equal(undefinedVarPosition + "undefinedVar".Length, diagnostic.Location.End.Value);
     }
+
+    [Fact]
+    public void TypeMismatchPass_DetectsTypeCannotDoBoolOps()
+    {
+        var source = """
+        fn test() {
+            let x = 5;
+            let y = "hello";
+            let z = true;
+            
+            let result1 = x && z;
+            let result2 = y || z;
+        }
+        """;
+        
+        var ast = Parse(source);
+        RunAllPasses(ast, out var passes);
+        
+        // Find all TypeCannotDoBoolOps diagnostics
+        var boolOpErrors = passes
+            .SelectMany(p => p.Diagnostics)
+            .OfType<TypeCannotDoBoolOps>()
+            .ToList();
+        
+        // Should have two errors: one for Int type and one for String type
+        Assert.Equal(2, boolOpErrors.Count);
+        
+        Assert.Contains(boolOpErrors, error => error.Type == "Int");
+        Assert.Contains(boolOpErrors, error => error.Type == "String");
+        
+        // Verify diagnostic level
+        Assert.All(boolOpErrors, error => Assert.Equal(DiagnosticLevel.Error, error.Level));
+    }
+
+    [Fact]
+    public void TypeMismatchPass_DetectsTypeCannotDoComparison()
+    {
+        var source = """
+        fn test() {
+            let x = 5;
+            let y = "hello";
+            let z = "world";
+            let b = true;
+            
+            let result1 = y < z;
+            let result2 = b > x;
+        }
+        """;
+        
+        var ast = Parse(source);
+        RunAllPasses(ast, out var passes);
+        
+        // Find all TypeCannotDoComparison diagnostics
+        var comparisonErrors = passes
+            .SelectMany(p => p.Diagnostics)
+            .OfType<TypeCannotDoComparison>()
+            .ToList();
+        
+        // Should have three errors: two for String type and one for Bool type
+        Assert.Equal(3, comparisonErrors.Count);
+        
+        Assert.Equal(2, comparisonErrors.Count(error => error.Type == "String"));
+        Assert.Equal(1, comparisonErrors.Count(error => error.Type == "Bool"));
+        
+        // Verify diagnostic level
+        Assert.All(comparisonErrors, error => Assert.Equal(DiagnosticLevel.Error, error.Level));
+    }
+
+    [Fact]
+    public void TypeMismatchPass_HandlesEqualityOperators()
+    {
+        var source = """
+        fn test() {
+            let a = 5;
+            let b = 10;
+            let c = "hello";
+            let d = true;
+            
+            // These should be valid
+            let r1 = a == b;
+            let r2 = c == "world";
+            let r3 = d != false;
+            
+            // These should produce errors
+            let r4 = a == c;
+            let r5 = b != d;
+        }
+        """;
+        
+        var ast = Parse(source);
+        RunAllPasses(ast, out var passes);
+        
+        // Find all BinaryOpTypeMismatch diagnostics for equality operators
+        var typeMismatches = passes
+            .SelectMany(p => p.Diagnostics)
+            .OfType<BinaryOpTypeMismatch>()
+            .Where(d => d.Operator is "==" or "!=")
+            .ToList();
+        
+        // Should have two errors: Int == String and Int != Bool
+        Assert.Equal(2, typeMismatches.Count);
+        
+        var firstMismatch = typeMismatches.First(d => d.Operator == "==");
+        Assert.Equal("Int", firstMismatch.LeftType);
+        Assert.Equal("String", firstMismatch.RightType);
+        
+        var secondMismatch = typeMismatches.First(d => d.Operator == "!=");
+        Assert.Equal("Int", secondMismatch.LeftType);
+        Assert.Equal("Bool", secondMismatch.RightType);
+        
+        // Verify all diagnostics are errors
+        Assert.All(typeMismatches, error => Assert.Equal(DiagnosticLevel.Error, error.Level));
+    }
 }
