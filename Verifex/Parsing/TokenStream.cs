@@ -115,6 +115,8 @@ public class TokenStream
             case "fn": return new Token(TokenType.Fn, start.._current);
             case "return": return new Token(TokenType.Return, start.._current);
             case "true" or "false": return new Token(TokenType.Bool, start.._current);
+            case "if": return new Token(TokenType.If, start.._current);
+            case "else": return new Token(TokenType.Else, start.._current);
         }
 
         if (start != _current)
