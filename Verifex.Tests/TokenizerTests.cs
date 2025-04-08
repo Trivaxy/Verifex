@@ -90,7 +90,7 @@ public class TokenizerTests
     public void TokenStream_Operators_ReturnsCorrectTokens()
     {
         // Arrange
-        var tokenStream = new TokenStream("+ - * / = : ; , ( ) { }");
+        var tokenStream = new TokenStream("+ - * / = : ; , ( ) { } > < >= <= == != && || ! & |");
         
         // Act & Assert
         Assert.Equal(TokenType.Plus, tokenStream.Next().Type);
@@ -105,6 +105,17 @@ public class TokenizerTests
         Assert.Equal(TokenType.RightParenthesis, tokenStream.Next().Type);
         Assert.Equal(TokenType.LeftCurlyBrace, tokenStream.Next().Type);
         Assert.Equal(TokenType.RightCurlyBrace, tokenStream.Next().Type);
+        Assert.Equal(TokenType.GreaterThan, tokenStream.Next().Type);
+        Assert.Equal(TokenType.LessThan, tokenStream.Next().Type);
+        Assert.Equal(TokenType.GreaterThanOrEqual, tokenStream.Next().Type);
+        Assert.Equal(TokenType.LessThanOrEqual, tokenStream.Next().Type);
+        Assert.Equal(TokenType.EqualEqual, tokenStream.Next().Type);
+        Assert.Equal(TokenType.NotEqual, tokenStream.Next().Type);
+        Assert.Equal(TokenType.And, tokenStream.Next().Type);
+        Assert.Equal(TokenType.Or, tokenStream.Next().Type);
+        Assert.Equal(TokenType.Not, tokenStream.Next().Type);
+        Assert.Equal(TokenType.BitwiseAnd, tokenStream.Next().Type);
+        Assert.Equal(TokenType.BitwiseOr, tokenStream.Next().Type);
     }
     
     [Fact]

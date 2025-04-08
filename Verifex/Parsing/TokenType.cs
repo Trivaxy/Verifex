@@ -24,6 +24,17 @@ public enum TokenType : byte
     Fn,
     Arrow,
     Return,
+    GreaterThan,
+    LessThan,
+    GreaterThanOrEqual,
+    LessThanOrEqual,
+    EqualEqual,
+    NotEqual,
+    And,
+    Or,
+    Not,
+    BitwiseAnd,
+    BitwiseOr,
 }
 
 public static class TokenTypeExtensions
@@ -54,6 +65,17 @@ public static class TokenTypeExtensions
             TokenType.Fn => "fn",
             TokenType.Arrow => "->",
             TokenType.Return => "return",
+            TokenType.GreaterThan => ">",
+            TokenType.LessThan => "<",
+            TokenType.GreaterThanOrEqual => ">=",
+            TokenType.LessThanOrEqual => "<=",
+            TokenType.EqualEqual => "==",
+            TokenType.NotEqual => "!=",
+            TokenType.And => "&&",
+            TokenType.Or => "||",
+            TokenType.Not => "!",
+            TokenType.BitwiseAnd => "&",
+            TokenType.BitwiseOr => "|",
             _ => throw new ArgumentOutOfRangeException(nameof(tokenType), tokenType, null)
         };
     }
