@@ -19,6 +19,7 @@ public abstract class NodeVisitor
     protected abstract void Visit(BoolLiteralNode node);
     protected abstract void Visit(NotNegationNode node);
     protected abstract void Visit(IfElseNode node);
+    protected abstract void Visit(AssignmentNode node);
     
     public void Visit(AstNode node)
     {
@@ -68,6 +69,9 @@ public abstract class NodeVisitor
                 break;
             case IfElseNode ifElseNode:
                 Visit(ifElseNode);
+                break;
+            case AssignmentNode assignmentNode:
+                Visit(assignmentNode);
                 break;
         }
     }

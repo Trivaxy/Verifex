@@ -112,6 +112,7 @@ public class TokenStream
         switch (source[start.._current])
         {
             case "let": return new Token(TokenType.Let, start.._current);
+            case "mut": return new Token(TokenType.Mut, start.._current);
             case "fn": return new Token(TokenType.Fn, start.._current);
             case "return": return new Token(TokenType.Return, start.._current);
             case "true" or "false": return new Token(TokenType.Bool, start.._current);

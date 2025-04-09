@@ -550,4 +550,59 @@ public class VerificationPassTests
         Assert.Equal("if", conditionErrors[0].StatementType);
         Assert.Equal(DiagnosticLevel.Error, conditionErrors[0].Level);
     }
+
+    [Fact]
+    public void MutationCheckPass_DetectsImmutableVarReassignment()
+    {
+        var source = """
+        fn test() {
+            let x = 5;
+            mut y = 10;
+            
+            x = 7;
+            y = 15;
+        }
+        """;
+        
+        var ast = Parse(source);
+        RunAllPasses(ast, out var passes);
+        
+        // Find ImmutableVarReassignment diagnostics
+        var reassignmentErrors = passes
+            .SelectMany(p => p.Diagnostics)
+            .OfType<ImmutableVarReassignment>()
+            .ToList();
+        
+        // Should have one error for reassigning 'x'
+        Assert.Single(reassignmentErrors);
+        
+        var error = reassignmentErrors[0];
+        Assert.Equal("x", error.VarName);
+        Assert.Equal(DiagnosticLevel.Error, error.Level);
+    }
+
+    [Fact]
+    public void MutationCheckPass_AllowsMutableVarReassignment()
+    {
+        var source = """
+        fn test() {
+            mut counter = 0;
+            
+            counter = counter + 1;
+            counter = 5;
+        }
+        """;
+        
+        var ast = Parse(source);
+        RunAllPasses(ast, out var passes);
+        
+        // Find ImmutableVarReassignment diagnostics
+        var reassignmentErrors = passes
+            .SelectMany(p => p.Diagnostics)
+            .OfType<ImmutableVarReassignment>()
+            .ToList();
+        
+        // Should have no errors for reassigning 'counter' since it's mutable
+        Assert.Empty(reassignmentErrors);
+    }
 }

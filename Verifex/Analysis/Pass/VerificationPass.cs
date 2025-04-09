@@ -25,6 +25,7 @@ public abstract class VerificationPass(SymbolTable symbols) : DefaultNodeVisitor
             new PrimitiveTypeAnnotationPass(symbols),
             new TypeAnnotationPass(symbols),
             new TypeMismatchPass(symbols),
+            new MutationCheckPass(symbols),
         ];
     }
 }

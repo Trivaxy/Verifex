@@ -211,6 +211,32 @@ public class ParserTests
         Assert.IsType<NumberNode>(result.Value);
     }
     
+    [Fact]
+    public void Parse_MutDeclaration_ReturnsVarDeclNodeWithMutableFlag()
+    {
+        var parser = CreateParser("mut x = 42");
+        var result = parser.MutDeclaration();
+        
+        Assert.IsType<VarDeclNode>(result);
+        Assert.Equal("x", result.Name);
+        Assert.Null(result.TypeHint);
+        Assert.IsType<NumberNode>(result.Value);
+        Assert.True(result.Mutable);
+    }
+    
+    [Fact]
+    public void Parse_MutDeclarationWithType_ReturnsVarDeclNodeWithMutableFlag()
+    {
+        var parser = CreateParser("mut x: int = 42");
+        var result = parser.MutDeclaration();
+        
+        Assert.IsType<VarDeclNode>(result);
+        Assert.Equal("x", result.Name);
+        Assert.Equal("int", result.TypeHint);
+        Assert.IsType<NumberNode>(result.Value);
+        Assert.True(result.Mutable);
+    }
+    
     // Function declaration tests
     [Fact]
     public void Parse_FnDeclaration_ReturnsFunctionDeclNode()
@@ -266,6 +292,17 @@ public class ParserTests
     }
     
     [Fact]
+    public void Parse_Statement_RecognizesMutDeclaration()
+    {
+        var parser = CreateParser("mut x = 42;");
+        var result = parser.Statement();
+        
+        Assert.IsType<VarDeclNode>(result);
+        Assert.Equal("x", ((VarDeclNode)result).Name);
+        Assert.True(((VarDeclNode)result).Mutable);
+    }
+    
+    [Fact]
     public void Parse_Statement_RecognizesFunctionCallStatement()
     {
         var parser = CreateParser("print(42);");
@@ -283,6 +320,17 @@ public class ParserTests
         
         Assert.IsType<ReturnNode>(result);
         Assert.IsType<NumberNode>(((ReturnNode)result).Value);
+    }
+    
+    [Fact]
+    public void Parse_Assignment_ReturnsAssignmentNode()
+    {
+        var parser = CreateParser("x = 42;");
+        var result = parser.Statement();
+        
+        Assert.IsType<AssignmentNode>(result);
+        Assert.Equal("x", ((AssignmentNode)result).Target.Identifier);
+        Assert.IsType<NumberNode>(((AssignmentNode)result).Value);
     }
     
     // Program tests

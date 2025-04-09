@@ -65,4 +65,10 @@ public class DefaultNodeVisitor : NodeVisitor
         if (node.ElseBody != null)
             Visit(node.ElseBody);
     }
+
+    protected override void Visit(AssignmentNode node)
+    {
+        Visit(node.Target);
+        Visit(node.Value);
+    }
 }

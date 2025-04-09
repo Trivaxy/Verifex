@@ -90,11 +90,12 @@ public class MinusNegationNode(AstNode operand) : AstNode
     public readonly AstNode Operand = operand;
 }
 
-public class VarDeclNode(string name, string? typeHint, AstNode value) : AstNode
+public class VarDeclNode(string name, string? typeHint, AstNode value, bool mutable = false) : AstNode
 {
     public readonly string Name = name;
     public readonly string? TypeHint = typeHint;
     public readonly AstNode Value = value;
+    public readonly bool Mutable = mutable;
 }
 
 public class BoolLiteralNode(bool value) : AstNode
@@ -112,4 +113,10 @@ public class IfElseNode(AstNode condition, BlockNode ifBody, BlockNode? elseBody
     public readonly AstNode Condition = condition;
     public readonly BlockNode IfBody = ifBody;
     public readonly BlockNode? ElseBody = elseBody;
+}
+
+public class AssignmentNode(IdentifierNode target, AstNode value) : AstNode
+{
+    public readonly IdentifierNode Target = target;
+    public readonly AstNode Value = value;
 }

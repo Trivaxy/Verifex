@@ -33,7 +33,7 @@ public class BindingPass(SymbolTable symbols) : VerificationPass(symbols)
         {
             Name = node.Name,
             DeclaringNode = node,
-            IsMutable = false,
+            IsMutable = node.Mutable,
             IsParameter = false,
             Index = _nextLocalIndex
         };

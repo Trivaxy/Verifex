@@ -106,6 +106,9 @@ public record TooManyArguments(string FunctionName, int Expected, int Actual)
 public record ConditionMustBeBool(string StatementType)
     : CompileDiagnostic(DiagnosticLevel.Error, $"condition in {StatementType} statement must be of type 'Bool'");
 
+public record ImmutableVarReassignment(string VarName)
+    : CompileDiagnostic(DiagnosticLevel.Error, $"cannot reassign to immutable variable '{VarName}'");
+
 public enum DiagnosticLevel
 {
     Error,

@@ -13,7 +13,7 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
     // Synchronization token sets for error recovery
     private static readonly HashSet<TokenType> StatementSyncTokens =
     [
-        TokenType.Let, TokenType.Return, TokenType.Identifier, TokenType.RightCurlyBrace
+        TokenType.Let, TokenType.Mut, TokenType.Return, TokenType.Identifier, TokenType.RightCurlyBrace
     ];
     
     private static readonly HashSet<TokenType> DeclarationSyncTokens = [TokenType.Fn, TokenType.EOF];
@@ -109,14 +109,47 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
         AstNode statement = Do<AstNode>(tokens.Peek().Type switch
         {
             TokenType.Let => LetDeclaration,
+            TokenType.Mut => MutDeclaration,
             TokenType.Identifier => () =>
             {
-                AstNode expr = Do(Expression);
+                var identToken = tokens.Next();
+                var identifierName = Fetch(identToken).ToString();
+                
+                if (tokens.Peek().Type == TokenType.Equals)
+                {
+                    tokens.Next(); // consume equals
+                    var ident = new IdentifierNode(identifierName) { Location = identToken.Range };
+                    var value = Do(Expression);
+                    return new AssignmentNode(ident, value);
+                }
+                else
+                {
+                    // This is a function call or another expression starting with an identifier
+                    var ident = new IdentifierNode(identifierName) { Location = identToken.Range };
 
-                if (expr is not FunctionCallNode)
-                    ThrowError(new ExpectedToken("statement") { Location = expr.Location });
+                    if (tokens.Peek().Type == TokenType.LeftParenthesis)
+                    {
+                        tokens.Next(); // consume left parenthesis
 
-                return expr;
+                        List<AstNode> parameters = [];
+                        if (tokens.Peek().Type != TokenType.RightParenthesis)
+                        {
+                            parameters.Add(Do(Expression));
+
+                            while (tokens.Peek().Type == TokenType.Comma)
+                            {
+                                tokens.Next(); // consume comma
+                                parameters.Add(Do(Expression));
+                            }
+                        }
+
+                        Expect(TokenType.RightParenthesis);
+                        return new FunctionCallNode(ident, parameters.AsReadOnly());
+                    }
+
+                    ThrowError(new ExpectedToken("statement") { Location = identToken.Range });
+                    return ident; // unreachable
+                }
             },
             TokenType.Return => Return,
             TokenType.If => IfStatement,
@@ -146,6 +179,24 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
         AstNode value = Do(Expression);
 
         return new VarDeclNode(Fetch(name).ToString(), type, value);
+    }
+
+    public VarDeclNode MutDeclaration()
+    {
+        Expect(TokenType.Mut);
+        Token name = Expect(TokenType.Identifier);
+        string? type = null;
+        
+        if (tokens.Peek().Type == TokenType.Colon)
+        {
+            tokens.Next(); // consume colon
+            type = Fetch(Expect(TokenType.Identifier)).ToString();
+        }
+        
+        Expect(TokenType.Equals);
+        AstNode value = Do(Expression);
+
+        return new VarDeclNode(Fetch(name).ToString(), type, value, true);
     }
 
     public FunctionDeclNode FnDeclaration()
