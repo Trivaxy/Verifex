@@ -276,4 +276,16 @@ public class TokenizerTests
         Assert.Equal(TokenType.Unknown, tokenStream.Next().Type);
     }
     
+    [Fact]
+    public void TokenStream_Comment_Ignored()
+    {
+        // Arrange
+        var tokenStream = new TokenStream("// This is a comment\n  //  \nlet // another\n/ / // another");
+        
+        // Act & Assert
+        Assert.Equal(TokenType.Let, tokenStream.Next().Type);
+        Assert.Equal(TokenType.Slash, tokenStream.Next().Type);
+        Assert.Equal(TokenType.Slash, tokenStream.Next().Type);
+        Assert.Equal(TokenType.EOF, tokenStream.Next().Type);
+    }
 }

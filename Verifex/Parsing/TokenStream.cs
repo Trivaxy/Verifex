@@ -49,11 +49,12 @@ public class TokenStream
 
     private Token FetchNext()
     {
+        SkipWhitespace();
+        TrySkipComment();
+        
         if (_current >= _sourceMemory.Length)
             return new Token(TokenType.EOF, _sourceMemory.Length.._sourceMemory.Length);
-
-        SkipWhitespace();
-
+        
         var source = _sourceMemory.Span;
         var first = source[_current];
         var start = _current;
@@ -182,12 +183,35 @@ public class TokenStream
                !char.IsWhiteSpace(remaining[_current]) && !SingleCharTokens.ContainsKey(remaining[_current]))
             _current++;
     }
-
+    
     private void SkipWhitespace()
     {
         var remaining = _sourceMemory.Span;
 
         while (_current < remaining.Length && char.IsWhiteSpace(remaining[_current]))
             _current++;
+    }
+
+    private void TrySkipComment()
+    {
+        var remaining = _sourceMemory.Span;
+        
+        // we need a loop to handle the case where a comment is followed by another comment next line
+        while (_current + 1 < remaining.Length && remaining[_current] == '/' && remaining[_current + 1] == '/')
+        {
+            SkipLine();
+            SkipWhitespace(); // ensure any whitespace on the next line is also skipped
+        }
+    }
+
+    private void SkipLine()
+    {
+        var remaining = _sourceMemory.Span;
+
+        while (_current < remaining.Length && remaining[_current] != '\n')
+            _current++;
+        
+        if (_current < remaining.Length && remaining[_current] == '\n')
+            _current++; // skip the newline character
     }
 }
