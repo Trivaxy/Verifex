@@ -106,7 +106,9 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
 
     public AstNode Statement()
     {
-        AstNode statement = Do<AstNode>(tokens.Peek().Type switch
+        TokenType peekedTokenType = tokens.Peek().Type;
+        
+        AstNode statement = Do<AstNode>(peekedTokenType switch
         {
             TokenType.Let => LetDeclaration,
             TokenType.Mut => MutDeclaration,
@@ -153,13 +155,14 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
             },
             TokenType.Return => Return,
             TokenType.If => IfStatement,
+            TokenType.While => WhileStatement,
             _ => () => ThrowError(new UnexpectedToken(Fetch(tokens.Peek()).ToString()) { Location = tokens.Peek().Range })
         });
 
-        // Don't expect a semicolon for if statements - they end with blocks
-        if (statement is not IfElseNode)
+        // Don't expect a semicolon for if/while statements - they end with blocks
+        if (peekedTokenType is not TokenType.If and not TokenType.While)
             Expect(TokenType.Semicolon);
-            
+        
         return statement;
     }
 
@@ -299,11 +302,11 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
             // check if this is an "else if"
             if (tokens.Peek().Type == TokenType.If)
             {
-                IfElseNode elseIfNode = DoSafe(IfStatement, StatementSyncTokens) ?? 
-                                         new IfElseNode(
-                                             new BoolLiteralNode(false),
-                                             new BlockNode(ReadOnlyCollection<AstNode>.Empty)
-                                         );
+                IfElseNode elseIfNode = DoSafe(IfStatement, StatementSyncTokens) ??
+                                        new IfElseNode(
+                                            new BoolLiteralNode(false),
+                                            new BlockNode(ReadOnlyCollection<AstNode>.Empty)
+                                        );
                 
                 // turn else-if into else { if... }
                 elseBody = new BlockNode(new ReadOnlyCollection<AstNode>(new[] { elseIfNode }));
@@ -313,6 +316,17 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
         }
         
         return new IfElseNode(condition, ifBody, elseBody);
+    }
+
+    public WhileNode WhileStatement()
+    {
+        Expect(TokenType.While);
+        Expect(TokenType.LeftParenthesis);
+        AstNode condition = Do(Expression);
+        Expect(TokenType.RightParenthesis);
+        BlockNode body = Do(Block);
+        
+        return new WhileNode(condition, body);
     }
 
     public AstNode Expression() => Expression(0);

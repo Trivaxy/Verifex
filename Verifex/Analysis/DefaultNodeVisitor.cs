@@ -71,4 +71,10 @@ public class DefaultNodeVisitor : NodeVisitor
         Visit(node.Target);
         Visit(node.Value);
     }
+
+    protected override void Visit(WhileNode node)
+    {
+        Visit(node.Condition);
+        Visit(node.Body);
+    }
 }

@@ -625,5 +625,21 @@ public class ParserTests
         
         Assert.IsType<IfElseNode>(result);
     }
+    
+    [Fact]
+    public void Parse_WhileStatement_ReturnsWhileNode()
+    {
+        var parser = CreateParser("while (true) { let x = 1; }");
+        var result = parser.Statement();
+
+        Assert.IsType<WhileNode>(result);
+        
+        var whileNode = (WhileNode)result;
+        Assert.IsType<BoolLiteralNode>(whileNode.Condition);
+        Assert.True(((BoolLiteralNode)whileNode.Condition).Value);
+        Assert.IsType<BlockNode>(whileNode.Body);
+        Assert.Single(whileNode.Body.Nodes);
+        Assert.IsType<VarDeclNode>(whileNode.Body.Nodes[0]);
+    }
 }
 

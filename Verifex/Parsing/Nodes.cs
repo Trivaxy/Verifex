@@ -120,3 +120,9 @@ public class AssignmentNode(IdentifierNode target, AstNode value) : AstNode
     public readonly IdentifierNode Target = target;
     public readonly AstNode Value = value;
 }
+
+public class WhileNode(AstNode condition, BlockNode body) : AstNode
+{
+    public readonly AstNode Condition = condition;
+    public readonly BlockNode Body = body;
+}

@@ -118,6 +118,7 @@ public class TokenStream
             case "true" or "false": return new Token(TokenType.Bool, start.._current);
             case "if": return new Token(TokenType.If, start.._current);
             case "else": return new Token(TokenType.Else, start.._current);
+            case "while": return new Token(TokenType.While, start.._current);
         }
 
         if (start != _current)

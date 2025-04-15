@@ -605,4 +605,40 @@ public class VerificationPassTests
         // Should have no errors for reassigning 'counter' since it's mutable
         Assert.Empty(reassignmentErrors);
     }
+    
+    [Fact]
+    public void TypeMismatchPass_DetectsNonBooleanWhileCondition()
+    {
+        var source = """
+        fn test() {
+            let x = 5;
+            let s = "hello";
+            let b = true;
+            
+            while (b) { }
+            while (x) { }
+            while (s) { }
+            while (x > 0) { }
+        }
+        """;
+        
+        var ast = Parse(source);
+        RunAllPasses(ast, out var passes);
+        
+        // Find all ConditionMustBeBool diagnostics for 'while' statements
+        var conditionErrors = passes
+            .SelectMany(p => p.Diagnostics)
+            .OfType<ConditionMustBeBool>()
+            .Where(e => e.StatementType == "while")
+            .ToList();
+        
+        // Should have two errors: one for Int type and one for String type
+        Assert.Equal(2, conditionErrors.Count);
+        
+        // Verify all are for 'while' statements
+        Assert.All(conditionErrors, error => Assert.Equal("while", error.StatementType));
+        
+        // Verify diagnostic level
+        Assert.All(conditionErrors, error => Assert.Equal(DiagnosticLevel.Error, error.Level));
+    }
 }

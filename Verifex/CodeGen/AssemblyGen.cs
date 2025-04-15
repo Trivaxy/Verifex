@@ -244,6 +244,21 @@ public class AssemblyGen : DefaultNodeVisitor
             throw new InvalidOperationException("Assignment target must be a local variable or parameter");
     }
 
+    protected override void Visit(WhileNode node)
+    {
+        Label startLabel = _il.DefineLabel();
+        Label endLabel = _il.DefineLabel();
+
+        _il.MarkLabel(startLabel);
+        Visit(node.Condition);
+        _il.Emit(OpCodes.Brfalse, endLabel);
+
+        Visit(node.Body);
+        _il.Emit(OpCodes.Br, startLabel);
+        
+        _il.MarkLabel(endLabel);
+    }
+
     public void Save(string path)
     {
         CreateEntryPoint();

@@ -39,6 +39,7 @@ public enum TokenType : byte
     Bool,
     If,
     Else,
+    While,
 }
 
 public static class TokenTypeExtensions
@@ -84,6 +85,7 @@ public static class TokenTypeExtensions
             TokenType.Bool => "bool",
             TokenType.If => "if",
             TokenType.Else => "else",
+            TokenType.While => "while",
             _ => throw new ArgumentOutOfRangeException(nameof(token), token, null)
         };
     }
