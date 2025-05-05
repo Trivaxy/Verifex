@@ -1,7 +1,4 @@
 using System.Collections.ObjectModel;
-using Verifex.CodeGen;
-using Verifex.CodeGen.Types;
-using Verifex.Parsing;
 
 namespace Verifex.Analysis.Pass;
 
@@ -24,7 +21,7 @@ public abstract class VerificationPass(SymbolTable symbols) : DefaultNodeVisitor
             new BindingPass(symbols),
             new PrimitiveTypeAnnotationPass(symbols),
             new TypeAnnotationPass(symbols),
-            new TypeMismatchPass(symbols),
+            new RefinedTypeMismatchPass(symbols),
             new MutationCheckPass(symbols),
         ];
     }

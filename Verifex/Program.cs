@@ -1,7 +1,6 @@
 ﻿// See https://aka.ms/new-console-template for more information
 
 using System.Diagnostics;
-using System.Text.Json;
 using Verifex.Analysis;
 using Verifex.Analysis.Pass;
 using Verifex.CodeGen;

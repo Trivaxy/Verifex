@@ -7,25 +7,16 @@ public class PrimitiveTypeAnnotationPass(SymbolTable symbols) : VerificationPass
 {
     protected override void Visit(NumberNode node)
     {
-        if (!Symbols.TryLookupSymbol(node.NumberType == NumberType.Integer ? "Int" : "Real", out Symbol? symbol))
-            throw new Exception("Failed to find numeric type symbol");
-
-        node.ResolvedType = symbol.ResolvedType;
+        node.ResolvedType = Symbols.GetSymbol<Symbol>(node.NumberType == NumberType.Integer ? "Int" : "Real").ResolvedType;
     }
 
     protected override void Visit(StringLiteralNode node)
     {
-        if (!Symbols.TryLookupSymbol("String", out Symbol? symbol))
-            throw new Exception("Failed to find string type symbol");
-
-        node.ResolvedType = symbol.ResolvedType;
+        node.ResolvedType = Symbols.GetSymbol<Symbol>("String").ResolvedType;
     }
     
     protected override void Visit(BoolLiteralNode node)
     {
-        if (!Symbols.TryLookupSymbol("Bool", out Symbol? symbol))
-            throw new Exception("Failed to find boolean type symbol");
-
-        node.ResolvedType = symbol.ResolvedType;
+        node.ResolvedType = Symbols.GetSymbol<Symbol>("Bool").ResolvedType;
     }
 }

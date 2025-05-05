@@ -2,11 +2,12 @@ using Verifex.Parsing;
 
 namespace Verifex.Analysis.Pass;
 
-// Creates symbols and attaches them to AST nodes, and completes function symbols
+// Creates symbols and attaches them to AST nodes, and completes top-level symbols which were gathered earlier
 public class BindingPass(SymbolTable symbols) : VerificationPass(symbols)
 {
     private int _nextLocalIndex;
     private int _nextParameterIndex;
+    private RefinedTypeValueSymbol? _currentValueSymbol;
 
     protected override void Visit(FunctionDeclNode node)
     {
@@ -64,10 +65,14 @@ public class BindingPass(SymbolTable symbols) : VerificationPass(symbols)
             Index = _nextParameterIndex
         };
 
-        if (!Symbols.TryAddSymbol(parameter))
+        if (Symbols.TryLookupSymbol(parameter.Name, out Symbol? existingSymbol))
+        {
             LogDiagnostic(new ParameterAlreadyDeclared(parameter.Name) { Location = node.Location });
+            node.Symbol = existingSymbol; // point to existing symbol, makes things easier for the next passes
+        }
         else
         {
+            Symbols.TryAddSymbol(parameter);
             node.Symbol = parameter;
             _nextParameterIndex++;
         }
@@ -75,9 +80,31 @@ public class BindingPass(SymbolTable symbols) : VerificationPass(symbols)
 
     protected override void Visit(IdentifierNode node)
     {
+        if (_currentValueSymbol != null && node.Identifier == "value")
+        {
+            node.Symbol = _currentValueSymbol;
+            return;
+        }
+        
         if (Symbols.TryLookupSymbol(node.Identifier, out Symbol? symbol))
             node.Symbol = symbol;
         else
             LogDiagnostic(new UnknownIdentifier(node.Identifier) { Location = node.Location });
+    }
+
+    protected override void Visit(RefinedTypeDeclNode node)
+    {
+        RefinedTypeSymbol refinedTypeSymbol = (node.Symbol as RefinedTypeSymbol)!;
+        _currentValueSymbol = new RefinedTypeValueSymbol()
+        {
+            DeclaringNode = node,
+            Name = "value",
+            ResolvedType = refinedTypeSymbol.BaseType
+        };
+        
+        refinedTypeSymbol.ValueSymbol = _currentValueSymbol;
+        base.Visit(node);
+
+        _currentValueSymbol = null;
     }
 }

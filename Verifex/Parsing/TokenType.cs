@@ -40,6 +40,8 @@ public enum TokenType : byte
     If,
     Else,
     While,
+    Type,
+    Where,
 }
 
 public static class TokenTypeExtensions
@@ -86,6 +88,8 @@ public static class TokenTypeExtensions
             TokenType.If => "if",
             TokenType.Else => "else",
             TokenType.While => "while",
+            TokenType.Type => "type",
+            TokenType.Where => "where",
             _ => throw new ArgumentOutOfRangeException(nameof(token), token, null)
         };
     }

@@ -16,7 +16,7 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
         TokenType.Let, TokenType.Mut, TokenType.Return, TokenType.Identifier, TokenType.RightCurlyBrace
     ];
     
-    private static readonly HashSet<TokenType> DeclarationSyncTokens = [TokenType.Fn, TokenType.EOF];
+    private static readonly HashSet<TokenType> DeclarationSyncTokens = [TokenType.Fn, TokenType.Type, TokenType.EOF];
     
     private static readonly HashSet<TokenType> ParameterSyncTokens = [
         TokenType.RightParenthesis, TokenType.Identifier, TokenType.Arrow, TokenType.LeftCurlyBrace
@@ -96,12 +96,29 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
         List<AstNode> nodes = [];
         while (tokens.Peek().Type != TokenType.EOF)
         {
-            AstNode? function = DoSafe(FnDeclaration, DeclarationSyncTokens);
-            if (function is not null)
-                nodes.Add(function);
+            AstNode? item = DoSafe(Item, DeclarationSyncTokens);
+            if (item is not null)
+                nodes.Add(item);
         }
 
         return new ProgramNode(nodes.AsReadOnly());
+    }
+
+    public AstNode Item()
+    {
+        TokenType peekedTokenType = tokens.Peek().Type;
+
+        AstNode item = peekedTokenType switch
+        {
+            TokenType.Fn => FnDeclaration(),
+            TokenType.Type => RefinedTypeDeclaration(),
+            _ => ThrowError(new UnexpectedToken(Fetch(tokens.Peek()).ToString()) { Location = tokens.Peek().Range })
+        };
+        
+        if (peekedTokenType == TokenType.Type)
+            Expect(TokenType.Semicolon);
+
+        return item;
     }
 
     public AstNode Statement()
@@ -327,6 +344,18 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
         BlockNode body = Do(Block);
         
         return new WhileNode(condition, body);
+    }
+
+    public RefinedTypeDeclNode RefinedTypeDeclaration()
+    {
+        Expect(TokenType.Type);
+        Token name = Expect(TokenType.Identifier);
+        Expect(TokenType.Equals);
+        Token baseType = Expect(TokenType.Identifier);
+        Expect(TokenType.Where);
+        AstNode expression = Do(Expression);
+
+        return new RefinedTypeDeclNode(Fetch(name).ToString(), Fetch(baseType).ToString(), expression);
     }
 
     public AstNode Expression() => Expression(0);

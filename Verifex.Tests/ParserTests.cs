@@ -345,6 +345,19 @@ public class ParserTests
         Assert.Single(result.Nodes);
         Assert.IsType<FunctionDeclNode>(result.Nodes[0]);
     }
+
+    [Fact]
+    public void Parse_Program_RecognizesItems()
+    {
+        var source = "fn main() {} type Test = Int where value == 42;";
+        var parser = CreateParser(source);
+        var result = parser.Program();
+        
+        Assert.IsType<ProgramNode>(result);
+        Assert.Equal(2, result.Nodes.Count);
+        Assert.IsType<FunctionDeclNode>(result.Nodes[0]);
+        Assert.IsType<RefinedTypeDeclNode>(result.Nodes[1]);
+    }
     
     // Error handling tests
     [Fact]
@@ -640,6 +653,18 @@ public class ParserTests
         Assert.IsType<BlockNode>(whileNode.Body);
         Assert.Single(whileNode.Body.Nodes);
         Assert.IsType<VarDeclNode>(whileNode.Body.Nodes[0]);
+    }
+
+    [Fact]
+    public void Parse_RefinedType_ReturnsRefinedTypeDeclNode()
+    {
+        var parser = CreateParser("type NonZeroInt = Int where value > 0");
+        var result = parser.RefinedTypeDeclaration();
+
+        Assert.IsType<RefinedTypeDeclNode>(result);
+        Assert.Equal("NonZeroInt", result.Name);
+        Assert.Equal("Int", result.BaseType);
+        Assert.IsType<BinaryOperationNode>(result.Expression);
     }
 }
 

@@ -77,4 +77,9 @@ public class DefaultNodeVisitor : NodeVisitor
         Visit(node.Condition);
         Visit(node.Body);
     }
+
+    protected override void Visit(RefinedTypeDeclNode node)
+    {
+        Visit(node.Expression);
+    }
 }

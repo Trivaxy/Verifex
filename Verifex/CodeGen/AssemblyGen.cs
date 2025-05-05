@@ -133,7 +133,17 @@ public class AssemblyGen : DefaultNodeVisitor
     protected override void Visit(BlockNode node)
     {
         foreach (AstNode child in node.Nodes)
+        {
             Visit(child);
+            
+            // special case: if the statement is a function call, we need to pop its unused return off the stack
+            if (child is FunctionCallNode functionCall)
+            {
+                VerifexFunction function = _symbolTable.GetGlobalSymbol<FunctionSymbol>((functionCall.Callee as IdentifierNode)!.Identifier).Function;
+                if (function.ReturnType.EffectiveType is not VoidType)
+                    _il.Emit(OpCodes.Pop);
+            }
+        }
     }
 
     protected override void Visit(FunctionCallNode node)
@@ -257,6 +267,11 @@ public class AssemblyGen : DefaultNodeVisitor
         _il.Emit(OpCodes.Br, startLabel);
         
         _il.MarkLabel(endLabel);
+    }
+
+    protected override void Visit(RefinedTypeDeclNode node)
+    {
+        // no-op
     }
 
     public void Save(string path)

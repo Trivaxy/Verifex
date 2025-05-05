@@ -25,4 +25,21 @@ public class TopLevelGatheringPass(SymbolTable symbols) : VerificationPass(symbo
         else
             node.Symbol = function;
     }
+
+    protected override void Visit(RefinedTypeDeclNode node)
+    {
+        VerifexType baseType = VerifexType.Delayed(() => Symbols.GetType(node.BaseType));
+        RefinedTypeSymbol refined = new RefinedTypeSymbol()
+        {
+            DeclaringNode = node,
+            Name = node.Name,
+            ResolvedType = new RefinedType(node.Name, baseType, node.Expression),
+            BaseType = baseType,
+        };
+        
+        if (!Symbols.TryAddGlobalSymbol(refined))
+            LogDiagnostic(new DuplicateTopLevelSymbol(refined.Name) { Location = node.Location });
+        else
+            node.Symbol = refined;
+    }
 }

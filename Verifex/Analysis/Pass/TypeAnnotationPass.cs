@@ -59,7 +59,7 @@ public class TypeAnnotationPass(SymbolTable symbols) : VerificationPass(symbols)
 
         if (node.TypeHint != null)
         {
-            if (Symbols.TryLookupGlobalSymbol(node.TypeHint, out BuiltinTypeSymbol? typeSymbol))
+            if (Symbols.TryLookupGlobalSymbol(node.TypeHint, out TypeSymbol? typeSymbol))
                 node.Symbol!.ResolvedType = typeSymbol!.ResolvedType;
             else
                 LogDiagnostic(new UnknownType(node.TypeHint) { Location = node.Location });
@@ -72,7 +72,7 @@ public class TypeAnnotationPass(SymbolTable symbols) : VerificationPass(symbols)
     {
         base.Visit(node);
         
-        if (!Symbols.TryLookupGlobalSymbol(node.TypeName, out BuiltinTypeSymbol? typeSymbol))
+        if (!Symbols.TryLookupGlobalSymbol(node.TypeName, out TypeSymbol? typeSymbol))
         {
             LogDiagnostic(new UnknownType(node.TypeName) { Location = node.Location });
             return;

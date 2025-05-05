@@ -82,7 +82,7 @@ public class SymbolTable
     
     public VerifexType GetType(string name)
     {
-        if (TryLookupGlobalSymbol(name, out Symbol? symbol) && symbol.ResolvedType != null)
+        if (TryLookupGlobalSymbol(name, out TypeSymbol? symbol) && symbol.ResolvedType != null)
             return symbol.ResolvedType;
         
         throw new InvalidOperationException($"Type {name} not found");

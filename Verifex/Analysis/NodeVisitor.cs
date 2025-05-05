@@ -21,8 +21,9 @@ public abstract class NodeVisitor
     protected abstract void Visit(IfElseNode node);
     protected abstract void Visit(AssignmentNode node);
     protected abstract void Visit(WhileNode node);
+    protected abstract void Visit(RefinedTypeDeclNode node);
     
-    public void Visit(AstNode node)
+    public virtual void Visit(AstNode node)
     {
         switch (node)
         {
@@ -76,6 +77,9 @@ public abstract class NodeVisitor
                 break;
             case WhileNode whileNode:
                 Visit(whileNode);
+                break;
+            case RefinedTypeDeclNode refinedTypeDeclNode:
+                Visit(refinedTypeDeclNode);
                 break;
         }
     }

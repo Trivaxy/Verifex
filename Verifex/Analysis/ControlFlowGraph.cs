@@ -50,6 +50,8 @@ public class BasicBlock
     public bool IsExit => Id == 1;
 
     public bool IsTerminated => UnconditionalSuccessor != null || TrueSuccessor != null || FalseSuccessor != null;
+    
+    public bool HasConditionalSuccessors => TrueSuccessor != null || FalseSuccessor != null;
 
     // Special constructor for Entry/Exit sentinel blocks
     internal BasicBlock(bool isEntry)

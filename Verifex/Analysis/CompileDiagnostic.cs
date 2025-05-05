@@ -109,6 +109,9 @@ public record ConditionMustBeBool(string StatementType)
 public record ImmutableVarReassignment(string VarName)
     : CompileDiagnostic(DiagnosticLevel.Error, $"cannot reassign to immutable variable '{VarName}'");
 
+public record AssignmentTypeMismatch(string VarName, string ExpectedType, string ActualType)
+    : CompileDiagnostic(DiagnosticLevel.Error, $"cannot assign value of type '{ActualType}' to variable '{VarName}' of type '{ExpectedType}'");
+
 public enum DiagnosticLevel
 {
     Error,

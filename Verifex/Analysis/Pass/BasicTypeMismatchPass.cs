@@ -4,8 +4,8 @@ using Verifex.Parsing;
 
 namespace Verifex.Analysis.Pass;
 
-// Checks for type mismatches throughout the annotated AST
-public class TypeMismatchPass(SymbolTable symbols) : VerificationPass(symbols)
+// Checks for basic type mismatches throughout the annotated AST
+public class BasicTypeMismatchPass(SymbolTable symbols) : VerificationPass(symbols)
 {
     private VerifexFunction _currentFunction = null!;
     
@@ -87,7 +87,7 @@ public class TypeMismatchPass(SymbolTable symbols) : VerificationPass(symbols)
     {
         base.Visit(node);
         
-        if (node.TypeHint != null && Symbols.TryLookupGlobalSymbol(node.TypeHint, out BuiltinTypeSymbol? typeSymbol))
+        if (node.TypeHint != null && Symbols.TryLookupGlobalSymbol(node.TypeHint, out TypeSymbol? typeSymbol))
         {
             if (node.Value.ResolvedType != typeSymbol!.ResolvedType)
                 LogDiagnostic(new VarDeclTypeMismatch(node.Name, typeSymbol.ResolvedType!.Name, node.Value.ResolvedType!.Name) { Location = node.Location });

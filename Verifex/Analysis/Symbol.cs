@@ -28,6 +28,15 @@ public class FunctionSymbol : Symbol
     public required VerifexFunction Function { get; init; }
 }
 
+public class UnfinishedFunctionSymbol : Symbol
+{
+    public required string FunctionName { get; init; }
+    
+    public required ReadOnlyCollection<(string Identifier, string Type)> Parameters { get; init; }
+    
+    public required string ReturnType { get; init; }
+}
+
 public class BuiltinFunctionSymbol : FunctionSymbol
 {
     public static BuiltinFunctionSymbol Create(BuiltinFunction function) => new BuiltinFunctionSymbol()
@@ -39,7 +48,9 @@ public class BuiltinFunctionSymbol : FunctionSymbol
     };
 }
 
-public class BuiltinTypeSymbol : Symbol
+public abstract class TypeSymbol : Symbol;
+
+public class BuiltinTypeSymbol : TypeSymbol
 {
     public static BuiltinTypeSymbol Create(VerifexType type) => new BuiltinTypeSymbol()
     {
@@ -48,3 +59,17 @@ public class BuiltinTypeSymbol : Symbol
         ResolvedType = type,
     };
 }
+
+public class RefinedTypeSymbol : TypeSymbol
+{
+    public required VerifexType BaseType { get; init; }
+    
+    public RefinedTypeValueSymbol ValueSymbol { get; set; } = null!; // set by the binding pass
+}
+
+public class UnfinishedRefinedTypeSymbol : TypeSymbol
+{
+    public required string BaseType { get; init; }
+}
+
+public class RefinedTypeValueSymbol : Symbol;

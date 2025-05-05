@@ -126,3 +126,10 @@ public class WhileNode(AstNode condition, BlockNode body) : AstNode
     public readonly AstNode Condition = condition;
     public readonly BlockNode Body = body;
 }
+
+public class RefinedTypeDeclNode(string name, string baseType, AstNode expression) : AstNode
+{
+    public readonly string Name = name;
+    public readonly string BaseType = baseType;
+    public readonly AstNode Expression = expression;
+}

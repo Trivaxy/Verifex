@@ -124,6 +124,47 @@ public class VerificationPassTests
             Assert.Equal(DiagnosticLevel.Error, diagnostic.Level);
         });
     }
+    
+    [Fact]
+    public void TopLevelGatheringPass_GathersRefinedTypeSymbol()
+    {
+        var source = "type PositiveInt = Int where value > 0;";
+        var ast = Parse(source);
+        
+        var symbolTable = new SymbolTable();
+        var gatheringPass = new TopLevelGatheringPass(symbolTable);
+        gatheringPass.Visit(ast);
+        
+        Assert.True(symbolTable.TryLookupGlobalSymbol("PositiveInt", out var symbol));
+        
+        var refinedTypeSymbol = Assert.IsType<RefinedTypeSymbol>(symbol);
+        Assert.Equal(ast.Nodes[0], refinedTypeSymbol.DeclaringNode);
+        Assert.Equal("PositiveInt", refinedTypeSymbol.Name);
+    }
+
+    [Fact]
+    public void BindingPass_BindsValueIdentifierInRefinedType()
+    {
+        var source = "type PositiveInt = Int where value > 0;";
+        var ast = Parse(source);
+        
+        var symbolTable = new SymbolTable();
+        var gatheringPass = new TopLevelGatheringPass(symbolTable);
+        gatheringPass.Visit(ast);
+        
+        var bindingPass = new BindingPass(symbolTable);
+        bindingPass.Visit(ast);
+        
+        var refinedTypeDeclNode = Assert.IsType<RefinedTypeDeclNode>(ast.Nodes[0]);
+        var expression = Assert.IsType<BinaryOperationNode>(refinedTypeDeclNode.Expression);
+        var valueIdentifierNode = Assert.IsType<IdentifierNode>(expression.Left);
+        
+        Assert.Equal("value", valueIdentifierNode.Identifier);
+        
+        var valueSymbol = Assert.IsType<RefinedTypeValueSymbol>(valueIdentifierNode.Symbol);
+        Assert.Equal(refinedTypeDeclNode, valueSymbol.DeclaringNode);
+    }
+
 
     [Fact]
     public void TypeAnnotationPass_DetectsUnknownType()
@@ -160,9 +201,9 @@ public class VerificationPassTests
         """;
         
         var ast = Parse(source);
-        var symbols = RunPassesUntil<TypeMismatchPass>(ast, out var passes);
+        var symbols = RunPassesUntil<BasicTypeMismatchPass>(ast, out var passes);
         
-        var typeMismatchPass = new TypeMismatchPass(symbols);
+        var typeMismatchPass = new BasicTypeMismatchPass(symbols);
         typeMismatchPass.Visit(ast);
         
         // Check for the specific binary operation type mismatch (Int and Real)
