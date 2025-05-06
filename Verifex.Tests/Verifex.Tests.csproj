@@ -23,4 +23,11 @@
       <ProjectReference Include="..\Verifex\Verifex.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+        <Using Include="Microsoft.Z3.Expr" Alias="Z3Expr" />
+        <Using Include="Microsoft.Z3.BoolExpr" Alias="Z3BoolExpr" />
+        <Using Include="Microsoft.Z3.ArithExpr" Alias="Z3ArithExpr" />
+        <Using Include="Microsoft.Z3.IntExpr" Alias="Z3IntExpr" />
+    </ItemGroup>
+
 </Project>
