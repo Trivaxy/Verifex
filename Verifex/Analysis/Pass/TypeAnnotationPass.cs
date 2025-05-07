@@ -1,3 +1,4 @@
+using Verifex.CodeGen.Types;
 using Verifex.Parsing;
 
 namespace Verifex.Analysis.Pass;
@@ -18,7 +19,19 @@ public class TypeAnnotationPass(SymbolTable symbols) : VerificationPass(symbols)
         if (node.Left.ResolvedType == null || node.Right.ResolvedType == null)
             return;
 
-        if (node.Left.ResolvedType == node.Right.ResolvedType)
+        VerifexType left = node.Left.ResolvedType.EffectiveType;
+        VerifexType right = node.Right.ResolvedType.EffectiveType;
+        
+        // if the types are not the same, but they are both a subtype of the same base type, use the right base type
+        if (left != right && left.IlType == right.IlType)
+        {
+            Type baseIlType = left.IlType;
+            if (baseIlType == typeof(int))
+                node.ResolvedType = Symbols.GetType("Int");
+            else if (baseIlType == typeof(double))
+                node.ResolvedType = Symbols.GetType("Real");
+        }
+        else if (node.Left.ResolvedType.EffectiveType == node.Right.ResolvedType.EffectiveType)
             node.ResolvedType = node.Left.ResolvedType;
     }
 
