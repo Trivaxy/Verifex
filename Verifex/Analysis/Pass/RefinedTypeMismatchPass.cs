@@ -128,7 +128,7 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
         else
             throw new NotImplementedException();
 
-        if (type is RefinedType refinedType)
+        if (type.EffectiveType is RefinedType refinedType)
             _solver.Assert(CreateRefinedTypeConstraintExpr(term, refinedType));
 
         return term;
