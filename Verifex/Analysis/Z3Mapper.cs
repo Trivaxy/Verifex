@@ -50,7 +50,7 @@ public class Z3Mapper(Context ctx, Dictionary<Symbol, Z3Expr> termMap)
             case TokenType.Star: return ctx.MkMul((Z3ArithExpr)left, (Z3ArithExpr)right);
             case TokenType.Slash: return ctx.MkDiv((Z3ArithExpr)left, (Z3ArithExpr)right);
 
-            case TokenType.Equals: return ctx.MkEq(left, right); // Generic equality
+            case TokenType.EqualEqual: return ctx.MkEq(left, right); // Generic equality
             case TokenType.NotEqual: return ctx.MkNot(ctx.MkEq(left, right));
             case TokenType.LessThan: return ctx.MkLt((Z3ArithExpr)left, (Z3ArithExpr)right);
             case TokenType.LessThanOrEqual: return ctx.MkLe((Z3ArithExpr)left, (Z3ArithExpr)right);
