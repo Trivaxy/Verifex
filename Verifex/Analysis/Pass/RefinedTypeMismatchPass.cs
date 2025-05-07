@@ -141,16 +141,20 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
     }
     
     // Generates a Z3 expression by substituting the given term into the 'value' in a refined type's constraint expression
+    // If the refined type has another refined type as a base type, the expression is ANDed with the base type's constraint
     private Z3BoolExpr CreateRefinedTypeConstraintExpr(Z3Expr term, RefinedType refinedType)
     {
         RefinedTypeValueSymbol valueSymbol = Symbols.GetGlobalSymbol<RefinedTypeSymbol>(refinedType.Name).ValueSymbol;
         _symbolsAsTerms[valueSymbol] = term;
         
         Z3Mapper mapper = new Z3Mapper(_z3Ctx, _symbolsAsTerms);
-        Z3Expr assertion = mapper.ConvertExpr(refinedType.RawConstraint);
+        Z3BoolExpr assertion = (mapper.ConvertExpr(refinedType.RawConstraint) as Z3BoolExpr)!;
+        
+        if (refinedType.BaseType.EffectiveType is RefinedType baseRefinedType)
+            assertion = _z3Ctx.MkAnd(assertion, CreateRefinedTypeConstraintExpr(term, baseRefinedType));
         
         _symbolsAsTerms.Remove(valueSymbol);
-        return (assertion as Z3BoolExpr)!;
+        return assertion;
     }
 
     private bool AreTypesBasicCompatible(VerifexType left, VerifexType right)
