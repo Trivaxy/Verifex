@@ -7,12 +7,13 @@ namespace Verifex.Analysis.Pass;
 
 public class RefinedTypeMismatchPass : VerificationPass, IDisposable
 {
-    private readonly Dictionary<Symbol, Z3Expr> _symbolsAsTerms = new();
+    private readonly Dictionary<Symbol, Z3Expr> _symbolsAsTerms = [];
     private readonly Context _z3Ctx;
     private readonly Solver _solver;
     private readonly Z3Mapper _z3Mapper;
     private VerifexFunction _currentFunction = null!;
     private int _nextTermId;
+    private readonly HashSet<BasicBlock> _visitedBlocks;
 
     public RefinedTypeMismatchPass(SymbolTable symbols) : base(symbols)
     {
@@ -20,6 +21,7 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
         _solver = _z3Ctx.MkSolver();
         _z3Mapper = new Z3Mapper(_z3Ctx, _symbolsAsTerms);
         _nextTermId = 0;
+        _visitedBlocks = [];
     }
     
     protected override void Visit(FunctionDeclNode node)
@@ -28,6 +30,7 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
         _solver.Reset();
         _nextTermId = 0;
         _currentFunction = (node.Symbol as FunctionSymbol)!.Function;
+        _visitedBlocks.Clear();
         
         foreach (ParamDeclNode param in node.Parameters)
         {
@@ -47,7 +50,7 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
 
     private void VisitBasicBlock(BasicBlock block)
     {
-        if (block.IsExit) return;
+        if (block.IsExit || !_visitedBlocks.Add(block)) return;
 
         foreach (AstNode statement in block.Statements)
         {
