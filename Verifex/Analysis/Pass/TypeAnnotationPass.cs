@@ -9,15 +9,28 @@ public class TypeAnnotationPass(SymbolTable symbols) : VerificationPass(symbols)
     protected override void Visit(BinaryOperationNode node)
     {
         base.Visit(node);
+        
+        if (node.Left.ResolvedType == null || node.Right.ResolvedType == null)
+            return;
 
-        if (node.Operator.Type.IsBoolOp() || node.Operator.Type.IsComparisonOp())
+        if (node.Operator.Type.IsBoolOp() && node.Left.ResolvedType.EffectiveType is BoolType && node.Right.ResolvedType.EffectiveType is BoolType)
         {
             node.ResolvedType = Symbols.GetType("Bool");
             return;
         }
         
-        if (node.Left.ResolvedType == null || node.Right.ResolvedType == null)
+        if (node.Operator.Type is TokenType.EqualEqual or TokenType.NotEqual && node.Left.ResolvedType == node.Right.ResolvedType)
+        {
+            node.ResolvedType = Symbols.GetType("Bool");
             return;
+        }
+        
+        if (node.Operator.Type.IsComparisonOp()
+            && node.Left.ResolvedType.EffectiveType is IntegerType or RealType && node.Right.ResolvedType.EffectiveType is IntegerType or RealType)
+        {
+            node.ResolvedType = Symbols.GetType("Bool");
+            return;
+        }
 
         VerifexType left = node.Left.ResolvedType.EffectiveType;
         VerifexType right = node.Right.ResolvedType.EffectiveType;

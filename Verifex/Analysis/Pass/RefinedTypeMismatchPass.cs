@@ -86,6 +86,9 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
                         AstNode argument = callNode.Arguments[i];
                         ParameterInfo param = function.Function.Parameters[i];
                         
+                        // no resolved type means some type mismatch happened earlier; skip
+                        if (argument.ResolvedType == null) continue;
+                        
                         if (!IsTypeCompatible(param.Type, argument.ResolvedType!, LowerAstNodeToZ3(argument)))
                             LogDiagnostic(new ParamTypeMismatch(param.Name, param.Type.Name, argument.ResolvedType!.Name) { Location = argument.Location });
                     }
