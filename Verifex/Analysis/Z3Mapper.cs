@@ -10,6 +10,7 @@ public class Z3Mapper(Context ctx, Dictionary<Symbol, Z3Expr> termMap)
         switch (node)
         {
             case NumberNode n: return ConvertNumber(n);
+            case BoolLiteralNode b: return ConvertBool(b);
             case IdentifierNode id: return ConvertIdentifier(id);
             case BinaryOperationNode binOp: return ConvertBinaryOperation(binOp);
             case MinusNegationNode unOp: return ConvertMinusNegation(unOp);
@@ -26,6 +27,8 @@ public class Z3Mapper(Context ctx, Dictionary<Symbol, Z3Expr> termMap)
 
         return ctx.MkReal(node.AsDouble().ToString());
     }
+    
+    private Z3Expr ConvertBool(BoolLiteralNode node) => node.Value ? ctx.MkTrue() : ctx.MkFalse();
 
     private Z3Expr ConvertIdentifier(IdentifierNode node)
     {
