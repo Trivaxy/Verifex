@@ -19,6 +19,7 @@ public class AssemblyGen : DefaultNodeVisitor
     private SymbolTable _symbolTable;
     private Dictionary<VerifexFunction, MethodInfo> _methodInfos = new();
     private Dictionary<VerifexFunction, ILGenerator> _methodILGenerators = new();
+    private VerifexFunction _currentFunction = null!;
 
     public AssemblyGen(SymbolTable symbolTable)
     {
@@ -78,8 +79,15 @@ public class AssemblyGen : DefaultNodeVisitor
 
     protected override void Visit(BinaryOperationNode node)
     {
+        bool realResult = node.Left.ResolvedType!.EffectiveType is RealType || node.Right.ResolvedType!.EffectiveType is RealType;
+        
         Visit(node.Left);
+        if (realResult && node.Left.ResolvedType!.EffectiveType is IntegerType)
+            EmitConversion(_symbolTable.GetType("Int"), _symbolTable.GetType("Real"));
+        
         Visit(node.Right);
+        if (realResult && node.Right.ResolvedType!.EffectiveType is IntegerType)
+            EmitConversion(_symbolTable.GetType("Int"), _symbolTable.GetType("Real"));
 
         switch (node.Operator.Type)
         {
@@ -149,9 +157,13 @@ public class AssemblyGen : DefaultNodeVisitor
     protected override void Visit(FunctionCallNode node)
     {
         VerifexFunction function = _symbolTable.GetGlobalSymbol<FunctionSymbol>((node.Callee as IdentifierNode)!.Identifier).Function;
-        foreach (AstNode argument in node.Arguments)
+        for (int i = 0; i < node.Arguments.Count; i++)
+        {
+            AstNode argument = node.Arguments[i];
             Visit(argument);
-        
+            EmitConversion(argument.ResolvedType!, function.Parameters[i].Type);
+        }
+
         _il.Emit(OpCodes.Call, _methodInfos[function]);
     }
 
@@ -159,6 +171,7 @@ public class AssemblyGen : DefaultNodeVisitor
     {
         VerifexFunction function = (node.Symbol as FunctionSymbol)!.Function;
         _il = _methodILGenerators[function];
+        _currentFunction = function;
         
         Visit(node.Body);
         
@@ -170,6 +183,7 @@ public class AssemblyGen : DefaultNodeVisitor
     protected override void Visit(VarDeclNode node)
     {
         Visit(node.Value);
+        EmitConversion(node.Value.ResolvedType!, node.ResolvedType!);
         
         LocalVarSymbol local = (node.Symbol as LocalVarSymbol)!;
         _il.DeclareLocal(local.ResolvedType!.IlType);
@@ -201,8 +215,11 @@ public class AssemblyGen : DefaultNodeVisitor
     protected override void Visit(ReturnNode node)
     {
         if (node.Value != null)
+        {
             Visit(node.Value);
-        
+            EmitConversion(node.Value.ResolvedType!, _currentFunction.ReturnType);
+        }
+
         _il.Emit(OpCodes.Ret);
     }
 
@@ -247,6 +264,7 @@ public class AssemblyGen : DefaultNodeVisitor
     protected override void Visit(AssignmentNode node)
     {
         Visit(node.Value);
+        EmitConversion(node.Value.ResolvedType!, node.Target.ResolvedType!);
         
         if (node.Target.Symbol is LocalVarSymbol local)
             _il.Emit(local.IsParameter ? OpCodes.Starg : OpCodes.Stloc, local.Index);
@@ -272,6 +290,14 @@ public class AssemblyGen : DefaultNodeVisitor
     protected override void Visit(RefinedTypeDeclNode node)
     {
         // no-op
+    }
+    
+    private void EmitConversion(VerifexType from, VerifexType to)
+    {
+        if (from.IlType == to.IlType) return;
+
+        if (from.IlType != typeof(object) && to.IlType == typeof(object))
+            _il.Emit(OpCodes.Box, from.IlType);
     }
 
     public void Save(string path)

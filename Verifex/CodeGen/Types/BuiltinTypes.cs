@@ -36,3 +36,10 @@ public class VoidType : VerifexType
 
     public override TypeInfo IlType => typeof(void).GetTypeInfo();
 }
+
+public class AnyType : VerifexType
+{
+    public override string Name => "Any";
+    
+    public override TypeInfo IlType => typeof(object).GetTypeInfo();
+}

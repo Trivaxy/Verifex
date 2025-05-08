@@ -11,6 +11,7 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
     private readonly Context _z3Ctx;
     private readonly Solver _solver;
     private readonly Z3Mapper _z3Mapper;
+    private readonly UninterpretedSort _anySort;
     private VerifexFunction _currentFunction = null!;
     private int _nextTermId;
     private readonly HashSet<BasicBlock> _visitedBlocks;
@@ -20,6 +21,7 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
         _z3Ctx = new Context();
         _solver = _z3Ctx.MkSolver();
         _z3Mapper = new Z3Mapper(_z3Ctx, _symbolsAsTerms);
+        _anySort = _z3Ctx.MkUninterpretedSort("Any");
         _nextTermId = 0;
         _visitedBlocks = [];
     }
@@ -128,6 +130,8 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
             term = _z3Ctx.MkRealConst(termName);
         else if (ilType == typeof(bool))
             term = _z3Ctx.MkBoolConst(termName);
+        else if (ilType == typeof(object))
+            term = _z3Ctx.MkConst(termName, _anySort);
         else
             throw new NotImplementedException();
 
@@ -139,8 +143,12 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
 
     private void AssertAssignment(Symbol target, Z3Expr value)
     {
-        _symbolsAsTerms[target] = CreateTerm(target.ResolvedType!, target.Name);;
-        _solver.Assert(_z3Ctx.MkEq(_symbolsAsTerms[target], value));
+        _symbolsAsTerms[target] = CreateTerm(target.ResolvedType!, target.Name);
+        
+        // if the target is of the 'Any' type but the source isn't, we can't assert that target = value
+        // ... unless both are 'Any'
+        if (target.ResolvedType!.EffectiveType is not AnyType || (_symbolsAsTerms[target].Sort == value.Sort))
+            _solver.Assert(_z3Ctx.MkEq(_symbolsAsTerms[target], value));
     }
     
     // Generates a Z3 expression by substituting the given term into the 'value' in a refined type's constraint expression
@@ -160,8 +168,8 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
         return assertion;
     }
 
-    private bool AreTypesBasicCompatible(VerifexType left, VerifexType right)
-        => left.EffectiveType is not VoidType && right.EffectiveType is not VoidType && (left == right || left.IlType == right.IlType);
+    private bool AreTypesBasicCompatible(VerifexType target, VerifexType source)
+        => target.EffectiveType is not VoidType && source.EffectiveType is not VoidType && (target.EffectiveType is AnyType || target == source || target.IlType == source.IlType);
 
     private bool IsTermAssignable(VerifexType target, Z3Expr value)
     {

@@ -96,6 +96,7 @@ public class SymbolTable
         symbols.TryAddGlobalSymbol(BuiltinTypeSymbol.Create(new VoidType()));
         symbols.TryAddGlobalSymbol(BuiltinTypeSymbol.Create(new StringType()));
         symbols.TryAddGlobalSymbol(BuiltinTypeSymbol.Create(new BoolType()));
+        symbols.TryAddGlobalSymbol(BuiltinTypeSymbol.Create(new AnyType()));
 
         symbols.TryAddGlobalSymbol(BuiltinFunctionSymbol.Create(new BuiltinFunction("print",
             [new ParameterInfo("value", symbols.GetSymbol<Symbol>("Int").ResolvedType!)],
