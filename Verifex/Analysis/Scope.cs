@@ -99,9 +99,9 @@ public class SymbolTable
         symbols.TryAddGlobalSymbol(BuiltinTypeSymbol.Create(new AnyType()));
 
         symbols.TryAddGlobalSymbol(BuiltinFunctionSymbol.Create(new BuiltinFunction("print",
-            [new ParameterInfo("value", symbols.GetSymbol<Symbol>("Int").ResolvedType!)],
-            symbols.GetSymbol<Symbol>("Void").ResolvedType!,
-            typeof(Console).GetMethod("WriteLine", [typeof(int)])!)));
+            [new ParameterInfo("value", symbols.GetType("Any"))],
+            symbols.GetType("Void"),
+            typeof(Console).GetMethod("WriteLine", [typeof(object)])!)));
         
         return symbols;
     }
