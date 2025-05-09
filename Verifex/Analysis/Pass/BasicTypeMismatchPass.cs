@@ -82,7 +82,7 @@ public class BasicTypeMismatchPass(SymbolTable symbols) : VerificationPass(symbo
         if (node.TypeHint != null && Symbols.TryLookupGlobalSymbol(node.TypeHint, out TypeSymbol? typeSymbol))
         {
             if (node.Value.ResolvedType != typeSymbol!.ResolvedType)
-                LogDiagnostic(new VarDeclTypeMismatch(node.Name, typeSymbol.ResolvedType!.Name, node.Value.ResolvedType!.Name) { Location = node.Location });
+                LogDiagnostic(new VarDeclTypeMismatch(node.Name, typeSymbol.ResolvedType!.Name, (node.Value.ResolvedType != null ? node.Value.ResolvedType.Name : "unknown")) { Location = node.Location });
         }
     }
     
