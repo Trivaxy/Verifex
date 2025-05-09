@@ -7,14 +7,6 @@ namespace Verifex.Analysis.Pass;
 // Checks for basic type mismatches throughout the annotated AST
 public class BasicTypeMismatchPass(SymbolTable symbols) : VerificationPass(symbols)
 {
-    private VerifexFunction _currentFunction = null!;
-    
-    protected override void Visit(FunctionDeclNode node)
-    {
-        _currentFunction = (node.Symbol as FunctionSymbol)!.Function;
-        base.Visit(node);
-    }
-
     // Checks that binary operations are performed on compatible types
     protected override void Visit(BinaryOperationNode node)
     {
