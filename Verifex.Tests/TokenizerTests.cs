@@ -63,14 +63,14 @@ public class TokenizerTests
     public void TokenStream_Identifier_ReturnsIdentifierToken()
     {
         // Arrange
-        var tokenStream = new TokenStream("myVar");
+        var tokenStream = new TokenStream("_myVar_");
         
         // Act
         var token = tokenStream.Next();
         
         // Assert
         Assert.Equal(TokenType.Identifier, token.Type);
-        Assert.Equal(0..5, token.Range);
+        Assert.Equal(0..7, token.Range);
     }
     
     [Fact]

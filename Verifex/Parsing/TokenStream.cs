@@ -143,7 +143,7 @@ public class TokenStream
     {
         var remaining = _sourceMemory.Span;
 
-        while (_current < remaining.Length && char.IsAsciiLetterOrDigit(remaining[_current]))
+        while (_current < remaining.Length && (char.IsAsciiLetterOrDigit(remaining[_current]) || remaining[_current] == '_'))
             _current++;
     }
 
