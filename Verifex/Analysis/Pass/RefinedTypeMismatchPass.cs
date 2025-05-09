@@ -101,20 +101,27 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
             }
         }
 
-        if (block.TrueSuccessor != null)
+        if (block.HasConditionalSuccessors)
         {
-            _solver.Push();
-            _solver.Assert(LowerAstNodeToZ3(block.Statements[^1]) as Z3BoolExpr);
-            VisitBasicBlock(block.TrueSuccessor);
-            _solver.Pop();
-        }
-        
-        if (block.FalseSuccessor != null)
-        {
-            _solver.Push();
-            _solver.Assert(_z3Ctx.MkNot(LowerAstNodeToZ3(block.Statements[^1]) as Z3BoolExpr));
-            VisitBasicBlock(block.FalseSuccessor);
-            _solver.Pop();
+            if (block.Statements[^1] is not BinaryOperationNode rawCondition)
+                throw new InvalidOperationException("The condition leaving the block must be a binary operation");
+            
+            if (rawCondition.ResolvedType?.EffectiveType is BoolType)
+            {
+                Z3BoolExpr z3Cond = (LowerAstNodeToZ3(rawCondition) as Z3BoolExpr)!;
+                
+                // Visit the true branch first
+                _solver.Push();
+                _solver.Assert(z3Cond);
+                VisitBasicBlock(block.TrueSuccessor!);
+                _solver.Pop();
+                
+                // Visit the false branch second
+                _solver.Push();
+                _solver.Assert(_z3Ctx.MkNot(z3Cond));
+                VisitBasicBlock(block.FalseSuccessor!);
+                _solver.Pop();
+            }
         }
 
         if (block.UnconditionalSuccessor != null)
