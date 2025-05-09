@@ -121,19 +121,6 @@ public class BasicTypeMismatchPass(SymbolTable symbols) : VerificationPass(symbo
             LogDiagnostic(new TooManyArguments(function.Name, function.Parameters.Count, node.Arguments.Count) { Location = node.Location });
         else if (function.Parameters.Count > node.Arguments.Count)
             LogDiagnostic(new NotEnoughArguments(function.Name, function.Parameters.Count, node.Arguments.Count) { Location = node.Location });
-        
-        for (int i = 0; i < Math.Min(function.Parameters.Count, node.Arguments.Count); i++)
-        {
-            ParameterInfo parameter = function.Parameters[i];
-            VerifexType expectedType = parameter.Type;
-            VerifexType? actualType = node.Arguments[i].ResolvedType;
-            
-            if (actualType == null)
-                continue;
-            
-            if (expectedType != actualType)
-                LogDiagnostic(new ParamTypeMismatch(parameter.Name, expectedType.Name, actualType.Name) { Location = node.Arguments[i].Location });
-        }
     }
 
     protected override void Visit(IfElseNode node)
