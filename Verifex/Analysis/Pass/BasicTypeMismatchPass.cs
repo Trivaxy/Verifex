@@ -93,17 +93,6 @@ public class BasicTypeMismatchPass(SymbolTable symbols) : VerificationPass(symbo
                 LogDiagnostic(new VarDeclTypeMismatch(node.Name, typeSymbol.ResolvedType!.Name, node.Value.ResolvedType!.Name) { Location = node.Location });
         }
     }
-
-    protected override void Visit(ReturnNode node)
-    {
-        base.Visit(node);
-        
-        if (node.Value == null)
-            return;
-        
-        if (node.Value.ResolvedType != _currentFunction.ReturnType)
-            LogDiagnostic(new ReturnTypeMismatch(_currentFunction.Name, _currentFunction.ReturnType.Name, node.Value.ResolvedType!.Name) { Location = node.Location });
-    }
     
     protected override void Visit(FunctionCallNode node)
     {
