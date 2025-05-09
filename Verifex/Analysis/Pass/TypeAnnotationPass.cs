@@ -64,13 +64,7 @@ public class TypeAnnotationPass(SymbolTable symbols) : VerificationPass(symbols)
     {
         base.Visit(node);
 
-        if (node.Callee is not IdentifierNode functionName)
-        {
-            LogDiagnostic(new InvalidFunctionCall() { Location = node.Callee.Location });
-            return;
-        }
-
-        if (!Symbols.TryLookupSymbol(functionName.Identifier, out FunctionSymbol? functionSymbol))
+        if (node.Callee is not IdentifierNode functionName || !Symbols.TryLookupSymbol(functionName.Identifier, out FunctionSymbol? functionSymbol))
         {
             LogDiagnostic(new InvalidFunctionCall() { Location = node.Callee.Location });
             return;
