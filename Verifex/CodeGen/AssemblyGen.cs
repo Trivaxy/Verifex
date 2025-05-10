@@ -12,13 +12,13 @@ namespace Verifex.CodeGen;
 
 public class AssemblyGen : DefaultNodeVisitor
 {
-    private PersistedAssemblyBuilder _assembly;
-    private ModuleBuilder _module;
-    private TypeBuilder _type;
+    private readonly PersistedAssemblyBuilder _assembly;
+    private readonly ModuleBuilder _module;
+    private readonly TypeBuilder _type;
     private ILGenerator _il; // for the current method being generated
-    private SymbolTable _symbolTable;
-    private Dictionary<VerifexFunction, MethodInfo> _methodInfos = new();
-    private Dictionary<VerifexFunction, ILGenerator> _methodILGenerators = new();
+    private readonly SymbolTable _symbolTable;
+    private readonly Dictionary<VerifexFunction, MethodInfo> _methodInfos = new();
+    private readonly Dictionary<VerifexFunction, ILGenerator> _methodILGenerators = new();
     private VerifexFunction _currentFunction = null!;
 
     public AssemblyGen(SymbolTable symbolTable)
