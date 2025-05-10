@@ -74,17 +74,6 @@ public class BasicTypeMismatchPass(SymbolTable symbols) : VerificationPass(symbo
         if (!TypeSupportsArithmetic(node.Operand.ResolvedType))
             LogDiagnostic(new TypeCannotDoArithmetic(node.Operand.ResolvedType.Name) { Location = node.Location });
     }
-
-    protected override void Visit(VarDeclNode node)
-    {
-        base.Visit(node);
-        
-        if (node.TypeHint != null && Symbols.TryLookupGlobalSymbol(node.TypeHint, out TypeSymbol? typeSymbol))
-        {
-            if (node.Value.ResolvedType != typeSymbol!.ResolvedType)
-                LogDiagnostic(new VarDeclTypeMismatch(node.Name, typeSymbol.ResolvedType!.Name, (node.Value.ResolvedType != null ? node.Value.ResolvedType.Name : "unknown")) { Location = node.Location });
-        }
-    }
     
     protected override void Visit(FunctionCallNode node)
     {
