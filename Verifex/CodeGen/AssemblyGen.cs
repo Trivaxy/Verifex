@@ -225,7 +225,7 @@ public class AssemblyGen : DefaultNodeVisitor
 
     protected override void Visit(StringLiteralNode node)
     {
-        throw new NotImplementedException();
+        _il.Emit(OpCodes.Ldstr, node.Value);
     }
 
     protected override void Visit(BoolLiteralNode node) => _il.Emit(node.Value ? OpCodes.Ldc_I4_1 : OpCodes.Ldc_I4_0);

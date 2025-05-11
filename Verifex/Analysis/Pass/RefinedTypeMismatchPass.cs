@@ -140,6 +140,8 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
             term = _z3Ctx.MkRealConst(termName);
         else if (ilType == typeof(bool))
             term = _z3Ctx.MkBoolConst(termName);
+        else if (ilType == typeof(string))
+            term = _z3Ctx.MkString(termName);
         else if (ilType == typeof(object))
             term = _z3Ctx.MkConst(termName, _anySort);
         else
