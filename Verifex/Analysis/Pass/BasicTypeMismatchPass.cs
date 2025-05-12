@@ -28,16 +28,11 @@ public class BasicTypeMismatchPass(SymbolTable symbols) : VerificationPass(symbo
         }
         else if (node.Operator.Type.IsComparisonOp())
         {
-            if (leftType.FundamentalType != rightType.FundamentalType)
-                LogDiagnostic(new BinaryOpTypeMismatch(node.Operator.ToString(), leftType.Name, rightType.Name) { Location = node.Location });
-            else
-            {
-                if (!TypeSupportsArithmetic(leftType))
-                    LogDiagnostic(new TypeCannotDoComparison(leftType.Name) { Location = node.Left.Location });
+            if (!TypeSupportsArithmetic(leftType))
+                LogDiagnostic(new TypeCannotDoComparison(leftType.Name) { Location = node.Left.Location });
             
-                if (!TypeSupportsArithmetic(rightType))
-                    LogDiagnostic(new TypeCannotDoComparison(rightType.Name) { Location = node.Right.Location });
-            }
+            if (!TypeSupportsArithmetic(rightType))
+                LogDiagnostic(new TypeCannotDoComparison(rightType.Name) { Location = node.Right.Location });
         }
         else if (node.Operator.Type.IsArithmeticOp())
         {
@@ -46,10 +41,6 @@ public class BasicTypeMismatchPass(SymbolTable symbols) : VerificationPass(symbo
             
             switch (TypeSupportsArithmetic(leftType), TypeSupportsArithmetic(rightType))
             {
-                case (true, true):
-                    if (leftType.IlType != rightType.IlType)
-                        LogDiagnostic(new BinaryOpTypeMismatch(node.Operator.ToString(), leftType.Name, rightType.Name) { Location = node.Location });
-                    break;
                 case (false, true):
                     LogDiagnostic(new TypeCannotDoArithmetic(leftType.Name) { Location = node.Left.Location });
                     break;

@@ -79,14 +79,12 @@ public class AssemblyGen : DefaultNodeVisitor
 
     protected override void Visit(BinaryOperationNode node)
     {
-        bool realResult = node.Left.ResolvedType!.EffectiveType is RealType || node.Right.ResolvedType!.EffectiveType is RealType;
-        
         Visit(node.Left);
-        if (realResult && node.Left.ResolvedType!.EffectiveType is IntegerType)
+        if (node.FundamentalType is RealType && node.Left.FundamentalType is IntegerType)
             EmitConversion(_symbolTable.GetType("Int"), _symbolTable.GetType("Real"));
         
         Visit(node.Right);
-        if (realResult && node.Right.ResolvedType!.EffectiveType is IntegerType)
+        if (node.FundamentalType is RealType && node.Right.FundamentalType is IntegerType)
             EmitConversion(_symbolTable.GetType("Int"), _symbolTable.GetType("Real"));
 
         switch (node.Operator.Type)
@@ -298,6 +296,12 @@ public class AssemblyGen : DefaultNodeVisitor
 
         if (from.IlType != typeof(object) && to.IlType == typeof(object))
             _il.Emit(OpCodes.Box, from.IlType);
+        
+        if (from.IlType != typeof(string) && to.IlType == typeof(string))
+            _il.Emit(OpCodes.Call, from.IlType.GetMethod("ToString")!);
+        
+        if (from.IlType == typeof(int) && to.IlType == typeof(double))
+            _il.Emit(OpCodes.Conv_R8);
     }
 
     public void Save(string path)

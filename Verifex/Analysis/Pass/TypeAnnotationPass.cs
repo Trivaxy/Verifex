@@ -26,7 +26,6 @@ public class TypeAnnotationPass(SymbolTable symbols) : VerificationPass(symbols)
         }
         
         if (node.Operator.Type.IsComparisonOp()
-            && node.Left.FundamentalType == node.Right.FundamentalType
             && node.Left.FundamentalType is IntegerType or RealType
             && node.Right.FundamentalType is IntegerType or RealType)
         {
@@ -48,10 +47,9 @@ public class TypeAnnotationPass(SymbolTable symbols) : VerificationPass(symbols)
         }
         
         if (node.Operator.Type.IsArithmeticOp()
-            && left.FundamentalType == right.FundamentalType 
             && left.FundamentalType is IntegerType or RealType
             && right.FundamentalType is IntegerType or RealType)
-            node.ResolvedType = left.FundamentalType;
+            node.ResolvedType = (left is IntegerType && right is IntegerType) ? Symbols.GetType("Int") : Symbols.GetType("Real");
 
         // if none of the above, we have a type mismatch so ResolvedType stays null
     }
