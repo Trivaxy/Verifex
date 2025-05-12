@@ -104,7 +104,7 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
         if (block.HasConditionalSuccessors)
         {
             AstNode rawCondition = block.Statements[^1];
-            if (rawCondition.ResolvedType!.EffectiveType is BoolType)
+            if (rawCondition.ResolvedType?.EffectiveType is BoolType)
             {
                 Z3BoolExpr z3Cond = (LowerAstNodeToZ3(rawCondition) as Z3BoolExpr)!;
                 
