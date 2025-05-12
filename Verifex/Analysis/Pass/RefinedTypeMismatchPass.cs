@@ -103,10 +103,8 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
 
         if (block.HasConditionalSuccessors)
         {
-            if (block.Statements[^1] is not BinaryOperationNode rawCondition)
-                throw new InvalidOperationException("The condition leaving the block must be a binary operation");
-            
-            if (rawCondition.ResolvedType?.EffectiveType is BoolType)
+            AstNode rawCondition = block.Statements[^1];
+            if (rawCondition.ResolvedType!.EffectiveType is BoolType)
             {
                 Z3BoolExpr z3Cond = (LowerAstNodeToZ3(rawCondition) as Z3BoolExpr)!;
                 
