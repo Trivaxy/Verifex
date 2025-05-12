@@ -1,4 +1,4 @@
-﻿using Verifex.Parsing;
+﻿﻿using Verifex.Parsing;
 
 namespace Verifex.Tests;
 
@@ -77,7 +77,7 @@ public class TokenizerTests
     public void TokenStream_Keywords_ReturnsCorrectTokens()
     {
         // Arrange
-        var tokenStream = new TokenStream("let mut fn -> return true false if else while type where");
+        var tokenStream = new TokenStream("let mut fn -> return true false if else while type where struct");
         
         // Act & Assert
         Assert.Equal(TokenType.Let, tokenStream.Next().Type);
@@ -94,6 +94,7 @@ public class TokenizerTests
         Assert.Equal(TokenType.While, tokenStream.Next().Type);
         Assert.Equal(TokenType.Type, tokenStream.Next().Type);
         Assert.Equal(TokenType.Where, tokenStream.Next().Type);
+        Assert.Equal(TokenType.Struct, tokenStream.Next().Type);
     }
     
     [Fact]

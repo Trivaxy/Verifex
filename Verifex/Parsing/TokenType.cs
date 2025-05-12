@@ -42,6 +42,7 @@ public enum TokenType : byte
     While,
     Type,
     Where,
+    Struct,
 }
 
 public static class TokenTypeExtensions
@@ -90,6 +91,7 @@ public static class TokenTypeExtensions
             TokenType.While => "while",
             TokenType.Type => "type",
             TokenType.Where => "where",
+            TokenType.Struct => "struct",
             _ => throw new ArgumentOutOfRangeException(nameof(token), token, null)
         };
     }

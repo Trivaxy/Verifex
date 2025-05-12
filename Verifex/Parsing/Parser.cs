@@ -16,11 +16,13 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
         TokenType.Let, TokenType.Mut, TokenType.Return, TokenType.Identifier, TokenType.RightCurlyBrace
     ];
     
-    private static readonly HashSet<TokenType> DeclarationSyncTokens = [TokenType.Fn, TokenType.Type, TokenType.EOF];
+    private static readonly HashSet<TokenType> DeclarationSyncTokens = [TokenType.Fn, TokenType.Type, TokenType.Struct, TokenType.EOF];
     
     private static readonly HashSet<TokenType> ParameterSyncTokens = [
         TokenType.RightParenthesis, TokenType.Identifier, TokenType.Arrow, TokenType.LeftCurlyBrace
     ];
+    
+    private static readonly HashSet<TokenType> StructFieldSyncTokens = [TokenType.RightCurlyBrace, TokenType.Identifier];
     
     private static readonly Dictionary<TokenType, Func<Parser, Token, AstNode>> PrefixParsers = new()
     {
@@ -112,6 +114,7 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
         {
             TokenType.Fn => FnDeclaration(),
             TokenType.Type => RefinedTypeDeclaration(),
+            TokenType.Struct => StructDeclaration(),
             _ => ThrowError(new UnexpectedToken(Fetch(tokens.Peek()).ToString()) { Location = tokens.Peek().Range })
         };
         
@@ -356,6 +359,44 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
         AstNode expression = Do(Expression);
 
         return new RefinedTypeDeclNode(Fetch(name).ToString(), Fetch(baseType).ToString(), expression);
+    }
+
+    public StructDeclNode StructDeclaration()
+    {
+        Expect(TokenType.Struct);
+        Token name = Expect(TokenType.Identifier);
+        Expect(TokenType.LeftCurlyBrace);
+        
+        List<StructFieldNode> fields = [];
+        
+        while (tokens.Peek().Type != TokenType.RightCurlyBrace && tokens.Peek().Type != TokenType.EOF)
+        {
+            StructFieldNode? field = DoSafe(StructField, StructFieldSyncTokens);
+            
+            if (field is not null)
+                fields.Add(field);
+            
+            if (tokens.Peek().Type == TokenType.Comma)
+                tokens.Next(); // consume the comma
+            else if (tokens.Peek().Type != TokenType.RightCurlyBrace)
+            {
+                LogDiagnostic(new ExpectedToken(", or }") { Location = tokens.Peek().Range });
+                Synchronize(ParameterSyncTokens);
+            }
+        }
+        
+        Expect(TokenType.RightCurlyBrace);
+        
+        return new StructDeclNode(Fetch(name).ToString(), fields.AsReadOnly());
+    }
+
+    public StructFieldNode StructField()
+    {
+        Token fieldName = Expect(TokenType.Identifier);
+        Expect(TokenType.Colon);
+        Token fieldType = Expect(TokenType.Identifier);
+        
+        return new StructFieldNode(Fetch(fieldName).ToString(), Fetch(fieldType).ToString());
     }
 
     public AstNode Expression() => Expression(0);

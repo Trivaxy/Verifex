@@ -666,5 +666,78 @@ public class ParserTests
         Assert.Equal("Int", result.BaseType);
         Assert.IsType<BinaryOperationNode>(result.Expression);
     }
-}
 
+    // Struct parsing tests
+    [Fact]
+    public void Parse_StructDeclaration_ReturnsStructDeclNode()
+    {
+        var parser = CreateParser("struct Person { name: String, age: Int }");
+        var result = parser.StructDeclaration();
+        
+        Assert.IsType<StructDeclNode>(result);
+        Assert.Equal("Person", result.Name);
+        Assert.Equal(2, result.Fields.Count);
+        Assert.Equal("name", result.Fields[0].Name);
+        Assert.Equal("String", result.Fields[0].Type);
+        Assert.Equal("age", result.Fields[1].Name);
+        Assert.Equal("Int", result.Fields[1].Type);
+    }
+    
+    [Fact]
+    public void Parse_StructDeclarationWithTrailingComma_ReturnsStructDeclNode()
+    {
+        var parser = CreateParser("struct Point { x: Int, y: Int, }");
+        var result = parser.StructDeclaration();
+        
+        Assert.IsType<StructDeclNode>(result);
+        Assert.Equal("Point", result.Name);
+        Assert.Equal(2, result.Fields.Count);
+        Assert.Equal("x", result.Fields[0].Name);
+        Assert.Equal("Int", result.Fields[0].Type);
+        Assert.Equal("y", result.Fields[1].Name);
+        Assert.Equal("Int", result.Fields[1].Type);
+    }
+    
+    [Fact]
+    public void Parse_EmptyStructDeclaration_ReturnsEmptyStructDeclNode()
+    {
+        var parser = CreateParser("struct Empty { }");
+        var result = parser.StructDeclaration();
+        
+        Assert.IsType<StructDeclNode>(result);
+        Assert.Equal("Empty", result.Name);
+        Assert.Empty(result.Fields);
+    }
+    
+    [Fact]
+    public void Parse_MalformedStructDeclaration_RecoversProperly()
+    {
+        var parser = CreateParser("struct Malformed { name: String age: Int }");
+        var result = parser.StructDeclaration();
+        
+        Assert.IsType<StructDeclNode>(result);
+        Assert.Equal("Malformed", result.Name);
+        Assert.Equal(2, result.Fields.Count);
+        Assert.Equal("name", result.Fields[0].Name);
+        Assert.Equal("String", result.Fields[0].Type);
+        Assert.Equal("age", result.Fields[1].Name);
+        Assert.Equal("Int", result.Fields[1].Type);
+        Assert.NotEmpty(parser.Diagnostics); // Should report an error
+    }
+
+    [Fact]
+    public void Parse_StructAsItem_RecognizedInProgram()
+    {
+        var source = "struct User { id: Int, name: String }\nfn main() { }";
+        var parser = CreateParser(source);
+        var result = parser.Program();
+        
+        Assert.Equal(2, result.Nodes.Count);
+        Assert.IsType<StructDeclNode>(result.Nodes[0]);
+        Assert.IsType<FunctionDeclNode>(result.Nodes[1]);
+        
+        var structNode = (StructDeclNode)result.Nodes[0];
+        Assert.Equal("User", structNode.Name);
+        Assert.Equal(2, structNode.Fields.Count);
+    }
+}

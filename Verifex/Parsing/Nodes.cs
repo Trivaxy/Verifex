@@ -133,3 +133,15 @@ public class RefinedTypeDeclNode(string name, string baseType, AstNode expressio
     public readonly string BaseType = baseType;
     public readonly AstNode Expression = expression;
 }
+
+public class StructFieldNode(string name, string type) : AstNode
+{
+    public readonly string Name = name;
+    public readonly string Type = type;
+}
+
+public class StructDeclNode(string name, ReadOnlyCollection<StructFieldNode> fields) : AstNode
+{
+    public readonly string Name = name;
+    public readonly ReadOnlyCollection<StructFieldNode> Fields = fields;
+}
