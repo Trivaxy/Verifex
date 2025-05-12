@@ -1,9 +1,10 @@
 using Microsoft.Z3;
+using Verifex.CodeGen.Types;
 using Verifex.Parsing;
 
 namespace Verifex.Analysis;
 
-public class Z3Mapper(Context ctx, Dictionary<Symbol, Z3Expr> termMap)
+public class Z3Mapper(Context ctx, Dictionary<Symbol, Z3Expr> termMap, Dictionary<VerifexType, FuncDecl> toStringFuncDecls)
 {
     public Z3Expr ConvertExpr(AstNode node)
     {
@@ -51,7 +52,18 @@ public class Z3Mapper(Context ctx, Dictionary<Symbol, Z3Expr> termMap)
 
         switch (node.Operator.Type)
         {
-            case TokenType.Plus: return ctx.MkAdd((Z3ArithExpr)left, (Z3ArithExpr)right);
+            case TokenType.Plus:
+                if (node.FundamentalType is StringType)
+                {
+                    if (node.Left.FundamentalType is not StringType)
+                        left = ctx.MkApp(toStringFuncDecls[node.Left.FundamentalType!], left);
+                    if (node.Right.FundamentalType is not StringType)
+                        right = ctx.MkApp(toStringFuncDecls[node.Right.FundamentalType!], right);
+                    
+                    return ctx.MkConcat((Z3SeqExpr)left, (Z3SeqExpr)right);
+                }
+
+                return ctx.MkAdd((Z3ArithExpr)left, (Z3ArithExpr)right);
             case TokenType.Minus: return ctx.MkSub((Z3ArithExpr)left, (Z3ArithExpr)right);
             case TokenType.Star: return ctx.MkMul((Z3ArithExpr)left, (Z3ArithExpr)right);
             case TokenType.Slash: return ctx.MkDiv((Z3ArithExpr)left, (Z3ArithExpr)right);

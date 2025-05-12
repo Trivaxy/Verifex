@@ -12,6 +12,8 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
     private readonly Solver _solver;
     private readonly Z3Mapper _z3Mapper;
     private readonly UninterpretedSort _anySort;
+    private readonly UninterpretedSort _voidSort;
+    private readonly Dictionary<VerifexType, FuncDecl> _z3ToStringFuncDecls;
     private VerifexFunction _currentFunction = null!;
     private int _nextTermId;
     private readonly HashSet<BasicBlock> _visitedBlocks;
@@ -20,8 +22,10 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
     {
         _z3Ctx = new Context();
         _solver = _z3Ctx.MkSolver();
-        _z3Mapper = new Z3Mapper(_z3Ctx, _symbolsAsTerms);
         _anySort = _z3Ctx.MkUninterpretedSort("Any");
+        _voidSort = _z3Ctx.MkUninterpretedSort("Void");
+        _z3ToStringFuncDecls = CreateZ3ToStringFuncDecls(_z3Ctx, symbols);
+        _z3Mapper = new Z3Mapper(_z3Ctx, _symbolsAsTerms, _z3ToStringFuncDecls);
         _nextTermId = 0;
         _visitedBlocks = [];
     }
@@ -160,6 +164,20 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
         if (target.ResolvedType!.EffectiveType is not AnyType || (_symbolsAsTerms[target].Sort == value.Sort))
             _solver.Assert(_z3Ctx.MkEq(_symbolsAsTerms[target], value));
     }
+
+    private Sort AsSort(VerifexType type)
+    {
+        return type.FundamentalType switch
+        {
+            IntegerType => _z3Ctx.IntSort,
+            RealType => _z3Ctx.RealSort,
+            BoolType => _z3Ctx.BoolSort,
+            StringType => _z3Ctx.StringSort,
+            AnyType => _anySort,
+            VoidType => _voidSort,
+            _ => throw new NotImplementedException($"Type has no known sort: {type.Name}")
+        };
+    }
     
     // Generates a Z3 expression by substituting the given term into the 'value' in a refined type's constraint expression
     // If the refined type has another refined type as a base type, the expression is ANDed with the base type's constraint
@@ -168,7 +186,7 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
         RefinedTypeValueSymbol valueSymbol = Symbols.GetGlobalSymbol<RefinedTypeSymbol>(refinedType.Name).ValueSymbol;
         _symbolsAsTerms[valueSymbol] = term;
         
-        Z3Mapper mapper = new Z3Mapper(_z3Ctx, _symbolsAsTerms);
+        Z3Mapper mapper = new Z3Mapper(_z3Ctx, _symbolsAsTerms, _z3ToStringFuncDecls);
         Z3BoolExpr assertion = (mapper.ConvertExpr(refinedType.RawConstraint) as Z3BoolExpr)!;
         
         if (refinedType.BaseType.EffectiveType is RefinedType baseRefinedType)
@@ -212,6 +230,25 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
             return CreateTerm(node.ResolvedType, "t");
         
         return _z3Mapper.ConvertExpr(node);
+    }
+    
+    private Dictionary<VerifexType, FuncDecl> CreateZ3ToStringFuncDecls(Context ctx, SymbolTable symbols)
+    {
+        Dictionary<VerifexType, FuncDecl> funcDecls = [];
+        
+        foreach (VerifexType type in symbols.GetTypes())
+        {
+            if (type is not RefinedType)
+                funcDecls[type] = ctx.MkFuncDecl($"{type.Name}ToString", AsSort(type), ctx.StringSort);
+        }
+
+        foreach (VerifexType type in symbols.GetTypes())
+        {
+            if (type is not RefinedType) continue;
+            funcDecls[type] = funcDecls[type.FundamentalType]; // use the fundamental type's function decl
+        }
+        
+        return funcDecls;
     }
 
     public void Dispose()

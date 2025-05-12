@@ -88,6 +88,15 @@ public class SymbolTable
         throw new InvalidOperationException($"Type {name} not found");
     }
     
+    public IEnumerable<VerifexType> GetTypes()
+    {
+        foreach (Symbol symbol in GlobalScope.Symbols)
+        {
+            if (symbol is TypeSymbol typeSymbol && typeSymbol.ResolvedType != null)
+                yield return typeSymbol.ResolvedType;
+        }
+    }
+    
     public static SymbolTable CreateDefaultTable()
     {
         SymbolTable symbols = new();

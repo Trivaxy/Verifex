@@ -82,15 +82,22 @@ public class AssemblyGen : DefaultNodeVisitor
         Visit(node.Left);
         if (node.FundamentalType is RealType && node.Left.FundamentalType is IntegerType)
             EmitConversion(_symbolTable.GetType("Int"), _symbolTable.GetType("Real"));
+        else if (node.FundamentalType is StringType && node.Left.FundamentalType is not StringType)
+            EmitConversion(node.Left.FundamentalType!, _symbolTable.GetType("String"));
         
         Visit(node.Right);
         if (node.FundamentalType is RealType && node.Right.FundamentalType is IntegerType)
             EmitConversion(_symbolTable.GetType("Int"), _symbolTable.GetType("Real"));
+        else if (node.FundamentalType is StringType && node.Right.FundamentalType is not StringType)
+            EmitConversion(node.Right.FundamentalType!, _symbolTable.GetType("String"));
 
         switch (node.Operator.Type)
         {
             case TokenType.Plus:
-                _il.Emit(OpCodes.Add);
+                if (node.FundamentalType is StringType)
+                    _il.Emit(OpCodes.Call, typeof(string).GetMethod("Concat", [typeof(string), typeof(string)])!);
+                else
+                    _il.Emit(OpCodes.Add);
                 break;
             case TokenType.Minus:
                 _il.Emit(OpCodes.Sub);
@@ -294,11 +301,11 @@ public class AssemblyGen : DefaultNodeVisitor
     {
         if (from.IlType == to.IlType) return;
 
-        if (from.IlType != typeof(object) && to.IlType == typeof(object))
+        if (from.IlType.IsValueType && to.IlType == typeof(object))
             _il.Emit(OpCodes.Box, from.IlType);
         
         if (from.IlType != typeof(string) && to.IlType == typeof(string))
-            _il.Emit(OpCodes.Call, from.IlType.GetMethod("ToString")!);
+            _il.Emit(OpCodes.Call, typeof(Convert).GetMethod("ToString", [from.IlType])!);;
         
         if (from.IlType == typeof(int) && to.IlType == typeof(double))
             _il.Emit(OpCodes.Conv_R8);
