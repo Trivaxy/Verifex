@@ -81,7 +81,7 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
                 
                 case FunctionCallNode callNode:
                     FunctionSymbol function = (callNode.Callee.Symbol as FunctionSymbol)!;
-                    for (int i = 0; i < callNode.Arguments.Count; i++)
+                    for (int i = 0; i < Math.Min(callNode.Arguments.Count, function.Function.Parameters.Count); i++)
                     {
                         AstNode argument = callNode.Arguments[i];
                         ParameterInfo param = function.Function.Parameters[i];
