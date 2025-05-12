@@ -20,34 +20,34 @@ public class BasicTypeMismatchPass(SymbolTable symbols) : VerificationPass(symbo
 
         if (node.Operator.Type.IsBoolOp())
         {
-            if (leftType.Name != "Bool")
+            if (leftType.FundamentalType is not BoolType)
                 LogDiagnostic(new TypeCannotDoBoolOps(leftType.Name) { Location = node.Left.Location });
             
-            if (rightType.Name != "Bool")
+            if (rightType.FundamentalType is not BoolType)
                 LogDiagnostic(new TypeCannotDoBoolOps(rightType.Name) { Location = node.Right.Location });
         }
         else if (node.Operator.Type.IsComparisonOp())
         {
-            if (node.Operator.Type is TokenType.EqualEqual or TokenType.NotEqual)
-            {
-                if (leftType != rightType)
-                    LogDiagnostic(new BinaryOpTypeMismatch(node.Operator.ToString(), leftType.Name, rightType.Name) { Location = node.Location });
-            }
+            if (leftType.FundamentalType != rightType.FundamentalType)
+                LogDiagnostic(new BinaryOpTypeMismatch(node.Operator.ToString(), leftType.Name, rightType.Name) { Location = node.Location });
             else
             {
-                if (leftType.Name != "Int" && leftType.Name != "Real")
+                if (!TypeSupportsArithmetic(leftType))
                     LogDiagnostic(new TypeCannotDoComparison(leftType.Name) { Location = node.Left.Location });
             
-                if (rightType.Name != "Int" && rightType.Name != "Real")
+                if (!TypeSupportsArithmetic(rightType))
                     LogDiagnostic(new TypeCannotDoComparison(rightType.Name) { Location = node.Right.Location });
             }
         }
-        else
+        else if (node.Operator.Type.IsArithmeticOp())
         {
+            if (node.Operator.Type == TokenType.Plus && (leftType.IlType == typeof(string) || rightType.IlType == typeof(string)))
+                return;
+            
             switch (TypeSupportsArithmetic(leftType), TypeSupportsArithmetic(rightType))
             {
                 case (true, true):
-                    if (leftType != rightType)
+                    if (leftType.IlType != rightType.IlType)
                         LogDiagnostic(new BinaryOpTypeMismatch(node.Operator.ToString(), leftType.Name, rightType.Name) { Location = node.Location });
                     break;
                 case (false, true):
@@ -115,5 +115,5 @@ public class BasicTypeMismatchPass(SymbolTable symbols) : VerificationPass(symbo
             LogDiagnostic(new ConditionMustBeBool("while") { Location = node.Condition.Location });
     }
 
-    private static bool TypeSupportsArithmetic(VerifexType type) => type.Name is "Int" or "Real";
+    private static bool TypeSupportsArithmetic(VerifexType type) => type.FundamentalType is IntegerType or RealType;
 }

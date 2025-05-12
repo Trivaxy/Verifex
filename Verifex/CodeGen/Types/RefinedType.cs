@@ -12,4 +12,6 @@ public class RefinedType(string name, VerifexType baseType, AstNode rawConstrain
     public AstNode RawConstraint { get; } = rawConstraint;
     
     public override TypeInfo IlType => BaseType.IlType;
+    
+    public override VerifexType FundamentalType => BaseType.FundamentalType;
 }

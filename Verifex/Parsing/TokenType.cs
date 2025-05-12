@@ -101,4 +101,7 @@ public static class TokenTypeExtensions
     public static bool IsComparisonOp(this TokenType token)
         => token is TokenType.GreaterThan or TokenType.LessThan or TokenType.GreaterThanOrEqual
             or TokenType.LessThanOrEqual or TokenType.EqualEqual or TokenType.NotEqual;
+    
+    public static bool IsArithmeticOp(this TokenType token)
+        => token is TokenType.Plus or TokenType.Minus or TokenType.Star or TokenType.Slash;
 }

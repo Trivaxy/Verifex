@@ -13,39 +13,47 @@ public class TypeAnnotationPass(SymbolTable symbols) : VerificationPass(symbols)
         if (node.Left.ResolvedType == null || node.Right.ResolvedType == null)
             return;
 
-        if (node.Operator.Type.IsBoolOp() && node.Left.ResolvedType.EffectiveType is BoolType && node.Right.ResolvedType.EffectiveType is BoolType)
+        if (node.Operator.Type.IsBoolOp() && node.Left.FundamentalType is BoolType && node.Right.FundamentalType is BoolType)
         {
             node.ResolvedType = Symbols.GetType("Bool");
             return;
         }
         
-        if (node.Operator.Type is TokenType.EqualEqual or TokenType.NotEqual && node.Left.ResolvedType == node.Right.ResolvedType)
+        if (node.Operator.Type is TokenType.EqualEqual or TokenType.NotEqual && node.Left.FundamentalType == node.Right.FundamentalType)
         {
             node.ResolvedType = Symbols.GetType("Bool");
             return;
         }
         
         if (node.Operator.Type.IsComparisonOp()
-            && node.Left.ResolvedType.EffectiveType is IntegerType or RealType && node.Right.ResolvedType.EffectiveType is IntegerType or RealType)
+            && node.Left.FundamentalType == node.Right.FundamentalType
+            && node.Left.FundamentalType is IntegerType or RealType
+            && node.Right.FundamentalType is IntegerType or RealType)
         {
             node.ResolvedType = Symbols.GetType("Bool");
             return;
         }
 
-        VerifexType left = node.Left.ResolvedType.EffectiveType;
-        VerifexType right = node.Right.ResolvedType.EffectiveType;
+        VerifexType left = node.Left.ResolvedType;
+        VerifexType right = node.Right.ResolvedType;
         
-        // if the types are not the same, but they are both a subtype of the same base type, use the right base type
-        if (left != right && left.IlType == right.IlType)
+        // string concat
+        if (node.Operator.Type == TokenType.Plus)
         {
-            Type baseIlType = left.IlType;
-            if (baseIlType == typeof(int))
-                node.ResolvedType = Symbols.GetType("Int");
-            else if (baseIlType == typeof(double))
-                node.ResolvedType = Symbols.GetType("Real");
+            if (left.FundamentalType is StringType || right.FundamentalType is StringType)
+            {
+                node.ResolvedType = Symbols.GetType("String");
+                return;
+            }
         }
-        else if (node.Left.ResolvedType.EffectiveType == node.Right.ResolvedType.EffectiveType)
-            node.ResolvedType = node.Left.ResolvedType;
+        
+        if (node.Operator.Type.IsArithmeticOp()
+            && left.FundamentalType == right.FundamentalType 
+            && left.FundamentalType is IntegerType or RealType
+            && right.FundamentalType is IntegerType or RealType)
+            node.ResolvedType = left.FundamentalType;
+
+        // if none of the above, we have a type mismatch so ResolvedType stays null
     }
 
     protected override void Visit(MinusNegationNode node)

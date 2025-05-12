@@ -11,6 +11,8 @@ public abstract class VerifexType : IEquatable<VerifexType>
     
     public virtual VerifexType EffectiveType => this;
 
+    public abstract VerifexType FundamentalType { get; }
+
     public static VerifexType Delayed(Func<VerifexType> resolver) => new DelayedType(resolver);
 
     public override bool Equals(object? obj)
@@ -66,6 +68,15 @@ public abstract class VerifexType : IEquatable<VerifexType>
             {
                 EnsureResolved();
                 return _resolvedType!.EffectiveType;
+            }
+        }
+        
+        public override VerifexType FundamentalType
+        {
+            get
+            {
+                EnsureResolved();
+                return _resolvedType!.FundamentalType;
             }
         }
 

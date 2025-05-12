@@ -16,6 +16,10 @@ public abstract class AstNode
         get => _explicitType ?? Symbol?.ResolvedType;
         set => _explicitType = value;
     }
+    
+    public VerifexType? EffectiveType => ResolvedType?.EffectiveType;
+    
+    public VerifexType? FundamentalType => ResolvedType?.FundamentalType;
 }
 
 public class BinaryOperationNode(Token operatorToken, AstNode left, AstNode right) : AstNode

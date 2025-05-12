@@ -213,12 +213,6 @@ public class VerificationPassTests
             Assert.Equal("Real", diagnostic.RightType);
             Assert.Equal(DiagnosticLevel.Error, diagnostic.Level);
         });
-        
-        // Check for the type that cannot do arithmetic (String)
-        AssertHasDiagnostic<TypeCannotDoArithmetic>(typeMismatchPass, diagnostic => {
-            Assert.Equal("String", diagnostic.Type);
-            Assert.Equal(DiagnosticLevel.Error, diagnostic.Level);
-        });
     }
 
     [Fact]
@@ -437,15 +431,11 @@ public class VerificationPassTests
         
         // Find all TypeCannotDoComparison diagnostics
         var comparisonErrors = passes
-            .SelectMany(p => p.Diagnostics)
-            .OfType<TypeCannotDoComparison>()
+            .SelectMany(p => p.Diagnostics.Where(d => d is TypeCannotDoComparison or BinaryOpTypeMismatch))
             .ToList();
         
-        // Should have three errors: two for String type and one for Bool type
-        Assert.Equal(3, comparisonErrors.Count);
-        
-        Assert.Equal(2, comparisonErrors.Count(error => error.Type == "String"));
-        Assert.Equal(1, comparisonErrors.Count(error => error.Type == "Bool"));
+        Assert.Equal(2, comparisonErrors.Count(error => error is TypeCannotDoComparison));
+        Assert.Equal(1, comparisonErrors.Count(error => error is BinaryOpTypeMismatch));
         
         // Verify diagnostic level
         Assert.All(comparisonErrors, error => Assert.Equal(DiagnosticLevel.Error, error.Level));
