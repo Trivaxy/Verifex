@@ -41,7 +41,7 @@ public record CompileDiagnostic(DiagnosticLevel Level, string Message)
           .Append(" | ")
           .Append(line)
           .Append('\n')
-          .Append("   | ")
+          .Append("  | ")
           .Append(' ', columnOffset)
           .Append('~', underlineLength);
 
