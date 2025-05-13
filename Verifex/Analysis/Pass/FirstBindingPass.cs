@@ -1,9 +1,10 @@
+using Verifex.CodeGen.Types;
 using Verifex.Parsing;
 
 namespace Verifex.Analysis.Pass;
 
-// Creates symbols and attaches them to AST nodes, and completes top-level symbols which were gathered earlier
-public class BindingPass(SymbolTable symbols) : VerificationPass(symbols)
+// Creates symbols and attaches them to AST nodes (except member accesses & struct initializers), and completes top-level symbols which were gathered earlier
+public class FirstBindingPass(SymbolTable symbols) : VerificationPass(symbols)
 {
     private int _nextLocalIndex;
     private int _nextParameterIndex;
@@ -107,4 +108,8 @@ public class BindingPass(SymbolTable symbols) : VerificationPass(symbols)
 
         _currentValueSymbol = null;
     }
+
+    protected override void Visit(InitializerNode node) => Visit(node.InitializerList);
+    
+    protected override void Visit(InitializerFieldNode node) => Visit(node.Value);
 }

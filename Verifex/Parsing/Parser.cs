@@ -30,7 +30,15 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
         { TokenType.Not, (parser, _) => new NotNegationNode(parser.Expression(0)) },
         { TokenType.Plus, (parser, _) => parser.Expression(0) },
         { TokenType.Number, (parser, token) => new NumberNode(parser.Fetch(token).ToString()) { Location = token.Range } },
-        { TokenType.Identifier, (parser, token) => new IdentifierNode(parser.Fetch(token).ToString()) { Location = token.Range } },
+        { TokenType.Identifier, (parser, token) =>
+        {
+            IdentifierNode identifier = new IdentifierNode(parser.Fetch(token).ToString()) { Location = token.Range };
+            if (parser.Peek().Type != TokenType.LeftCurlyBrace) return identifier;
+            
+            InitializerListNode initializerList = parser.Do(parser.InitializerList);
+            return new InitializerNode(identifier, initializerList);
+
+        } },
         { TokenType.Bool, (parser, token) => new BoolLiteralNode(bool.Parse(parser.Fetch(token).ToString())) { Location = token.Range } },
         { TokenType.String, (parser, token) => new StringLiteralNode(ProcessEscapes(parser.Fetch(token).ToString()[1..^1])) { Location = token.Range } },
         { TokenType.LeftParenthesis, (parser, _) =>
@@ -73,6 +81,13 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
             parser.Expect(TokenType.RightParenthesis);
 
             return new FunctionCallNode(left, parameters.AsReadOnly());
+        } },
+        { TokenType.Dot, (parser, left, _) =>
+        {
+            Token identifier = parser.Expect(TokenType.Identifier);
+            IdentifierNode member = new IdentifierNode(parser.Fetch(identifier).ToString()) { Location = identifier.Range };
+            
+            return new MemberAccessNode(left, member);
         } }
     };
 
@@ -90,7 +105,8 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
         { TokenType.Minus, 5 },
         { TokenType.Star, 6 },
         { TokenType.Slash, 6 },
-        { TokenType.LeftParenthesis, 10 }
+        { TokenType.LeftParenthesis, 10 },
+        { TokenType.Dot, 11 },
     };
 
     public ProgramNode Program()
@@ -128,55 +144,30 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
     {
         TokenType peekedTokenType = tokens.Peek().Type;
         
-        AstNode statement = Do<AstNode>(peekedTokenType switch
+        AstNode? statement = Do<AstNode>(peekedTokenType switch
         {
             TokenType.Let => LetDeclaration,
             TokenType.Mut => MutDeclaration,
-            TokenType.Identifier => () =>
-            {
-                var identToken = tokens.Next();
-                var identifierName = Fetch(identToken).ToString();
-                
-                if (tokens.Peek().Type == TokenType.Equals)
-                {
-                    tokens.Next(); // consume equals
-                    var ident = new IdentifierNode(identifierName) { Location = identToken.Range };
-                    var value = Do(Expression);
-                    return new AssignmentNode(ident, value);
-                }
-                else
-                {
-                    // This is a function call or another expression starting with an identifier
-                    var ident = new IdentifierNode(identifierName) { Location = identToken.Range };
-
-                    if (tokens.Peek().Type == TokenType.LeftParenthesis)
-                    {
-                        tokens.Next(); // consume left parenthesis
-
-                        List<AstNode> parameters = [];
-                        if (tokens.Peek().Type != TokenType.RightParenthesis)
-                        {
-                            parameters.Add(Do(Expression));
-
-                            while (tokens.Peek().Type == TokenType.Comma)
-                            {
-                                tokens.Next(); // consume comma
-                                parameters.Add(Do(Expression));
-                            }
-                        }
-
-                        Expect(TokenType.RightParenthesis);
-                        return new FunctionCallNode(ident, parameters.AsReadOnly());
-                    }
-
-                    ThrowError(new ExpectedToken("statement") { Location = identToken.Range });
-                    return ident; // unreachable
-                }
-            },
             TokenType.Return => Return,
             TokenType.If => IfStatement,
             TokenType.While => WhileStatement,
-            _ => () => ThrowError(new UnexpectedToken(Fetch(tokens.Peek()).ToString()) { Location = tokens.Peek().Range })
+            _ => () =>
+            {
+                if (PrefixParsers.ContainsKey(peekedTokenType))
+                {
+                    AstNode target = Do(Expression);
+                    
+                    if (target is FunctionCallNode && !InfixParsers.ContainsKey(tokens.Peek().Type))
+                        return target;
+                    
+                    Expect(TokenType.Equals);
+                    AstNode value = Do(Expression);
+                    
+                    return new AssignmentNode(target, value);
+                }
+
+                return ThrowError(new UnexpectedToken(Fetch(tokens.Peek()).ToString()) { Location = tokens.Peek().Range });
+            }
         });
 
         // Don't expect a semicolon for if/while statements - they end with blocks
@@ -381,7 +372,7 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
             else if (tokens.Peek().Type != TokenType.RightCurlyBrace)
             {
                 LogDiagnostic(new ExpectedToken(", or }") { Location = tokens.Peek().Range });
-                Synchronize(ParameterSyncTokens);
+                Synchronize(StructFieldSyncTokens);
             }
         }
         
@@ -397,6 +388,45 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
         Token fieldType = Expect(TokenType.Identifier);
         
         return new StructFieldNode(Fetch(fieldName).ToString(), Fetch(fieldType).ToString());
+    }
+
+    public InitializerListNode InitializerList()
+    {
+        Expect(TokenType.LeftCurlyBrace);
+        
+        List<InitializerFieldNode> values = [];
+        while (tokens.Peek().Type != TokenType.RightCurlyBrace && tokens.Peek().Type != TokenType.EOF)
+        {
+            InitializerFieldNode? field = DoSafe(InitializerField, StructFieldSyncTokens);
+            if (field is not null)
+                values.Add(field);
+            
+            if (tokens.Peek().Type == TokenType.Comma)
+                tokens.Next(); // consume the comma
+            else if (tokens.Peek().Type != TokenType.RightCurlyBrace)
+            {
+                LogDiagnostic(new ExpectedToken(", or }") { Location = tokens.Peek().Range });
+                Synchronize(StructFieldSyncTokens);
+            }
+        }
+        
+        Expect(TokenType.RightCurlyBrace);
+        return new InitializerListNode(values.AsReadOnly());
+    }
+
+    public InitializerFieldNode InitializerField()
+    {
+        IdentifierNode name = Do(Identifier);
+        Expect(TokenType.Colon);
+        AstNode value = Do(Expression);
+        
+        return new InitializerFieldNode(name, value);
+    }
+
+    public IdentifierNode Identifier()
+    {
+        Token identifier = Expect(TokenType.Identifier);
+        return new IdentifierNode(Fetch(identifier).ToString()) { Location = identifier.Range };
     }
 
     public AstNode Expression() => Expression(0);
@@ -426,7 +456,7 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
         T node = parser();
         var end = tokens.Current.Range.End;
         
-        // don't set location if the node is a single token, whose location is set in the prefix parsers
+        // don't set location if the node is a single token, those set location themselves
         if (node.Location.Start.Value == 0 && node.Location.End.Value == 0) 
             node.Location = start..end;
         

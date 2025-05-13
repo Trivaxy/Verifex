@@ -42,4 +42,41 @@ public class TopLevelGatheringPass(SymbolTable symbols) : VerificationPass(symbo
         else
             node.Symbol = refined;
     }
+    
+    protected override void Visit(StructDeclNode node)
+    {
+        Dictionary<string, StructFieldSymbol> fields = [];
+        foreach (StructFieldNode fieldNode in node.Fields)
+        {
+            if (fields.ContainsKey(fieldNode.Name))
+            {
+                LogDiagnostic(new DuplicateField(fieldNode.Name) { Location = fieldNode.Location });
+                continue;
+            }
+            
+            fieldNode.Symbol = new StructFieldSymbol()
+            {
+                DeclaringNode = fieldNode,
+                Name = fieldNode.Name,
+                ResolvedType = VerifexType.Delayed(() => Symbols.GetType(fieldNode.Type)),
+            };
+            
+            fields.Add(fieldNode.Symbol.Name, (fieldNode.Symbol as StructFieldSymbol)!);
+        }
+
+        StructSymbol structSymbol = new StructSymbol()
+        {
+            DeclaringNode = node,
+            Name = node.Name,
+            ResolvedType = new StructType(node.Name,
+                node.Fields.Select(f => new FieldInfo(f.Name, VerifexType.Delayed(() => Symbols.GetType(f.Type))))
+                    .ToDictionary(f => f.Name).AsReadOnly()),
+            Fields = fields.AsReadOnly(),
+        };
+
+        if (!Symbols.TryAddGlobalSymbol(structSymbol))
+            LogDiagnostic(new DuplicateTopLevelSymbol(structSymbol.Name) { Location = node.Location });
+        else
+            node.Symbol = structSymbol;
+    }
 }

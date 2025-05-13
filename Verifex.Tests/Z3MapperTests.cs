@@ -9,7 +9,7 @@ public class Z3MapperTests
 {
     private readonly Context _ctx = new();
 
-    private Z3Mapper CreateMapper(Dictionary<Symbol, Z3Expr>? map = null) => new Z3Mapper(_ctx, map ?? new(), null);
+    private Z3Mapper CreateMapper(Dictionary<Symbol, Z3Expr>? map = null) => new Z3Mapper(_ctx, _ctx.MkSolver(), [], SymbolTable.CreateDefaultTable());
 
     private static NumberNode IntNode(int value) => new NumberNode(value.ToString());
     

@@ -109,8 +109,23 @@ public record ConditionMustBeBool(string StatementType)
 public record ImmutableVarReassignment(string VarName)
     : CompileDiagnostic(DiagnosticLevel.Error, $"cannot reassign to immutable variable '{VarName}'");
 
-public record AssignmentTypeMismatch(string VarName, string ExpectedType, string ActualType)
-    : CompileDiagnostic(DiagnosticLevel.Error, $"cannot assign value of type '{ActualType}' to variable '{VarName}' of type '{ExpectedType}'");
+public record AssignmentTypeMismatch(string ExpectedType, string ActualType)
+    : CompileDiagnostic(DiagnosticLevel.Error, $"cannot assign value of type '{ActualType}' to '{ExpectedType}'");
+
+public record DuplicateField(string FieldName)
+    : CompileDiagnostic(DiagnosticLevel.Error, $"duplicate field '{FieldName}' in struct");
+
+public record MemberAccessOnNonStruct(string Type, string MemberName)
+    : CompileDiagnostic(DiagnosticLevel.Error, $"type '{Type}' does not have member '{MemberName}'");
+
+public record UnknownStructField(string StructTypeName, string MemberIdentifier)
+    : CompileDiagnostic(DiagnosticLevel.Error, $"struct '{StructTypeName}' does not have field '{MemberIdentifier}'");
+
+public record TypeCannotHaveInitializer(string Type)
+    : CompileDiagnostic(DiagnosticLevel.Error, $"type '{Type}' cannot have an initializer, as it is not a struct");
+
+public record InitializerFieldTypeMismatch(string FieldName, string ExpectedType, string ActualType)
+    : CompileDiagnostic(DiagnosticLevel.Error, $"field '{FieldName}' has type '{ExpectedType}', but got '{ActualType}'");
 
 public enum DiagnosticLevel
 {

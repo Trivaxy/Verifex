@@ -62,4 +62,7 @@ public class RefinedTypeValueSymbol : Symbol;
 
 public class StructSymbol : TypeSymbol
 {
+    public required ReadOnlyDictionary<string, StructFieldSymbol> Fields { get; init; }
 }
+
+public class StructFieldSymbol : Symbol;

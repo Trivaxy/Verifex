@@ -101,7 +101,7 @@ public class TokenizerTests
     public void TokenStream_Operators_ReturnsCorrectTokens()
     {
         // Arrange
-        var tokenStream = new TokenStream("+ - * / = : ; , ( ) { } > < >= <= == != && || ! & |");
+        var tokenStream = new TokenStream("+ - * / = : ; , ( ) { } > < >= <= == != && || ! & | .");
         
         // Act & Assert
         Assert.Equal(TokenType.Plus, tokenStream.Next().Type);
@@ -127,6 +127,7 @@ public class TokenizerTests
         Assert.Equal(TokenType.Not, tokenStream.Next().Type);
         Assert.Equal(TokenType.BitwiseAnd, tokenStream.Next().Type);
         Assert.Equal(TokenType.BitwiseOr, tokenStream.Next().Type);
+        Assert.Equal(TokenType.Dot, tokenStream.Next().Type);
     }
     
     [Fact]

@@ -25,6 +25,7 @@ public class TokenStream
         ['!'] = TokenType.Not,
         ['&'] = TokenType.BitwiseAnd,
         ['|'] = TokenType.BitwiseOr,
+        ['.'] = TokenType.Dot,
     };
 
     public TokenStream(string source)

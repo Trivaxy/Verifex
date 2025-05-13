@@ -28,11 +28,19 @@ public class BasicTypeMismatchPass(SymbolTable symbols) : VerificationPass(symbo
         }
         else if (node.Operator.Type.IsComparisonOp())
         {
-            if (!TypeSupportsArithmetic(leftType))
-                LogDiagnostic(new TypeCannotDoComparison(leftType.Name) { Location = node.Left.Location });
+            if (node.Operator.Type is TokenType.EqualEqual or TokenType.NotEqual)
+            {
+                if (leftType.FundamentalType != rightType.FundamentalType)
+                    LogDiagnostic(new BinaryOpTypeMismatch(node.Operator.Type.ToSimpleString(), leftType.Name, rightType.Name) { Location = node.Location });
+            }
+            else
+            {
+                if (!TypeSupportsArithmetic(leftType))
+                    LogDiagnostic(new TypeCannotDoComparison(leftType.Name) { Location = node.Left.Location });
             
-            if (!TypeSupportsArithmetic(rightType))
-                LogDiagnostic(new TypeCannotDoComparison(rightType.Name) { Location = node.Right.Location });
+                if (!TypeSupportsArithmetic(rightType))
+                    LogDiagnostic(new TypeCannotDoComparison(rightType.Name) { Location = node.Right.Location });
+            }
         }
         else if (node.Operator.Type.IsArithmeticOp())
         {

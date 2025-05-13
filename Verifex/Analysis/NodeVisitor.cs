@@ -22,6 +22,12 @@ public abstract class NodeVisitor
     protected abstract void Visit(AssignmentNode node);
     protected abstract void Visit(WhileNode node);
     protected abstract void Visit(RefinedTypeDeclNode node);
+    protected abstract void Visit(StructDeclNode node);
+    protected abstract void Visit(StructFieldNode node);
+    protected abstract void Visit(MemberAccessNode node);
+    protected abstract void Visit(InitializerNode node);
+    protected abstract void Visit(InitializerListNode node);
+    protected abstract void Visit(InitializerFieldNode node);
     
     public virtual void Visit(AstNode node)
     {
@@ -80,6 +86,24 @@ public abstract class NodeVisitor
                 break;
             case RefinedTypeDeclNode refinedTypeDeclNode:
                 Visit(refinedTypeDeclNode);
+                break;
+            case StructDeclNode structDeclNode:
+                Visit(structDeclNode);
+                break;
+            case StructFieldNode structFieldNode:
+                Visit(structFieldNode);
+                break;
+            case MemberAccessNode memberAccessNode:
+                Visit(memberAccessNode);
+                break;
+            case InitializerNode initializerNode:
+                Visit(initializerNode);
+                break;
+            case InitializerListNode initializerListNode:
+                Visit(initializerListNode);
+                break;
+            case InitializerFieldNode initializerFieldNode:
+                Visit(initializerFieldNode);
                 break;
         }
     }

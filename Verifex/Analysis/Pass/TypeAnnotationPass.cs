@@ -106,4 +106,46 @@ public class TypeAnnotationPass(SymbolTable symbols) : VerificationPass(symbols)
         
         node.Symbol!.ResolvedType = typeSymbol!.ResolvedType;
     }
+
+    protected override void Visit(StructFieldNode node)
+    {
+        base.Visit(node);
+        
+        if (!Symbols.TryLookupGlobalSymbol(node.Type, out TypeSymbol? typeSymbol))
+            LogDiagnostic(new UnknownType(node.Type) { Location = node.Location });
+    }
+
+    protected override void Visit(InitializerNode node)
+    {
+        if (!Symbols.TryLookupGlobalSymbol(node.Type.Identifier, out TypeSymbol? typeSymbol))
+        {
+            LogDiagnostic(new UnknownType(node.Type.Identifier) { Location = node.Location });
+            return;
+        }
+        
+        if (typeSymbol is not StructSymbol structSymbol)
+        {
+            LogDiagnostic(new TypeCannotHaveInitializer(node.Type.Identifier) { Location = node.Location });
+            return;
+        }
+
+        node.ResolvedType = structSymbol.ResolvedType;
+        Visit(node.InitializerList);
+    }
+    
+    protected override void Visit(InitializerFieldNode node)
+    {
+        Visit(node.Value);
+    }
+
+    protected override void Visit(MemberAccessNode node)
+    {
+        Visit(node.Target);
+        
+        // don't report those errors, the binding pass catches them
+        if (node.Target.ResolvedType?.EffectiveType is not StructType structType) return;
+        if (!structType.Fields.TryGetValue(node.Member.Identifier, out FieldInfo? field)) return;
+
+        node.ResolvedType = field.Type;
+    }
 }

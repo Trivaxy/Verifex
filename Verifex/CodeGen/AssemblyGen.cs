@@ -268,13 +268,25 @@ public class AssemblyGen : DefaultNodeVisitor
 
     protected override void Visit(AssignmentNode node)
     {
-        Visit(node.Value);
-        EmitConversion(node.Value.ResolvedType!, node.Target.ResolvedType!);
-        
-        if (node.Target.Symbol is LocalVarSymbol local)
+        if (node.Target is IdentifierNode)
+        {
+            LocalVarSymbol local = (node.Target.Symbol as LocalVarSymbol)!;
+            
+            Visit(node.Value);
+            EmitConversion(node.Value.ResolvedType!, node.Target.ResolvedType!);
             _il.Emit(local.IsParameter ? OpCodes.Starg : OpCodes.Stloc, local.Index);
-        else
-            throw new InvalidOperationException("Assignment target must be a local variable or parameter");
+        }
+        else // this is a struct
+        {
+            Visit((node.Target as MemberAccessNode)!.Target);
+            _il.Emit(OpCodes.Ldstr, (node.Target as MemberAccessNode)!.Member.Identifier);
+            
+            Visit(node.Value);
+            EmitConversion(node.Value.ResolvedType!, node.Target.ResolvedType!); // convert to the target type
+            EmitConversion(node.Target.ResolvedType!, _symbolTable.GetType("Any")); // then box
+            
+            _il.Emit(OpCodes.Call, typeof(Dictionary<string, object>).GetMethod("set_Item", [typeof(string), typeof(object)])!);
+        }
     }
 
     protected override void Visit(WhileNode node)
@@ -296,6 +308,31 @@ public class AssemblyGen : DefaultNodeVisitor
     {
         // no-op
     }
+
+    protected override void Visit(InitializerNode node)
+    {
+        _il.Emit(OpCodes.Newobj, typeof(Dictionary<string, object>).GetConstructor(Type.EmptyTypes)!);
+        
+        foreach (InitializerFieldNode field in node.InitializerList.Values)
+        {
+            _il.Emit(OpCodes.Dup);
+            _il.Emit(OpCodes.Ldstr, field.Name.Identifier);
+            Visit(field.Value);
+            EmitConversion(field.Value.ResolvedType!, field.Name.ResolvedType!); // convert to the field type
+            EmitConversion(field.Name.ResolvedType!, _symbolTable.GetType("Any")); // then box
+            _il.Emit(OpCodes.Call, typeof(Dictionary<string, object>).GetMethod("Add", [typeof(string), typeof(object)])!);
+        }
+    }
+
+    protected override void Visit(MemberAccessNode node)
+    {
+        Visit(node.Target);
+        
+        _il.Emit(OpCodes.Ldstr, node.Member.Identifier);
+        _il.Emit(OpCodes.Call, typeof(Dictionary<string, object>).GetMethod("get_Item", [typeof(string)])!);
+        
+        EmitConversion(_symbolTable.GetType("Any"), node.ResolvedType!);
+    }
     
     private void EmitConversion(VerifexType from, VerifexType to)
     {
@@ -309,6 +346,9 @@ public class AssemblyGen : DefaultNodeVisitor
         
         if (from.IlType == typeof(int) && to.IlType == typeof(double))
             _il.Emit(OpCodes.Conv_R8);
+
+        if (from.IlType == typeof(object))
+            _il.Emit(to.IlType.IsValueType ? OpCodes.Unbox_Any : OpCodes.Castclass, to.IlType);
     }
 
     public void Save(string path)

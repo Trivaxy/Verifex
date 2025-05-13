@@ -43,6 +43,7 @@ public enum TokenType : byte
     Type,
     Where,
     Struct,
+    Dot,
 }
 
 public static class TokenTypeExtensions
@@ -92,11 +93,12 @@ public static class TokenTypeExtensions
             TokenType.Type => "type",
             TokenType.Where => "where",
             TokenType.Struct => "struct",
+            TokenType.Dot => ".",
             _ => throw new ArgumentOutOfRangeException(nameof(token), token, null)
         };
     }
     
-    public static bool IsBoolOp(this TokenType token) => token is TokenType.And or TokenType.Or;
+    public static bool IsBoolOp(this TokenType token) => token is TokenType.And or TokenType.Or or TokenType.Not;
     
     public static bool IsComparisonOp(this TokenType token)
         => token is TokenType.GreaterThan or TokenType.LessThan or TokenType.GreaterThanOrEqual

@@ -18,9 +18,10 @@ public abstract class VerificationPass(SymbolTable symbols) : DefaultNodeVisitor
         return
         [
             new TopLevelGatheringPass(symbols),
-            new BindingPass(symbols),
+            new FirstBindingPass(symbols),
             new PrimitiveTypeAnnotationPass(symbols),
             new TypeAnnotationPass(symbols),
+            new SecondBindingPass(symbols),
             new BasicTypeMismatchPass(symbols),
             new RefinedTypeMismatchPass(symbols),
             new MutationCheckPass(symbols),

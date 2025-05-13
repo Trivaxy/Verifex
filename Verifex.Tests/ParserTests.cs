@@ -329,8 +329,43 @@ public class ParserTests
         var result = parser.Statement();
         
         Assert.IsType<AssignmentNode>(result);
-        Assert.Equal("x", ((AssignmentNode)result).Target.Identifier);
+        Assert.IsType<IdentifierNode>(((AssignmentNode)result).Target);
+        Assert.Equal("x", ((IdentifierNode)((AssignmentNode)result).Target).Identifier);
         Assert.IsType<NumberNode>(((AssignmentNode)result).Value);
+    }
+
+    [Fact]
+    public void Parse_Assignment_WithMemberAccess()
+    {
+        var parser = CreateParser("x.foo().y = 42;");
+        var result = parser.Statement();
+        
+        Assert.IsType<AssignmentNode>(result);
+        var assignment = (AssignmentNode)result;
+        
+        // Check the target is a member access 
+        Assert.IsType<MemberAccessNode>(assignment.Target);
+        var memberAccess = (MemberAccessNode)assignment.Target;
+        
+        // Check the member access target is a function call
+        Assert.IsType<FunctionCallNode>(memberAccess.Target);
+        var functionCall = (FunctionCallNode)memberAccess.Target;
+        
+        // Check the function call is on a member access
+        Assert.IsType<MemberAccessNode>(functionCall.Callee);
+        var innerMemberAccess = (MemberAccessNode)functionCall.Callee;
+        
+        // Check the base object and function name
+        Assert.IsType<IdentifierNode>(innerMemberAccess.Target);
+        Assert.Equal("x", ((IdentifierNode)innerMemberAccess.Target).Identifier);
+        Assert.Equal("foo", innerMemberAccess.Member.Identifier);
+        
+        // Check the final member being accessed
+        Assert.Equal("y", memberAccess.Member.Identifier);
+        
+        // Check the assigned value
+        Assert.IsType<NumberNode>(assignment.Value);
+        Assert.Equal("42", ((NumberNode)assignment.Value).Value);
     }
     
     // Program tests
@@ -740,4 +775,141 @@ public class ParserTests
         Assert.Equal("User", structNode.Name);
         Assert.Equal(2, structNode.Fields.Count);
     }
+
+    [Fact]
+    public void Parse_MemberAccess_ReturnsMemberAccessNode()
+    {
+        var result = ParseExpression("obj.field");
+        
+        Assert.IsType<MemberAccessNode>(result);
+        var memberAccess = (MemberAccessNode)result;
+        
+        Assert.IsType<IdentifierNode>(memberAccess.Target);
+        Assert.Equal("obj", ((IdentifierNode)memberAccess.Target).Identifier);
+        
+        Assert.IsType<IdentifierNode>(memberAccess.Member);
+        Assert.Equal("field", memberAccess.Member.Identifier);
+    }
+    
+    [Fact]
+    public void Parse_ChainedMemberAccess_ReturnsMemberAccessNode()
+    {
+        var result = ParseExpression("obj.field1.field2");
+        
+        Assert.IsType<MemberAccessNode>(result);
+        var memberAccess = (MemberAccessNode)result;
+        
+        Assert.IsType<MemberAccessNode>(memberAccess.Target);
+        var innerMemberAccess = (MemberAccessNode)memberAccess.Target;
+        
+        Assert.IsType<IdentifierNode>(innerMemberAccess.Target);
+        Assert.Equal("obj", ((IdentifierNode)innerMemberAccess.Target).Identifier);
+        Assert.Equal("field1", innerMemberAccess.Member.Identifier);
+        
+        Assert.Equal("field2", memberAccess.Member.Identifier);
+    }
+
+    [Fact]
+    public void Parse_MemberAccessWithFunctionCall_ReturnsMemberAccessNode()
+    {
+        var result = ParseExpression("obj.getField().value");
+        
+        Assert.IsType<MemberAccessNode>(result);
+        var memberAccess = (MemberAccessNode)result;
+        
+        Assert.IsType<FunctionCallNode>(memberAccess.Target);
+        var functionCall = (FunctionCallNode)memberAccess.Target;
+        
+        Assert.IsType<MemberAccessNode>(functionCall.Callee);
+        var innerMemberAccess = (MemberAccessNode)functionCall.Callee;
+        
+        Assert.IsType<IdentifierNode>(innerMemberAccess.Target);
+        Assert.Equal("obj", ((IdentifierNode)innerMemberAccess.Target).Identifier);
+        Assert.Equal("getField", innerMemberAccess.Member.Identifier);
+        
+        Assert.IsType<IdentifierNode>(memberAccess.Member);
+        Assert.Equal("value", memberAccess.Member.Identifier);
+    }
+
+    // Struct initializer tests
+    [Fact]
+    public void Parse_StructInitializer_ReturnsInitializerNode()
+    {
+        var result = ParseExpression("Point { x: 10, y: 20 }");
+        
+        Assert.IsType<InitializerNode>(result);
+        var initializer = (InitializerNode)result;
+        
+        Assert.IsType<IdentifierNode>(initializer.Type);
+        Assert.Equal("Point", ((IdentifierNode)initializer.Type).Identifier);
+        
+        Assert.IsType<InitializerListNode>(initializer.InitializerList);
+        var initializerList = initializer.InitializerList;
+        
+        Assert.Equal(2, initializerList.Values.Count);
+        Assert.Equal("x", initializerList.Values[0].Name.Identifier);
+        Assert.IsType<NumberNode>(initializerList.Values[0].Value);
+        Assert.Equal("10", ((NumberNode)initializerList.Values[0].Value).Value);
+        
+        Assert.Equal("y", initializerList.Values[1].Name.Identifier);
+        Assert.IsType<NumberNode>(initializerList.Values[1].Value);
+        Assert.Equal("20", ((NumberNode)initializerList.Values[1].Value).Value);
+    }
+    
+    [Fact]
+    public void Parse_StructInitializerWithTrailingComma_ReturnsInitializerNode()
+    {
+        var result = ParseExpression("Point { x: 10, y: 20, }");
+        
+        Assert.IsType<InitializerNode>(result);
+        var initializer = (InitializerNode)result;
+        
+        Assert.Equal("Point", ((IdentifierNode)initializer.Type).Identifier);
+        Assert.Equal(2, initializer.InitializerList.Values.Count);
+        Assert.Equal("x", initializer.InitializerList.Values[0].Name.Identifier);
+        Assert.Equal("y", initializer.InitializerList.Values[1].Name.Identifier);
+    }
+    
+    [Fact]
+    public void Parse_EmptyStructInitializer_ReturnsInitializerNode()
+    {
+        var result = ParseExpression("EmptyPoint { }");
+        
+        Assert.IsType<InitializerNode>(result);
+        var initializer = (InitializerNode)result;
+        
+        Assert.Equal("EmptyPoint", ((IdentifierNode)initializer.Type).Identifier);
+        Assert.Empty(initializer.InitializerList.Values);
+    }
+    
+    [Fact]
+    public void Parse_NestedStructInitializer_ReturnsNestedInitializerNode()
+    {
+        var result = ParseExpression("Rectangle { topLeft: Point { x: 0, y: 0 }, bottomRight: Point { x: 10, y: 20 } }");
+        
+        Assert.IsType<InitializerNode>(result);
+        var initializer = (InitializerNode)result;
+        
+        Assert.Equal("Rectangle", ((IdentifierNode)initializer.Type).Identifier);
+        Assert.Equal(2, initializer.InitializerList.Values.Count);
+        
+        Assert.Equal("topLeft", initializer.InitializerList.Values[0].Name.Identifier);
+        Assert.IsType<InitializerNode>(initializer.InitializerList.Values[0].Value);
+        
+        var nestedPoint1 = (InitializerNode)initializer.InitializerList.Values[0].Value;
+        Assert.Equal("Point", ((IdentifierNode)nestedPoint1.Type).Identifier);
+        Assert.Equal(2, nestedPoint1.InitializerList.Values.Count);
+        Assert.Equal("x", nestedPoint1.InitializerList.Values[0].Name.Identifier);
+        Assert.Equal("0", ((NumberNode)nestedPoint1.InitializerList.Values[0].Value).Value);
+        
+        Assert.Equal("bottomRight", initializer.InitializerList.Values[1].Name.Identifier);
+        Assert.IsType<InitializerNode>(initializer.InitializerList.Values[1].Value);
+        
+        var nestedPoint2 = (InitializerNode)initializer.InitializerList.Values[1].Value;
+        Assert.Equal("Point", ((IdentifierNode)nestedPoint2.Type).Identifier);
+        Assert.Equal(2, nestedPoint2.InitializerList.Values.Count);
+        Assert.Equal("x", nestedPoint2.InitializerList.Values[0].Name.Identifier);
+        Assert.Equal("10", ((NumberNode)nestedPoint2.InitializerList.Values[0].Value).Value);
+    }
 }
+

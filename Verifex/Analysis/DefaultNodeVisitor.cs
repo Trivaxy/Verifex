@@ -82,4 +82,36 @@ public class DefaultNodeVisitor : NodeVisitor
     {
         Visit(node.Expression);
     }
+
+    protected override void Visit(StructDeclNode node)
+    {
+        foreach (StructFieldNode field in node.Fields)
+            Visit(field);
+    }
+    
+    protected override void Visit(StructFieldNode node) {}
+
+    protected override void Visit(MemberAccessNode node)
+    {
+        Visit(node.Target);
+        // don't visit the member
+    }
+    
+    protected override void Visit(InitializerNode node)
+    {
+        Visit(node.Type);
+        Visit(node.InitializerList);
+    }
+    
+    protected override void Visit(InitializerListNode node)
+    {
+        foreach (InitializerFieldNode field in node.Values)
+            Visit(field);
+    }
+    
+    protected override void Visit(InitializerFieldNode node)
+    {
+        Visit(node.Name);
+        Visit(node.Value);
+    }
 }

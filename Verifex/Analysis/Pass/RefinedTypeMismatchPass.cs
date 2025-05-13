@@ -11,22 +11,14 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
     private readonly Context _z3Ctx;
     private readonly Solver _solver;
     private readonly Z3Mapper _z3Mapper;
-    private readonly UninterpretedSort _anySort;
-    private readonly UninterpretedSort _voidSort;
-    private readonly Dictionary<VerifexType, FuncDecl> _z3ToStringFuncDecls;
     private VerifexFunction _currentFunction = null!;
-    private int _nextTermId;
     private readonly HashSet<BasicBlock> _visitedBlocks;
 
     public RefinedTypeMismatchPass(SymbolTable symbols) : base(symbols)
     {
         _z3Ctx = new Context();
         _solver = _z3Ctx.MkSolver();
-        _anySort = _z3Ctx.MkUninterpretedSort("Any");
-        _voidSort = _z3Ctx.MkUninterpretedSort("Void");
-        _z3ToStringFuncDecls = CreateZ3ToStringFuncDecls(_z3Ctx, symbols);
-        _z3Mapper = new Z3Mapper(_z3Ctx, _symbolsAsTerms, _z3ToStringFuncDecls);
-        _nextTermId = 0;
+        _z3Mapper = new Z3Mapper(_z3Ctx, _solver, _symbolsAsTerms, symbols);
         _visitedBlocks = [];
     }
     
@@ -34,23 +26,22 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
     {
         _symbolsAsTerms.Clear();
         _solver.Reset();
-        _nextTermId = 0;
         _currentFunction = (node.Symbol as FunctionSymbol)!.Function;
         _visitedBlocks.Clear();
         
         foreach (ParamDeclNode param in node.Parameters)
         {
             if (param.ResolvedType == null) continue;
-            _symbolsAsTerms[param.Symbol!] = CreateTerm(param.Symbol!.ResolvedType!, param.Identifier);;
+            _symbolsAsTerms[param.Symbol!] = _z3Mapper.CreateTerm(param.Symbol!.ResolvedType!, param.Identifier);;
         }
         
         ControlFlowGraph cfg = CFGBuilder.Build(node);
-        VisitBasicBlock(cfg.Entry);
+        VisitBasicBlock(cfg.Entry); // Traversing important AST nodes will happen via traversing the CFG
     }
 
     protected override void Visit(RefinedTypeDeclNode node)
     {
-        if (node.Expression.ResolvedType?.Name != "Bool")
+        if (node.Expression.FundamentalType is not BoolType)
             LogDiagnostic(new ConditionMustBeBool("refined type") { Location = node.Expression.Location });
     }
 
@@ -66,41 +57,23 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
             switch (statement)
             {
                 case VarDeclNode varDecl when varDecl.ResolvedType != null && varDecl.Value.ResolvedType != null:
-                    if (_symbolsAsTerms.ContainsKey(varDecl.Symbol!)) continue; // duplicate definition, ignore
-                    
-                    Z3Expr declValue = LowerAstNodeToZ3(varDecl.Value);
-                    if (!IsTypeCompatible(varDecl.Symbol!.ResolvedType!, varDecl.Value.ResolvedType, declValue))
-                        LogDiagnostic(new VarDeclTypeMismatch(varDecl.Name, varDecl.Symbol!.ResolvedType!.Name, varDecl.Value.ResolvedType.Name) { Location = varDecl.Location });
-                    else
-                        AssertAssignment(varDecl.Symbol!, declValue);
+                    Visit(varDecl);
                     break;
                 
                 case AssignmentNode assNode when assNode.Target.ResolvedType != null && assNode.Value.ResolvedType != null:
-                    Z3Expr assignValue = LowerAstNodeToZ3(assNode.Value);
-                    if (!IsTypeCompatible(assNode.Target.Symbol!.ResolvedType, assNode.Value.ResolvedType, assignValue))
-                        LogDiagnostic(new AssignmentTypeMismatch(assNode.Target.Identifier, assNode.Target.ResolvedType.Name, assNode.Value.ResolvedType.Name) { Location = assNode.Location });
-                    else
-                        AssertAssignment(assNode.Target.Symbol!, assignValue);
+                    Visit(assNode);
                     break;
                 
                 case FunctionCallNode callNode:
-                    FunctionSymbol function = (callNode.Callee.Symbol as FunctionSymbol)!;
-                    for (int i = 0; i < Math.Min(callNode.Arguments.Count, function.Function.Parameters.Count); i++)
-                    {
-                        AstNode argument = callNode.Arguments[i];
-                        ParameterInfo param = function.Function.Parameters[i];
-                        
-                        // no resolved type means some type mismatch happened earlier; skip
-                        if (argument.ResolvedType == null) continue;
-                        
-                        if (!IsTypeCompatible(param.Type, argument.ResolvedType!, LowerAstNodeToZ3(argument)))
-                            LogDiagnostic(new ParamTypeMismatch(param.Name, param.Type.Name, argument.ResolvedType!.Name) { Location = argument.Location });
-                    }
+                    Visit(callNode);
                     break;
                 
                 case ReturnNode retNode when retNode.Value != null && retNode.Value.ResolvedType != null:
-                    if (!IsTypeCompatible(_currentFunction.ReturnType, retNode.Value.ResolvedType, LowerAstNodeToZ3(retNode.Value)))
-                        LogDiagnostic(new ReturnTypeMismatch(_currentFunction.Name, _currentFunction.ReturnType.Name, retNode.Value.ResolvedType!.Name) { Location = retNode.Location });
+                    Visit(retNode);
+                    break;
+                
+                case InitializerNode initNode when initNode.Type.ResolvedType != null:
+                    Visit(initNode);
                     break;
             }
         }
@@ -130,80 +103,92 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
             VisitBasicBlock(block.UnconditionalSuccessor);
     }
 
-    private Z3Expr CreateTerm(VerifexType type, string name)
+    protected override void Visit(VarDeclNode node)
     {
-        Type ilType = type.IlType;
+        if (_symbolsAsTerms.ContainsKey(node.Symbol!)) return; // erroneous duplicate definition, ignore
         
-        Z3Expr term;
-        string termName = $"{name}_{_nextTermId++}";
-        if (ilType == typeof(int))
-            term = _z3Ctx.MkIntConst(termName);
-        else if (ilType == typeof(double))
-            term = _z3Ctx.MkRealConst(termName);
-        else if (ilType == typeof(bool))
-            term = _z3Ctx.MkBoolConst(termName);
-        else if (ilType == typeof(string))
-            term = _z3Ctx.MkString(termName);
-        else if (ilType == typeof(object))
-            term = _z3Ctx.MkConst(termName, _anySort);
+        Visit(node.Value);
+        
+        Z3Expr declValue = LowerAstNodeToZ3(node.Value);
+        if (!IsTypeCompatible(node.Symbol!.ResolvedType!, node.Value!.ResolvedType!, declValue))
+            LogDiagnostic(new VarDeclTypeMismatch(node.Name, node.Symbol!.ResolvedType!.Name, node.Value!.ResolvedType!.Name) { Location = node.Location });
         else
-            throw new NotImplementedException();
+            AssertAssignment(node.Symbol!, declValue);
+    }
 
-        if (type.EffectiveType is RefinedType refinedType)
-            _solver.Assert(CreateRefinedTypeConstraintExpr(term, refinedType));
+    protected override void Visit(AssignmentNode node)
+    {
+        Visit(node.Value);
+        
+        Z3Expr assignValue = LowerAstNodeToZ3(node.Value);
+        if (!IsTypeCompatible(node.Target!.Symbol!.ResolvedType!, node.Value!.ResolvedType!, assignValue))
+            LogDiagnostic(new AssignmentTypeMismatch(node.Target!.ResolvedType!.Name, node.Value!.ResolvedType!.Name) { Location = node.Location });
+        else
+            AssertAssignment(node.Target.Symbol!, assignValue);
+    }
 
-        return term;
+    protected override void Visit(FunctionCallNode node)
+    {
+        FunctionSymbol function = (node.Callee.Symbol as FunctionSymbol)!;
+        for (int i = 0; i < Math.Min(node.Arguments.Count, function.Function.Parameters.Count); i++)
+        {
+            AstNode argument = node.Arguments[i];
+            ParameterInfo param = function.Function.Parameters[i];
+                        
+            // no resolved type means some type mismatch happened earlier; skip
+            if (argument.ResolvedType == null) continue;
+            
+            Visit(argument);
+                        
+            if (!IsTypeCompatible(param.Type, argument.ResolvedType!, LowerAstNodeToZ3(argument)))
+                LogDiagnostic(new ParamTypeMismatch(param.Name, param.Type.Name, argument.ResolvedType!.Name) { Location = argument.Location });
+        }
+    }
+    
+    protected override void Visit(ReturnNode node)
+    {
+        if (node.Value != null)
+            Visit(node.Value);
+        
+        if (!IsTypeCompatible(_currentFunction.ReturnType, node.Value!.ResolvedType!, LowerAstNodeToZ3(node.Value)))
+            LogDiagnostic(new ReturnTypeMismatch(_currentFunction.Name, _currentFunction.ReturnType.Name, node.Value.ResolvedType!.Name) { Location = node.Location });
+    }
+
+    protected override void Visit(InitializerNode node)
+    {
+        foreach (InitializerFieldNode field in node.InitializerList.Values)
+        {
+            if (!IsTypeCompatible(field.Name.ResolvedType!, field.Value.ResolvedType!, LowerAstNodeToZ3(field.Value)))
+                LogDiagnostic(new InitializerFieldTypeMismatch(field.Name.Identifier, field.Name.ResolvedType!.Name, field.Value.ResolvedType!.Name) { Location = field.Location });
+            else
+                AssertAssignment(field.Name.Symbol!, LowerAstNodeToZ3(field.Value));
+        }
     }
 
     private void AssertAssignment(Symbol target, Z3Expr value)
     {
-        _symbolsAsTerms[target] = CreateTerm(target.ResolvedType!, target.Name);
+        _symbolsAsTerms[target] = _z3Mapper.CreateTerm(target.ResolvedType!, target.Name);
         
         // if the target is of the 'Any' type but the source isn't, we can't assert that target = value
         // ... unless both are 'Any'
         if (target.ResolvedType!.EffectiveType is not AnyType || (_symbolsAsTerms[target].Sort == value.Sort))
             _solver.Assert(_z3Ctx.MkEq(_symbolsAsTerms[target], value));
     }
-
-    private Sort AsSort(VerifexType type)
-    {
-        return type.FundamentalType switch
-        {
-            IntegerType => _z3Ctx.IntSort,
-            RealType => _z3Ctx.RealSort,
-            BoolType => _z3Ctx.BoolSort,
-            StringType => _z3Ctx.StringSort,
-            AnyType => _anySort,
-            VoidType => _voidSort,
-            _ => throw new NotImplementedException($"Type has no known sort: {type.Name}")
-        };
-    }
     
-    // Generates a Z3 expression by substituting the given term into the 'value' in a refined type's constraint expression
-    // If the refined type has another refined type as a base type, the expression is ANDed with the base type's constraint
-    private Z3BoolExpr CreateRefinedTypeConstraintExpr(Z3Expr term, RefinedType refinedType)
-    {
-        RefinedTypeValueSymbol valueSymbol = Symbols.GetGlobalSymbol<RefinedTypeSymbol>(refinedType.Name).ValueSymbol;
-        _symbolsAsTerms[valueSymbol] = term;
-        
-        Z3Mapper mapper = new Z3Mapper(_z3Ctx, _symbolsAsTerms, _z3ToStringFuncDecls);
-        Z3BoolExpr assertion = (mapper.ConvertExpr(refinedType.RawConstraint) as Z3BoolExpr)!;
-        
-        if (refinedType.BaseType.EffectiveType is RefinedType baseRefinedType)
-            assertion = _z3Ctx.MkAnd(assertion, CreateRefinedTypeConstraintExpr(term, baseRefinedType));
-        
-        _symbolsAsTerms.Remove(valueSymbol);
-        return assertion;
-    }
-
+    
     private bool AreTypesBasicCompatible(VerifexType target, VerifexType source)
-        => target.EffectiveType is not VoidType && source.EffectiveType is not VoidType && (target.EffectiveType is AnyType || target == source || target.IlType == source.IlType);
+        => target.EffectiveType is not VoidType
+           && source.EffectiveType is not VoidType // void is not assignable to anything
+           && (target.EffectiveType is AnyType // you can assign anything to Any
+               || target == source // same type obviously
+               || target.FundamentalType == source.FundamentalType // same fundamental type
+               || target.FundamentalType is RealType && source.FundamentalType is IntegerType); // integer to real is implicitly allowed
 
     private bool IsTermAssignable(VerifexType target, Z3Expr value)
     {
         Z3BoolExpr assertion = _z3Ctx.MkTrue();
         if (target.EffectiveType is RefinedType refinedType) 
-            assertion = _z3Ctx.MkNot(CreateRefinedTypeConstraintExpr(value, refinedType));
+            assertion = _z3Ctx.MkNot(_z3Mapper.CreateRefinedTypeConstraintExpr(value, refinedType));
         
         _solver.Push();
         _solver.Assert(assertion);
@@ -226,29 +211,7 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
         if (node.ResolvedType == null)
             throw new InvalidOperationException("Cannot lower AST node without a resolved type");
         
-        if (node is FunctionCallNode)
-            return CreateTerm(node.ResolvedType, "t");
-        
         return _z3Mapper.ConvertExpr(node);
-    }
-    
-    private Dictionary<VerifexType, FuncDecl> CreateZ3ToStringFuncDecls(Context ctx, SymbolTable symbols)
-    {
-        Dictionary<VerifexType, FuncDecl> funcDecls = [];
-        
-        foreach (VerifexType type in symbols.GetTypes())
-        {
-            if (type is not RefinedType)
-                funcDecls[type] = ctx.MkFuncDecl($"{type.Name}ToString", AsSort(type), ctx.StringSort);
-        }
-
-        foreach (VerifexType type in symbols.GetTypes())
-        {
-            if (type is not RefinedType) continue;
-            funcDecls[type] = funcDecls[type.FundamentalType]; // use the fundamental type's function decl
-        }
-        
-        return funcDecls;
     }
 
     public void Dispose()

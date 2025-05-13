@@ -119,9 +119,9 @@ public class IfElseNode(AstNode condition, BlockNode ifBody, BlockNode? elseBody
     public readonly BlockNode? ElseBody = elseBody;
 }
 
-public class AssignmentNode(IdentifierNode target, AstNode value) : AstNode
+public class AssignmentNode(AstNode target, AstNode value) : AstNode
 {
-    public readonly IdentifierNode Target = target;
+    public readonly AstNode Target = target;
     public readonly AstNode Value = value;
 }
 
@@ -148,4 +148,27 @@ public class StructDeclNode(string name, ReadOnlyCollection<StructFieldNode> fie
 {
     public readonly string Name = name;
     public readonly ReadOnlyCollection<StructFieldNode> Fields = fields;
+}
+
+public class InitializerFieldNode(IdentifierNode name, AstNode value) : AstNode
+{
+    public readonly IdentifierNode Name = name;
+    public readonly AstNode Value = value;
+}
+
+public class InitializerListNode(ReadOnlyCollection<InitializerFieldNode> values) : AstNode
+{
+    public readonly ReadOnlyCollection<InitializerFieldNode> Values = values;
+}
+
+public class InitializerNode(IdentifierNode type, InitializerListNode initializerList) : AstNode
+{
+    public readonly IdentifierNode Type = type;
+    public readonly InitializerListNode InitializerList = initializerList;
+}
+
+public class MemberAccessNode(AstNode target, IdentifierNode member) : AstNode
+{
+    public readonly AstNode Target = target;
+    public readonly IdentifierNode Member = member;
 }
