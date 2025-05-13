@@ -10,9 +10,15 @@ public class MutationCheckPass(SymbolTable symbols) : VerificationPass(symbols)
     {
         base.Visit(node);
 
-        if (node.Target.Symbol is not LocalVarSymbol localSymbol) return;
+        AstNode target = node.Target;
+        while (target is MemberAccessNode memberAccess)
+            target = memberAccess.Target;
+        
+        if (target.Symbol is not LocalVarSymbol localSymbol) return;
         
         if (!localSymbol.IsMutable)
             LogDiagnostic(new ImmutableVarReassignment(localSymbol.Name) { Location = node.Target.Location });
     }
+
+    protected override void Visit(MemberAccessNode node) => Visit(node.Target);
 }
