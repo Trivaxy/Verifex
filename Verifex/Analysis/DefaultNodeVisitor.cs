@@ -87,6 +87,9 @@ public class DefaultNodeVisitor : NodeVisitor
     {
         foreach (StructFieldNode field in node.Fields)
             Visit(field);
+        
+        foreach (StructMethodNode method in node.Methods)
+            Visit(method);
     }
     
     protected override void Visit(StructFieldNode node) {}
@@ -114,4 +117,6 @@ public class DefaultNodeVisitor : NodeVisitor
         Visit(node.Name);
         Visit(node.Value);
     }
+
+    protected override void Visit(StructMethodNode node) => Visit(node.Function);
 }

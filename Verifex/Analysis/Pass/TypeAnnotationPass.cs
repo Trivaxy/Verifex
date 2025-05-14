@@ -49,7 +49,7 @@ public class TypeAnnotationPass(SymbolTable symbols) : VerificationPass(symbols)
         if (node.Operator.Type.IsArithmeticOp()
             && left.FundamentalType is IntegerType or RealType
             && right.FundamentalType is IntegerType or RealType)
-            node.ResolvedType = (left is IntegerType && right is IntegerType) ? Symbols.GetType("Int") : Symbols.GetType("Real");
+            node.ResolvedType = (left.FundamentalType is IntegerType && right.FundamentalType is IntegerType) ? Symbols.GetType("Int") : Symbols.GetType("Real");
 
         // if none of the above, we have a type mismatch so ResolvedType stays null
     }
@@ -65,18 +65,13 @@ public class TypeAnnotationPass(SymbolTable symbols) : VerificationPass(symbols)
         base.Visit(node);
         node.ResolvedType = Symbols.GetType("Bool");
     }
-
+    
     protected override void Visit(FunctionCallNode node)
     {
         base.Visit(node);
 
-        if (node.Callee is not IdentifierNode functionName || !Symbols.TryLookupSymbol(functionName.Identifier, out FunctionSymbol? functionSymbol))
-        {
-            LogDiagnostic(new InvalidFunctionCall() { Location = node.Callee.Location });
-            return;
-        }
-
-        node.ResolvedType = functionSymbol!.Function.ReturnType;
+        if (node.Callee.Symbol is FunctionSymbol functionSymbol)
+            node.ResolvedType = functionSymbol.Function.ReturnType;
     }
 
     protected override void Visit(VarDeclNode node)
@@ -140,12 +135,39 @@ public class TypeAnnotationPass(SymbolTable symbols) : VerificationPass(symbols)
 
     protected override void Visit(MemberAccessNode node)
     {
-        Visit(node.Target);
+        base.Visit(node);
         
-        // don't report those errors, the binding pass catches them
-        if (node.Target.FundamentalType is not StructType structType) return;
-        if (!structType.Fields.TryGetValue(node.Member.Identifier, out FieldInfo? field)) return;
+        if (node.Target.Symbol is FunctionSymbol func)
+        {
+            if (!func.Function.IsStatic)
+            {
+                string structName = node.Target.EffectiveType?.Name ?? "unknown";
+                LogDiagnostic(new MemberAccessOnNonStruct(structName, node.Member.Identifier) { Location = node.Location });
+            }
+        }
+        else if (node.Target.Symbol is StructSymbol structSymbol)
+        {
+            bool isStaticAccess = node.Target is IdentifierNode identifier && identifier.Identifier == structSymbol.Name;
 
-        node.ResolvedType = field.Type;
+            if (!isStaticAccess)
+            {
+                if (structSymbol.Fields.TryGetValue(node.Member.Identifier, out StructFieldSymbol? fieldSymbol))
+                    node.Symbol = fieldSymbol;
+                else if (structSymbol.Methods.TryGetValue(node.Member.Identifier, out FunctionSymbol? methodSymbol))
+                    node.Symbol = methodSymbol;
+                else
+                    LogDiagnostic(new UnknownStructField(structSymbol.Name, node.Member.Identifier) { Location = node.Location });
+            }
+        }
+        else if (node.Target.FundamentalType is StructType structType)
+        {
+            structSymbol = Symbols.GetSymbol<StructSymbol>(structType.Name);
+            if (structSymbol.Fields.TryGetValue(node.Member.Identifier, out StructFieldSymbol? fieldSymbol))
+                node.Symbol = fieldSymbol;
+            else if (structSymbol.Methods.TryGetValue(node.Member.Identifier, out FunctionSymbol? methodSymbol))
+                node.Symbol = methodSymbol;
+            else
+                LogDiagnostic(new UnknownStructField(structSymbol.Name, node.Member.Identifier) { Location = node.Location });
+        }
     }
 }

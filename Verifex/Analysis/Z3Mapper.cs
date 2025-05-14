@@ -15,6 +15,8 @@ public class Z3Mapper
     private readonly Dictionary<VerifexType, FuncDecl> _toStringFuncDecls;
     private readonly Dictionary<StructType, DatatypeSort> _structToDatatypeSort;
     private int _nextTermId = 0;
+    
+    public Z3Expr? CurrentSelfTerm { get; set; }
 
     public Z3Mapper(Context ctx, Solver solver, Dictionary<Symbol, Z3Expr> termMap, SymbolTable symbols)
     {
@@ -26,6 +28,7 @@ public class Z3Mapper
         _voidSort = ctx.MkUninterpretedSort("Void");
         _toStringFuncDecls = CreateZ3ToStringFuncDecls();
         _structToDatatypeSort = [];
+        CurrentSelfTerm = null;
     }
     
     public Z3Expr ConvertExpr(AstNode node)
@@ -64,6 +67,14 @@ public class Z3Mapper
         if (node.Symbol == null)
             throw new InvalidOperationException($"Identifier '{node.Identifier}' has no associated symbol");
 
+        if (node.Symbol is StructFieldSymbol field)
+        {
+            if (CurrentSelfTerm == null)
+                throw new InvalidOperationException($"Cannot access field '{field.Name}' without a current self term");
+            
+            return _ctx.MkApp(DatatypeSortForStruct((field.Owner.ResolvedType as StructType)!).Accessors[0][field.Index], CurrentSelfTerm);
+        }
+        
         if (_termMap.TryGetValue(node.Symbol, out Z3Expr? z3Expr))
             return z3Expr;
 
@@ -224,11 +235,12 @@ public class Z3Mapper
             AnyType => _anySort,
             VoidType => _voidSort,
             StructType structType => DatatypeSortForStruct(structType),
+            CodeGen.Types.UnknownType => _anySort,
             _ => throw new NotImplementedException($"Type has no known sort: {type.Name}")
         };
     }
     
-    private DatatypeSort DatatypeSortForStruct(StructType type)
+    public DatatypeSort DatatypeSortForStruct(StructType type)
     {
         if (_structToDatatypeSort.TryGetValue(type, out DatatypeSort? sort))
             return sort;

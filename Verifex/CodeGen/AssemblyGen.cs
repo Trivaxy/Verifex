@@ -67,6 +67,34 @@ public class AssemblyGen : DefaultNodeVisitor
             _methodInfos.Add(function, method);
             _methodILGenerators.Add(function, _il);
         }
+        
+        foreach (StructSymbol structSymbol in _symbolTable.GetGlobalSymbols<StructSymbol>())
+        {
+            foreach (FunctionSymbol functionSymbol in structSymbol.Methods.Values)
+            {
+                VerifexFunction function = functionSymbol.Function;
+                if (function is BuiltinFunction builtin)
+                {
+                    _methodInfos.Add(builtin, builtin.Method);
+                    continue;
+                }
+                
+                MethodBuilder method = _type.DefineMethod(structSymbol.Name + "$" + function.Name, MethodAttributes.Public | MethodAttributes.Static);
+                Type returnType = function.ReturnType.IlType;
+                IEnumerable<Type> parameterTypes = function.Parameters.Select(p => p.Type.IlType);
+                
+                if (!function.IsStatic)
+                    parameterTypes = new[] { structSymbol.ResolvedType!.IlType }.Concat(parameterTypes);
+                
+                method.SetReturnType(returnType);
+                method.SetParameters(parameterTypes.ToArray());
+                
+                _il = method.GetILGenerator();
+                
+                _methodInfos.Add(function, method);
+                _methodILGenerators.Add(function, _il);
+            }
+        }
     }
     
     public void Consume(ProgramNode program) => Visit(program);
@@ -150,18 +178,17 @@ public class AssemblyGen : DefaultNodeVisitor
             Visit(child);
             
             // special case: if the statement is a function call, we need to pop its unused return off the stack
-            if (child is FunctionCallNode functionCall)
-            {
-                VerifexFunction function = _symbolTable.GetGlobalSymbol<FunctionSymbol>((functionCall.Callee as IdentifierNode)!.Identifier).Function;
-                if (function.ReturnType.EffectiveType is not VoidType)
-                    _il.Emit(OpCodes.Pop);
-            }
+            if (child is FunctionCallNode { EffectiveType: not null and not VoidType })
+                _il.Emit(OpCodes.Pop);
         }
     }
 
     protected override void Visit(FunctionCallNode node)
     {
-        VerifexFunction function = _symbolTable.GetGlobalSymbol<FunctionSymbol>((node.Callee as IdentifierNode)!.Identifier).Function;
+        if (node.Callee.Symbol is LocalVarSymbol or FunctionSymbol { Function: { IsStatic: false, Owner: not null } })
+            Visit((node.Callee as MemberAccessNode)!.Target);
+        
+        VerifexFunction function = (node.Callee.Symbol as FunctionSymbol)!.Function;
         for (int i = 0; i < node.Arguments.Count; i++)
         {
             AstNode argument = node.Arguments[i];
@@ -199,6 +226,13 @@ public class AssemblyGen : DefaultNodeVisitor
     {
         if (node.Symbol is LocalVarSymbol local)
             _il.Emit(local.IsParameter ? OpCodes.Ldarg : OpCodes.Ldloc, local.Index);
+        else if (node.Symbol is StructFieldSymbol field)
+        {
+            _il.Emit(OpCodes.Ldarg_0);
+            _il.Emit(OpCodes.Ldstr, field.Name);
+            _il.Emit(OpCodes.Call, typeof(Dictionary<string, object>).GetMethod("get_Item", [typeof(string)])!);
+            EmitConversion(_symbolTable.GetType("Any")!, node.ResolvedType!);
+        }
         else
             throw new InvalidOperationException("Identifier node does not have an appropriate symbol");
     }
@@ -270,13 +304,26 @@ public class AssemblyGen : DefaultNodeVisitor
     {
         if (node.Target is IdentifierNode)
         {
-            LocalVarSymbol local = (node.Target.Symbol as LocalVarSymbol)!;
-            
-            Visit(node.Value);
-            EmitConversion(node.Value.ResolvedType!, node.Target.ResolvedType!);
-            _il.Emit(local.IsParameter ? OpCodes.Starg : OpCodes.Stloc, local.Index);
+            if (node.Target.Symbol is LocalVarSymbol local)
+            {
+                Visit(node.Value);
+                EmitConversion(node.Value.ResolvedType!, node.Target.ResolvedType!);
+                _il.Emit(local.IsParameter ? OpCodes.Starg : OpCodes.Stloc, local.Index);
+            }
+            else if (node.Target.Symbol is StructFieldSymbol field)
+            {
+                _il.Emit(OpCodes.Ldarg_0);
+                _il.Emit(OpCodes.Ldstr, field.Name);
+                Visit(node.Value);
+                
+                EmitConversion(node.Value.ResolvedType!, field.ResolvedType!); // convert to the field type
+                EmitConversion(field.ResolvedType!, _symbolTable.GetType("Any")!); // then box
+                _il.Emit(OpCodes.Call, typeof(Dictionary<string, object>).GetMethod("set_Item", [typeof(string), typeof(object)])!);
+            }
+            else
+                throw new InvalidOperationException("Identifier node does not have an appropriate symbol");
         }
-        else // this is a struct
+        else // this is a struct's field
         {
             Visit((node.Target as MemberAccessNode)!.Target);
             _il.Emit(OpCodes.Ldstr, (node.Target as MemberAccessNode)!.Member.Identifier);
@@ -326,6 +373,9 @@ public class AssemblyGen : DefaultNodeVisitor
 
     protected override void Visit(MemberAccessNode node)
     {
+        // this is a static access to a struct method, don't visit the target
+        if (node.Target is IdentifierNode && node.Target.Symbol is FunctionSymbol) return;
+        
         Visit(node.Target);
         
         _il.Emit(OpCodes.Ldstr, node.Member.Identifier);

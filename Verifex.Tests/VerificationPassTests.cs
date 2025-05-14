@@ -683,12 +683,16 @@ public class VerificationPassTests
     }
 
     [Fact]
-    public void FirstBindingPass_BindsStructDeclaration()
+    public void TopLevelGatheringPass_BindsStructDeclaration()
     {
         var source = """
             struct Person {
                 name: String,
-                age: Int
+                age: Int,
+                
+                fn! new(name: String, age: Int) -> Person {
+                    return Person { name: name, age: age };
+                }
             }
             """;
 
@@ -713,6 +717,10 @@ public class VerificationPassTests
 
         var ageField = structSymbol.Fields["age"];
         Assert.Equal("age", ageField.Name);
+        
+        // Verify the function is bound correctly
+        var newMethod = structSymbol.Methods["new"];
+        Assert.Equal("new", newMethod.Name);
     }
 
     [Fact]

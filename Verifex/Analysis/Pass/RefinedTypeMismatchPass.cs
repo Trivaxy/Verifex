@@ -28,6 +28,23 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
         _solver.Reset();
         _currentFunction = (node.Symbol as FunctionSymbol)!.Function;
         _visitedBlocks.Clear();
+
+        if (_currentFunction.Owner?.EffectiveType is StructType structType && !_currentFunction.IsStatic)
+        {
+            _z3Mapper.CurrentSelfTerm = _z3Ctx.MkConst("self", _z3Mapper.DatatypeSortForStruct(structType));
+            
+            foreach (StructFieldSymbol field in Symbols.GetSymbol<StructSymbol>(structType.Name).Fields.Values)
+            {
+                if (field.ResolvedType == null) continue;
+                AssertAssignment(field, _z3Mapper.CreateTerm(field.ResolvedType!, field.Name));
+                
+                // we also have to link the field node with an equality to the accessor on the self term
+                _solver.Assert(_z3Ctx.MkEq(
+                    _z3Ctx.MkApp(_z3Mapper.DatatypeSortForStruct(structType).Accessors[0][field.Index], _z3Mapper.CurrentSelfTerm),
+                    _symbolsAsTerms[field]
+                    ));
+            }
+        }
         
         foreach (ParamDeclNode param in node.Parameters)
         {
@@ -37,6 +54,8 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
         
         ControlFlowGraph cfg = CFGBuilder.Build(node);
         VisitBasicBlock(cfg.Entry); // Traversing important AST nodes will happen via traversing the CFG
+
+        _z3Mapper.CurrentSelfTerm = null;
     }
 
     protected override void Visit(RefinedTypeDeclNode node)
@@ -56,11 +75,11 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
             
             switch (statement)
             {
-                case VarDeclNode varDecl when varDecl.ResolvedType != null && varDecl.Value.ResolvedType != null:
+                case VarDeclNode varDecl when varDecl.EffectiveType != null && varDecl.Value.EffectiveType != null:
                     Visit(varDecl);
                     break;
                 
-                case AssignmentNode assNode when assNode.Target.ResolvedType != null && assNode.Value.ResolvedType != null:
+                case AssignmentNode assNode when assNode.Target.EffectiveType != null && assNode.Value.EffectiveType != null:
                     Visit(assNode);
                     break;
                 
@@ -72,7 +91,7 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
                     Visit(retNode);
                     break;
                 
-                case InitializerNode initNode when initNode.Type.ResolvedType != null:
+                case InitializerNode initNode when initNode.Type.EffectiveType != null:
                     Visit(initNode);
                     break;
             }
@@ -81,7 +100,7 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
         if (block.HasConditionalSuccessors)
         {
             AstNode rawCondition = block.Statements[^1];
-            if (rawCondition.ResolvedType?.EffectiveType is BoolType)
+            if (rawCondition.EffectiveType is BoolType)
             {
                 Z3BoolExpr z3Cond = (LowerAstNodeToZ3(rawCondition) as Z3BoolExpr)!;
                 
@@ -109,22 +128,20 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
         
         Visit(node.Value);
         
-        Z3Expr declValue = LowerAstNodeToZ3(node.Value);
-        if (!IsTypeCompatible(node.Symbol!.ResolvedType!, node.Value!.ResolvedType!, declValue))
+        if (!IsTypeCompatible(node.Symbol!.ResolvedType!, node.Value!.ResolvedType!, node.Value))
             LogDiagnostic(new VarDeclTypeMismatch(node.Name, node.Symbol!.ResolvedType!.Name, node.Value!.ResolvedType!.Name) { Location = node.Location });
         else
-            AssertAssignment(node.Symbol!, declValue);
+            AssertAssignment(node.Symbol!, LowerAstNodeToZ3(node.Value));
     }
 
     protected override void Visit(AssignmentNode node)
     {
         Visit(node.Value);
         
-        Z3Expr assignValue = LowerAstNodeToZ3(node.Value);
-        if (!IsTypeCompatible(node.Target!.Symbol!.ResolvedType!, node.Value!.ResolvedType!, assignValue))
+        if (!IsTypeCompatible(node.Target!.Symbol!.ResolvedType!, node.Value!.ResolvedType!, node.Value))
             LogDiagnostic(new AssignmentTypeMismatch(node.Target!.ResolvedType!.Name, node.Value!.ResolvedType!.Name) { Location = node.Location });
         else
-            AssertAssignment(node.Target.Symbol!, assignValue);
+            AssertAssignment(node.Target.Symbol!, LowerAstNodeToZ3(node.Value));
     }
 
     protected override void Visit(FunctionCallNode node)
@@ -140,7 +157,7 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
             
             Visit(argument);
                         
-            if (!IsTypeCompatible(param.Type, argument.ResolvedType!, LowerAstNodeToZ3(argument)))
+            if (!IsTypeCompatible(param.Type, argument.ResolvedType!, argument))
                 LogDiagnostic(new ParamTypeMismatch(param.Name, param.Type.Name, argument.ResolvedType!.Name) { Location = argument.Location });
         }
     }
@@ -150,7 +167,7 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
         if (node.Value != null)
             Visit(node.Value);
         
-        if (!IsTypeCompatible(_currentFunction.ReturnType, node.Value!.ResolvedType!, LowerAstNodeToZ3(node.Value)))
+        if (!IsTypeCompatible(_currentFunction.ReturnType, node.Value!.ResolvedType!, node.Value))
             LogDiagnostic(new ReturnTypeMismatch(_currentFunction.Name, _currentFunction.ReturnType.Name, node.Value.ResolvedType!.Name) { Location = node.Location });
     }
 
@@ -158,7 +175,8 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
     {
         foreach (InitializerFieldNode field in node.InitializerList.Values)
         {
-            if (!IsTypeCompatible(field.Name.ResolvedType!, field.Value.ResolvedType!, LowerAstNodeToZ3(field.Value)))
+            if (field.EffectiveType == null) continue; // some error happened earlier, continue
+            if (!IsTypeCompatible(field.Name.ResolvedType!, field.Value.ResolvedType!, field.Value))
                 LogDiagnostic(new InitializerFieldTypeMismatch(field.Name.Identifier, field.Name.ResolvedType!.Name, field.Value.ResolvedType!.Name) { Location = field.Location });
         }
     }
@@ -196,12 +214,15 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
         return status == Status.UNSATISFIABLE;
     }
     
-    private bool IsTypeCompatible(VerifexType target, VerifexType source, Z3Expr sourceValue)
+    private bool IsTypeCompatible(VerifexType target, VerifexType source, AstNode sourceValue)
     {
+        if (target.FundamentalType is AnyType) return true;
+        if (target.FundamentalType is CodeGen.Types.UnknownType) return false;
+        
         if (target.EffectiveType is not RefinedType && source.EffectiveType is not RefinedType)
             return AreTypesBasicCompatible(target, source);
         
-        return AreTypesBasicCompatible(target, source) && IsTermAssignable(target, sourceValue);
+        return AreTypesBasicCompatible(target, source) && IsTermAssignable(target, LowerAstNodeToZ3(sourceValue));
     }
 
     private Z3Expr LowerAstNodeToZ3(AstNode node)

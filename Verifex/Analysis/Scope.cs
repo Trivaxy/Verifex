@@ -80,12 +80,12 @@ public class SymbolTable
         throw new InvalidOperationException($"Symbol {name} not found");
     }
     
-    public VerifexType GetType(string name)
+    public VerifexType? GetType(string name)
     {
-        if (TryLookupGlobalSymbol(name, out TypeSymbol? symbol) && symbol.ResolvedType != null)
+        if (TryLookupGlobalSymbol(name, out TypeSymbol? symbol) && symbol!.ResolvedType != null)
             return symbol.ResolvedType;
-        
-        throw new InvalidOperationException($"Type {name} not found");
+
+        return null;
     }
     
     public IEnumerable<VerifexType> GetTypes()

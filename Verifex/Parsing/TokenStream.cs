@@ -115,7 +115,15 @@ public class TokenStream
         {
             case "let": return new Token(TokenType.Let, start.._current);
             case "mut": return new Token(TokenType.Mut, start.._current);
-            case "fn": return new Token(TokenType.Fn, start.._current);
+            case "fn":
+                // special case: if the next character is !, it's a FnStatic token
+                if (_current < source.Length && source[_current] == '!')
+                {
+                    _current++;
+                    return new Token(TokenType.FnStatic, start.._current);
+                }
+
+                return new Token(TokenType.Fn, start.._current);
             case "return": return new Token(TokenType.Return, start.._current);
             case "true" or "false": return new Token(TokenType.Bool, start.._current);
             case "if": return new Token(TokenType.If, start.._current);

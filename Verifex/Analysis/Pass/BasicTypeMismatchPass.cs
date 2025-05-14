@@ -77,14 +77,10 @@ public class BasicTypeMismatchPass(SymbolTable symbols) : VerificationPass(symbo
     protected override void Visit(FunctionCallNode node)
     {
         base.Visit(node);
-        
-        if (node.Callee is not IdentifierNode identifierNode)
-            throw new InvalidOperationException("Function call must be an identifier");
 
-        if (!Symbols.TryLookupGlobalSymbol(identifierNode.Identifier, out FunctionSymbol? functionSymbol))
-            return;
+        if (node.Callee.Symbol is not FunctionSymbol functionSymbol) return; // error caught elsewhere
 
-        VerifexFunction function = functionSymbol!.Function;
+        VerifexFunction function = functionSymbol.Function;
         
         if (function.Parameters.Count < node.Arguments.Count)
             LogDiagnostic(new TooManyArguments(function.Name, function.Parameters.Count, node.Arguments.Count) { Location = node.Location });

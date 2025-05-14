@@ -40,9 +40,10 @@ public class FunctionCallNode(AstNode callee, ReadOnlyCollection<AstNode> argume
     public readonly ReadOnlyCollection<AstNode> Arguments = arguments;
 }
 
-public class FunctionDeclNode(string name, ReadOnlyCollection<ParamDeclNode> parameters, string? returnType, BlockNode body) : AstNode
+public class FunctionDeclNode(string name, bool isStatic, ReadOnlyCollection<ParamDeclNode> parameters, string? returnType, BlockNode body) : AstNode
 {
     public readonly string Name = name;
+    public readonly bool IsStatic = isStatic;
     public readonly ReadOnlyCollection<ParamDeclNode> Parameters = parameters;
     public readonly string? ReturnType = returnType;
     public readonly BlockNode Body = body;
@@ -144,10 +145,16 @@ public class StructFieldNode(string name, string type) : AstNode
     public readonly string Type = type;
 }
 
-public class StructDeclNode(string name, ReadOnlyCollection<StructFieldNode> fields) : AstNode
+public class StructMethodNode(FunctionDeclNode function) : AstNode
+{
+    public readonly FunctionDeclNode Function = function;
+}
+
+public class StructDeclNode(string name, ReadOnlyCollection<StructFieldNode> fields, ReadOnlyCollection<StructMethodNode> methods) : AstNode
 {
     public readonly string Name = name;
     public readonly ReadOnlyCollection<StructFieldNode> Fields = fields;
+    public readonly ReadOnlyCollection<StructMethodNode> Methods = methods;
 }
 
 public class InitializerFieldNode(IdentifierNode name, AstNode value) : AstNode

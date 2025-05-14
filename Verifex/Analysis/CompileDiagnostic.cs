@@ -113,8 +113,8 @@ public record ImmutableVarReassignment(string VarName)
 public record AssignmentTypeMismatch(string ExpectedType, string ActualType)
     : CompileDiagnostic(DiagnosticLevel.Error, $"cannot assign value of type '{ActualType}' to '{ExpectedType}'");
 
-public record DuplicateField(string FieldName)
-    : CompileDiagnostic(DiagnosticLevel.Error, $"duplicate field '{FieldName}' in struct");
+public record DuplicateMember(string MemberName)
+    : CompileDiagnostic(DiagnosticLevel.Error, $"duplicate member '{MemberName}' in struct");
 
 public record MemberAccessOnNonStruct(string Type, string MemberName)
     : CompileDiagnostic(DiagnosticLevel.Error, $"type '{Type}' does not have member '{MemberName}'");
@@ -127,6 +127,9 @@ public record TypeCannotHaveInitializer(string Type)
 
 public record InitializerFieldTypeMismatch(string FieldName, string ExpectedType, string ActualType)
     : CompileDiagnostic(DiagnosticLevel.Error, $"field '{FieldName}' has type '{ExpectedType}', but got '{ActualType}'");
+
+public record StaticFunctionOutsideStruct()
+    : CompileDiagnostic(DiagnosticLevel.Error, "static functions cannot be defined outside of a struct");
 
 public enum DiagnosticLevel
 {

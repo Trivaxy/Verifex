@@ -11,18 +11,17 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
     public ReadOnlyCollection<CompileDiagnostic> Diagnostics => _diagnostics.AsReadOnly();
     
     // Synchronization token sets for error recovery
-    private static readonly HashSet<TokenType> StatementSyncTokens =
-    [
-        TokenType.Let, TokenType.Mut, TokenType.Return, TokenType.Identifier, TokenType.RightCurlyBrace
-    ];
-    
-    private static readonly HashSet<TokenType> DeclarationSyncTokens = [TokenType.Fn, TokenType.Type, TokenType.Struct, TokenType.EOF];
-    
-    private static readonly HashSet<TokenType> ParameterSyncTokens = [
-        TokenType.RightParenthesis, TokenType.Identifier, TokenType.Arrow, TokenType.LeftCurlyBrace
-    ];
-    
-    private static readonly HashSet<TokenType> StructFieldSyncTokens = [TokenType.RightCurlyBrace, TokenType.Identifier];
+    private static readonly HashSet<TokenType> StatementSyncTokens = 
+        [TokenType.Let, TokenType.Mut, TokenType.Return, TokenType.Identifier, TokenType.RightCurlyBrace];
+
+    private static readonly HashSet<TokenType> DeclarationSyncTokens = 
+        [TokenType.Fn, TokenType.Type, TokenType.Struct, TokenType.EOF];
+
+    private static readonly HashSet<TokenType> ParameterSyncTokens = 
+        [TokenType.RightParenthesis, TokenType.Identifier, TokenType.Arrow, TokenType.LeftCurlyBrace];
+
+    private static readonly HashSet<TokenType> StructMemberSyncTokens =
+        [TokenType.RightCurlyBrace, TokenType.Identifier, TokenType.Fn, TokenType.FnStatic];
     
     private static readonly Dictionary<TokenType, Func<Parser, Token, AstNode>> PrefixParsers = new()
     {
@@ -214,8 +213,8 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
     }
 
     public FunctionDeclNode FnDeclaration()
-    {
-        Expect(TokenType.Fn);
+    { 
+        bool isStatic = ExpectEither(TokenType.Fn, TokenType.FnStatic).Type == TokenType.FnStatic;
         Token name = Expect(TokenType.Identifier);
         Expect(TokenType.LeftParenthesis);
 
@@ -253,7 +252,7 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
 
         BlockNode body = DoSafe(Block, DeclarationSyncTokens) ?? new BlockNode(ReadOnlyCollection<AstNode>.Empty);
         string? returnTypeName = returnType.HasValue ? Fetch(returnType.Value).ToString() : null;
-        return new FunctionDeclNode(Fetch(name).ToString(), parameters.AsReadOnly(), returnTypeName, body);
+        return new FunctionDeclNode(Fetch(name).ToString(), isStatic, parameters.AsReadOnly(), returnTypeName, body);
     }
 
     public ParamDeclNode ParameterDeclaration()
@@ -359,26 +358,35 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
         Expect(TokenType.LeftCurlyBrace);
         
         List<StructFieldNode> fields = [];
-        
+        List<StructMethodNode> methods = [];
         while (tokens.Peek().Type != TokenType.RightCurlyBrace && tokens.Peek().Type != TokenType.EOF)
         {
-            StructFieldNode? field = DoSafe(StructField, StructFieldSyncTokens);
-            
-            if (field is not null)
-                fields.Add(field);
-            
-            if (tokens.Peek().Type == TokenType.Comma)
-                tokens.Next(); // consume the comma
-            else if (tokens.Peek().Type != TokenType.RightCurlyBrace)
+            if (tokens.Peek().Type is TokenType.Fn or TokenType.FnStatic)
             {
-                LogDiagnostic(new ExpectedToken(", or }") { Location = tokens.Peek().Range });
-                Synchronize(StructFieldSyncTokens);
+                FunctionDeclNode? method = DoSafe(FnDeclaration, DeclarationSyncTokens);
+                if (method is not null)
+                    methods.Add(new StructMethodNode(method));
+            }
+            else
+            {
+                StructFieldNode? field = DoSafe(StructField, StructMemberSyncTokens);
+
+                if (field is not null)
+                    fields.Add(field);
+
+                if (tokens.Peek().Type == TokenType.Comma)
+                    tokens.Next(); // consume the comma
+                else if (tokens.Peek().Type != TokenType.RightCurlyBrace)
+                {
+                    LogDiagnostic(new ExpectedToken(", or }") { Location = tokens.Peek().Range });
+                    Synchronize(StructMemberSyncTokens);
+                }
             }
         }
         
         Expect(TokenType.RightCurlyBrace);
         
-        return new StructDeclNode(Fetch(name).ToString(), fields.AsReadOnly());
+        return new StructDeclNode(Fetch(name).ToString(), fields.AsReadOnly(), methods.AsReadOnly());
     }
 
     public StructFieldNode StructField()
@@ -397,7 +405,7 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
         List<InitializerFieldNode> values = [];
         while (tokens.Peek().Type != TokenType.RightCurlyBrace && tokens.Peek().Type != TokenType.EOF)
         {
-            InitializerFieldNode? field = DoSafe(InitializerField, StructFieldSyncTokens);
+            InitializerFieldNode? field = DoSafe(InitializerField, StructMemberSyncTokens);
             if (field is not null)
                 values.Add(field);
             
@@ -406,7 +414,7 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
             else if (tokens.Peek().Type != TokenType.RightCurlyBrace)
             {
                 LogDiagnostic(new ExpectedToken(", or }") { Location = tokens.Peek().Range });
-                Synchronize(StructFieldSyncTokens);
+                Synchronize(StructMemberSyncTokens);
             }
         }
         
@@ -495,6 +503,15 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
         Token next = Next();
         if (next.Type != type)
             ThrowError(new ExpectedToken(type.ToSimpleString()) { Location = next.Range });
+        
+        return next;
+    }
+
+    private Token ExpectEither(TokenType first, TokenType second)
+    {
+        Token next = Next();
+        if (next.Type != first && next.Type != second)
+            ThrowError(new ExpectedToken($"{first.ToSimpleString()} or {second.ToSimpleString()}") { Location = next.Range });
         
         return next;
     }

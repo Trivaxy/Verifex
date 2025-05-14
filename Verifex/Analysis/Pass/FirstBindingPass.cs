@@ -9,15 +9,38 @@ public class FirstBindingPass(SymbolTable symbols) : VerificationPass(symbols)
     private int _nextLocalIndex;
     private int _nextParameterIndex;
     private RefinedTypeValueSymbol? _currentValueSymbol;
+    private StructSymbol? _currentStruct;
+
+    protected override void Visit(StructDeclNode node)
+    {
+        _currentStruct = node.Symbol as StructSymbol;
+        base.Visit(node);
+        _currentStruct = null;
+    }
 
     protected override void Visit(FunctionDeclNode node)
     {
-        Symbols.EnterNewScope(); // ensures parameters are properly scoped
-        base.Visit(node);
-        Symbols.ExitScope();
-
         _nextLocalIndex = 0;
         _nextParameterIndex = 0;
+        
+        Symbols.EnterNewScope(); // ensures parameters and instance fields are properly scoped
+
+        if (!node.IsStatic && _currentStruct != null)
+        {
+            foreach (StructFieldSymbol field in _currentStruct!.Fields.Values)
+                Symbols.TryAddSymbol(field);
+            
+            _nextParameterIndex = 1; // skip the first parameter which is the instance
+        }
+
+        if (_currentStruct != null)
+        {
+            foreach (FunctionSymbol method in _currentStruct!.Methods.Values)
+                Symbols.TryAddSymbol(method);
+        }
+        
+        base.Visit(node);
+        Symbols.ExitScope();
     }
 
     protected override void Visit(BlockNode node)
@@ -112,4 +135,18 @@ public class FirstBindingPass(SymbolTable symbols) : VerificationPass(symbols)
     protected override void Visit(InitializerNode node) => Visit(node.InitializerList);
     
     protected override void Visit(InitializerFieldNode node) => Visit(node.Value);
+
+    protected override void Visit(MemberAccessNode node)
+    {
+        StructSymbol? structSymbol = null;
+        bool isStaticAccess = node.Target is IdentifierNode structName && Symbols.TryLookupGlobalSymbol(structName.Identifier, out structSymbol);
+        
+        if (isStaticAccess)
+        {
+            if (structSymbol!.Methods.TryGetValue(node.Member.Identifier, out FunctionSymbol? staticMethodSymbol) && staticMethodSymbol.Function.IsStatic)
+                node.Symbol = staticMethodSymbol;
+        }
+        else
+            base.Visit(node);
+    }
 }

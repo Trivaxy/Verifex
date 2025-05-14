@@ -28,6 +28,7 @@ public abstract class NodeVisitor
     protected abstract void Visit(InitializerNode node);
     protected abstract void Visit(InitializerListNode node);
     protected abstract void Visit(InitializerFieldNode node);
+    protected abstract void Visit(StructMethodNode node);
     
     public virtual void Visit(AstNode node)
     {
@@ -104,6 +105,9 @@ public abstract class NodeVisitor
                 break;
             case InitializerFieldNode initializerFieldNode:
                 Visit(initializerFieldNode);
+                break;
+            case StructMethodNode structMethodNode:
+                Visit(structMethodNode);
                 break;
         }
     }

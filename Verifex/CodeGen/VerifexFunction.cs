@@ -3,12 +3,14 @@ using Verifex.CodeGen.Types;
 
 namespace Verifex.CodeGen;
 
-public class VerifexFunction(string name, IList<ParameterInfo> parameters, VerifexType returnType)
+public class VerifexFunction(string name, IList<ParameterInfo> parameters, VerifexType returnType, VerifexType? owner, bool isStatic)
     : IEquatable<VerifexFunction>
 {
     public readonly string Name = name;
     public readonly ReadOnlyCollection<ParameterInfo> Parameters = new(parameters);
     public readonly VerifexType ReturnType = returnType;
+    public readonly VerifexType? Owner = owner;
+    public readonly bool IsStatic = isStatic;
 
     public override bool Equals(object? obj)
     {
@@ -22,6 +24,10 @@ public class VerifexFunction(string name, IList<ParameterInfo> parameters, Verif
         
         if (!Name.Equals(other.Name)) return false;
         if (!ReturnType.Equals(other.ReturnType)) return false;
+        if (Owner != null && other.Owner != null && !Owner.Equals(other.Owner)) return false;
+        if (Owner == null && other.Owner != null) return false;
+        if (Owner != null && other.Owner == null) return false;
+        if (IsStatic != other.IsStatic) return false;
         
         if (Parameters.Count != other.Parameters.Count) return false;
         
@@ -36,6 +42,8 @@ public class VerifexFunction(string name, IList<ParameterInfo> parameters, Verif
         HashCode hash = new HashCode();
         hash.Add(Name);
         hash.Add(ReturnType);
+        hash.Add(Owner);
+        hash.Add(IsStatic);
         
         foreach (var param in Parameters)
             hash.Add(param);

@@ -63,6 +63,15 @@ public class RefinedTypeValueSymbol : Symbol;
 public class StructSymbol : TypeSymbol
 {
     public required ReadOnlyDictionary<string, StructFieldSymbol> Fields { get; init; }
+    
+    public required ReadOnlyDictionary<string, FunctionSymbol> Methods { get; init; }
 }
 
-public class StructFieldSymbol : Symbol;
+public class StructFieldSymbol : Symbol
+{
+    public required StructSymbol Owner { get; set; }
+    
+    public required int Index { get; init; }
+}
+
+public class SelfSymbol : Symbol; // ephemeral symbol that gets used in type checking

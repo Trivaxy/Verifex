@@ -17,9 +17,12 @@ public class TopLevelGatheringPass(SymbolTable symbols) : VerificationPass(symbo
             {
                 Visit(p);
                 return new ParameterInfo(p.Identifier, VerifexType.Delayed(() => Symbols.GetType(p.TypeName)));
-            }).ToList(), VerifexType.Delayed(() => Symbols.GetType(node.ReturnType ?? "Void")))
+            }).ToList(), VerifexType.Delayed(() => Symbols.GetType(node.ReturnType ?? "Void")), null, node.IsStatic)
         };
-
+        
+        if (node.IsStatic)
+            LogDiagnostic(new StaticFunctionOutsideStruct() { Location = node.Location });
+        
         if (!Symbols.TryAddGlobalSymbol(function))
             LogDiagnostic(new DuplicateTopLevelSymbol(function.Name) { Location = node.Location });
         else
@@ -46,11 +49,14 @@ public class TopLevelGatheringPass(SymbolTable symbols) : VerificationPass(symbo
     protected override void Visit(StructDeclNode node)
     {
         Dictionary<string, StructFieldSymbol> fields = [];
+        Dictionary<string, FunctionSymbol> methods = [];
+
+        int i = 0;
         foreach (StructFieldNode fieldNode in node.Fields)
         {
             if (fields.ContainsKey(fieldNode.Name))
             {
-                LogDiagnostic(new DuplicateField(fieldNode.Name) { Location = fieldNode.Location });
+                LogDiagnostic(new DuplicateMember(fieldNode.Name) { Location = fieldNode.Location });
                 continue;
             }
             
@@ -59,9 +65,40 @@ public class TopLevelGatheringPass(SymbolTable symbols) : VerificationPass(symbo
                 DeclaringNode = fieldNode,
                 Name = fieldNode.Name,
                 ResolvedType = VerifexType.Delayed(() => Symbols.GetType(fieldNode.Type)),
+                Owner = null!, // set below
+                Index = i,
             };
             
             fields.Add(fieldNode.Symbol.Name, (fieldNode.Symbol as StructFieldSymbol)!);
+            i++;
+        }
+        
+        foreach (StructMethodNode methodNode in node.Methods)
+        {
+            if (fields.ContainsKey(methodNode.Function.Name) || methods.ContainsKey(methodNode.Function.Name))
+            {
+                LogDiagnostic(new DuplicateMember(methodNode.Function.Name) { Location = methodNode.Location });
+                continue;
+            }
+            
+            methodNode.Symbol = new FunctionSymbol()
+            {
+                DeclaringNode = methodNode,
+                Name = methodNode.Function.Name,
+                Function = new VerifexFunction(
+                    methodNode.Function.Name,
+                    methodNode.Function.Parameters.Select(p => 
+                    {
+                        Visit(p);
+                        return new ParameterInfo(p.Identifier, VerifexType.Delayed(() => Symbols.GetType(p.TypeName)));
+                    }).ToList(),
+                    VerifexType.Delayed(() => Symbols.GetType(methodNode.Function.ReturnType ?? "Void")),
+                    VerifexType.Delayed(() => Symbols.GetType(node.Name)),
+                    methodNode.Function.IsStatic),
+            };
+            methodNode.Function.Symbol = methodNode.Symbol;
+            
+            methods.Add(methodNode.Symbol.Name, (methodNode.Symbol as FunctionSymbol)!);
         }
 
         StructSymbol structSymbol = new StructSymbol()
@@ -72,11 +109,17 @@ public class TopLevelGatheringPass(SymbolTable symbols) : VerificationPass(symbo
                 node.Fields.Select(f => new FieldInfo(f.Name, VerifexType.Delayed(() => Symbols.GetType(f.Type))))
                     .ToDictionary(f => f.Name).AsReadOnly()),
             Fields = fields.AsReadOnly(),
+            Methods = methods.AsReadOnly(),
         };
+        
+        foreach (StructFieldSymbol field in structSymbol.Fields.Values)
+            field.Owner = structSymbol;
 
         if (!Symbols.TryAddGlobalSymbol(structSymbol))
             LogDiagnostic(new DuplicateTopLevelSymbol(structSymbol.Name) { Location = node.Location });
         else
             node.Symbol = structSymbol;
     }
+    
+    protected override void Visit(StructMethodNode node) {} // no-op
 }

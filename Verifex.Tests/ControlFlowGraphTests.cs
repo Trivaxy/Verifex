@@ -12,6 +12,7 @@ public class ControlFlowGraphTests
         
         return new FunctionDeclNode(
             "test",
+            false,
             new ReadOnlyCollection<ParamDeclNode>(new List<ParamDeclNode>()),
             "Void",
             parser.Block()

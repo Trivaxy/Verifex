@@ -5,23 +5,6 @@ namespace Verifex.Analysis.Pass;
 
 public class SecondBindingPass(SymbolTable symbols) : VerificationPass(symbols)
 {
-    protected override void Visit(MemberAccessNode node)
-    {
-        base.Visit(node);
-        
-        if (node.Target.FundamentalType is not StructType structType)
-        {
-            string structName = node.Target.EffectiveType?.Name ?? "unknown";
-            LogDiagnostic(new MemberAccessOnNonStruct(structName, node.Member.Identifier) { Location = node.Location });
-            return;
-        }
-        
-        if (Symbols.GetSymbol<StructSymbol>(structType.Name).Fields.TryGetValue(node.Member.Identifier, out StructFieldSymbol? fieldSymbol))
-            node.Symbol = fieldSymbol;
-        else
-            LogDiagnostic(new UnknownStructField(structType.Name, node.Member.Identifier) { Location = node.Location });
-    }
-
     protected override void Visit(InitializerNode node)
     {
         if (!Symbols.TryLookupGlobalSymbol(node.Type.Identifier, out TypeSymbol? typeSymbol))

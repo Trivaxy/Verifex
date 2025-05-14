@@ -777,6 +777,23 @@ public class ParserTests
     }
 
     [Fact]
+    public void Parse_StructWithMethods_ReturnsStructDeclNode()
+    {
+        var parser = CreateParser("struct Point { x: Int, y: Int, fn distance() { return sqrt(x * x + y * y); } }");
+        var result = parser.StructDeclaration();
+        
+        Assert.Equal("Point", result.Name);
+        Assert.Equal(2, result.Fields.Count);
+        Assert.Equal("x", result.Fields[0].Name);
+        Assert.Equal("Int", result.Fields[0].Type);
+        Assert.Equal("y", result.Fields[1].Name);
+        Assert.Equal("Int", result.Fields[1].Type);
+        
+        Assert.Single(result.Methods);
+        Assert.Equal("distance", result.Methods[0].Function.Name);
+    }
+
+    [Fact]
     public void Parse_MemberAccess_ReturnsMemberAccessNode()
     {
         var result = ParseExpression("obj.field");

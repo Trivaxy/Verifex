@@ -55,3 +55,12 @@ public class AnyType : VerifexType
     
     public override VerifexType FundamentalType => this;
 }
+
+public class UnknownType : VerifexType
+{
+    public override string Name => "unknown";
+
+    public override TypeInfo IlType => typeof(void).GetTypeInfo();
+    
+    public override VerifexType FundamentalType => this;
+}
