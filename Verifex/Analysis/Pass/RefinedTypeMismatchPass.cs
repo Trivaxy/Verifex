@@ -160,8 +160,6 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
         {
             if (!IsTypeCompatible(field.Name.ResolvedType!, field.Value.ResolvedType!, LowerAstNodeToZ3(field.Value)))
                 LogDiagnostic(new InitializerFieldTypeMismatch(field.Name.Identifier, field.Name.ResolvedType!.Name, field.Value.ResolvedType!.Name) { Location = field.Location });
-            else
-                AssertAssignment(field.Name.Symbol!, LowerAstNodeToZ3(field.Value));
         }
     }
 
