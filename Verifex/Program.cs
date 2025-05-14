@@ -68,10 +68,11 @@ var processInfo = new ProcessStartInfo
 {
     FileName = "dotnet",
     Arguments = outputPath,
-    RedirectStandardOutput = true,
-    RedirectStandardError = true,
     UseShellExecute = false,
-    CreateNoWindow = true
+    CreateNoWindow = true,
+    RedirectStandardInput = true,
+    RedirectStandardOutput = true,
+    RedirectStandardError = true
 };
 
 Console.WriteLine("Running...");
@@ -83,17 +84,45 @@ using (var process = Process.Start(processInfo))
         Console.WriteLine("Error: Failed to start the process.");
         return;
     }
-
-    string output = process.StandardOutput.ReadToEnd();
-    string error = process.StandardError.ReadToEnd();
     
-    process.WaitForExit();
+    // Set up output reading
+    process.OutputDataReceived += (sender, e) => {
+        if (e.Data != null)
+            Console.WriteLine(e.Data);
+    };
 
-    if (!string.IsNullOrEmpty(output))
-        Console.WriteLine(output);
-    
-    if (!string.IsNullOrEmpty(error))
-        Console.WriteLine($"Error: {error}");
+    process.ErrorDataReceived += (sender, e) => {
+        if (e.Data != null)
+            Console.WriteLine(e.Data);
+    };
+
+    process.BeginOutputReadLine();
+    process.BeginErrorReadLine();
+
+    // Forward console input to the process until it exits
+    while (!process.HasExited)
+    {
+        if (Console.KeyAvailable)
+        {
+            var key = Console.ReadKey(true);
+            
+            // Handle Enter key specially
+            if (key.Key == ConsoleKey.Enter)
+            {
+                Console.WriteLine(); // Echo the newline to console
+                process.StandardInput.WriteLine(); // Send newline to process
+            }
+            else
+            {
+                Console.Write(key.KeyChar); // Echo other characters
+                process.StandardInput.Write(key.KeyChar);
+            }
+            
+            process.StandardInput.Flush();
+        }
+        
+        Thread.Sleep(10); // Avoid busy waiting
+    }
     
     Console.WriteLine("----------------------------");
     Console.WriteLine($"Program exited with code: {process.ExitCode}");
