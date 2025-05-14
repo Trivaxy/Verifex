@@ -112,6 +112,11 @@ public class SymbolTable
             symbols.GetType("Void"),
             typeof(Console).GetMethod("WriteLine", [typeof(object)])!)));
         
+        symbols.TryAddGlobalSymbol(BuiltinFunctionSymbol.Create(new BuiltinFunction("read",
+            [],
+            symbols.GetType("String"),
+            typeof(Console).GetMethod("ReadLine")!)));
+        
         return symbols;
     }
 }
