@@ -9,7 +9,7 @@ public class SecondBindingPass(SymbolTable symbols) : VerificationPass(symbols)
     {
         base.Visit(node);
         
-        if (node.Target.EffectiveType is not StructType structType)
+        if (node.Target.FundamentalType is not StructType structType)
         {
             string structName = node.Target.EffectiveType?.Name ?? "unknown";
             LogDiagnostic(new MemberAccessOnNonStruct(structName, node.Member.Identifier) { Location = node.Location });
