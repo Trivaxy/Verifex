@@ -102,26 +102,30 @@ using (var process = Process.Start(processInfo))
     // Forward console input to the process until it exits
     while (!process.HasExited)
     {
-        if (Console.KeyAvailable)
+        try
         {
-            var key = Console.ReadKey(true);
-            
-            // Handle Enter key specially
-            if (key.Key == ConsoleKey.Enter)
+            if (Console.KeyAvailable)
             {
-                Console.WriteLine(); // Echo the newline to console
-                process.StandardInput.WriteLine(); // Send newline to process
-            }
-            else
-            {
-                Console.Write(key.KeyChar); // Echo other characters
-                process.StandardInput.Write(key.KeyChar);
-            }
+                var key = Console.ReadKey(true);
             
-            process.StandardInput.Flush();
-        }
+                // Handle Enter key specially
+                if (key.Key == ConsoleKey.Enter)
+                {
+                    Console.WriteLine(); // Echo the newline to console
+                    process.StandardInput.WriteLine(); // Send newline to process
+                }
+                else
+                {
+                    Console.Write(key.KeyChar); // Echo other characters
+                    process.StandardInput.Write(key.KeyChar);
+                }
+            
+                process.StandardInput.Flush();
+            }
         
-        Thread.Sleep(10); // Avoid busy waiting
+            Thread.Sleep(10); // Avoid busy waiting
+        }
+        catch (InvalidOperationException) {} // shut up
     }
     
     Console.WriteLine("----------------------------");
