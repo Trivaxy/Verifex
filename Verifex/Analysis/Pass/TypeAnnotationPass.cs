@@ -143,7 +143,7 @@ public class TypeAnnotationPass(SymbolTable symbols) : VerificationPass(symbols)
         Visit(node.Target);
         
         // don't report those errors, the binding pass catches them
-        if (node.Target.ResolvedType?.EffectiveType is not StructType structType) return;
+        if (node.Target.FundamentalType is not StructType structType) return;
         if (!structType.Fields.TryGetValue(node.Member.Identifier, out FieldInfo? field)) return;
 
         node.ResolvedType = field.Type;
