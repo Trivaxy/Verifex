@@ -3,11 +3,11 @@ using System.Reflection;
 
 namespace Verifex.CodeGen.Types;
 
-public class StructType(string name, ReadOnlyDictionary<string, FieldInfo> fields) : VerifexType
+public class StructType(string name, Dictionary<string, FieldInfo> fields) : VerifexType
 {
     public override string Name => name;
 
-    public ReadOnlyDictionary<string, FieldInfo> Fields { get; } = fields;
+    public Dictionary<string, FieldInfo> Fields { get; } = fields; // not readonly bc embedded structs
 
     public override TypeInfo IlType => typeof(Dictionary<string, object>).GetTypeInfo();
 

@@ -107,9 +107,9 @@ public class TopLevelGatheringPass(SymbolTable symbols) : VerificationPass(symbo
             Name = node.Name,
             ResolvedType = new StructType(node.Name,
                 node.Fields.Select(f => new FieldInfo(f.Name, VerifexType.Delayed(() => Symbols.GetType(f.Type))))
-                    .ToDictionary(f => f.Name).AsReadOnly()),
-            Fields = fields.AsReadOnly(),
-            Methods = methods.AsReadOnly(),
+                    .ToDictionary(f => f.Name)),
+            Fields = fields,
+            Methods = methods,
         };
         
         foreach (StructFieldSymbol field in structSymbol.Fields.Values)

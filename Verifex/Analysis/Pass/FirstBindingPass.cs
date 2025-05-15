@@ -1,9 +1,11 @@
+using Verifex.CodeGen;
 using Verifex.CodeGen.Types;
 using Verifex.Parsing;
 
 namespace Verifex.Analysis.Pass;
 
 // Creates symbols and attaches them to AST nodes (except member accesses & struct initializers), and completes top-level symbols which were gathered earlier
+// Also handles embedding of structs
 public class FirstBindingPass(SymbolTable symbols) : VerificationPass(symbols)
 {
     private int _nextLocalIndex;
@@ -14,6 +16,58 @@ public class FirstBindingPass(SymbolTable symbols) : VerificationPass(symbols)
     protected override void Visit(StructDeclNode node)
     {
         _currentStruct = node.Symbol as StructSymbol;
+        
+        if (node.Embedded.Count > 0)
+        {
+            StructType structType = (_currentStruct!.ResolvedType as StructType)!;
+            int fieldIndex = _currentStruct.Fields.Count; // start index after existing fields
+            
+            foreach (IdentifierNode embedded in node.Embedded)
+            {
+                if (Symbols.TryLookupGlobalSymbol(embedded.Identifier, out StructSymbol? embeddedSymbol))
+                {
+                    foreach (StructFieldSymbol field in embeddedSymbol!.Fields.Values)
+                    {
+                        StructFieldSymbol embeddedField = new StructFieldSymbol()
+                        {
+                            DeclaringNode = embedded,
+                            Name = field.Name,
+                            ResolvedType = field.ResolvedType,
+                            Owner = _currentStruct,
+                            Index = fieldIndex++
+                        };
+                        
+                        // don't add fields that already exist in the current struct
+                        if (!_currentStruct.Fields.TryAdd(embeddedField.Name, field))
+                            LogDiagnostic(new DuplicateMember(embeddedField.Name) { Location = embedded.Location });
+                        
+                        structType.Fields.Add(embeddedField.Name, new FieldInfo(embeddedField.Name, embeddedField.ResolvedType!));
+                    }
+                    
+                    foreach (FunctionSymbol method in embeddedSymbol.Methods.Values)
+                    {
+                        // skip static methods as they belong to the embedded struct
+                        if (method.Function.IsStatic)
+                            continue;
+                        
+                        FunctionSymbol embeddedMethod = new FunctionSymbol()
+                        {
+                            DeclaringNode = embedded,
+                            Name = method.Name,
+                            ResolvedType = method.ResolvedType,
+                            Function = method.Function,
+                        };
+                        
+                        // don't add methods that already exist in the current struct
+                        if (!_currentStruct.Methods.TryAdd(embeddedMethod.Name, embeddedMethod))
+                            LogDiagnostic(new DuplicateMember(method.Name) { Location = embedded.Location });
+                    }
+                }
+                else
+                    LogDiagnostic(new UnknownIdentifier(embedded.Identifier) { Location = embedded.Location });
+            }
+        }
+        
         base.Visit(node);
         _currentStruct = null;
     }

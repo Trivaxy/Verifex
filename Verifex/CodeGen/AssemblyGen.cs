@@ -79,6 +79,9 @@ public class AssemblyGen : DefaultNodeVisitor
                     continue;
                 }
                 
+                // check is important otherwise we might define the same method twice, due to embedded structs
+                if (_methodInfos.ContainsKey(function)) continue;
+                
                 MethodBuilder method = _type.DefineMethod(structSymbol.Name + "$" + function.Name, MethodAttributes.Public | MethodAttributes.Static);
                 Type returnType = function.ReturnType.IlType;
                 IEnumerable<Type> parameterTypes = function.Parameters.Select(p => p.Type.IlType);
