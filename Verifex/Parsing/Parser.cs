@@ -21,7 +21,7 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
         [TokenType.RightParenthesis, TokenType.Identifier, TokenType.Arrow, TokenType.LeftCurlyBrace];
 
     private static readonly HashSet<TokenType> StructMemberSyncTokens =
-        [TokenType.RightCurlyBrace, TokenType.Identifier, TokenType.Fn, TokenType.FnStatic];
+        [TokenType.RightCurlyBrace, TokenType.Identifier, TokenType.Fn, TokenType.FnStatic, TokenType.DotDot];
     
     private static readonly Dictionary<TokenType, Func<Parser, Token, AstNode>> PrefixParsers = new()
     {
@@ -359,6 +359,7 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
         
         List<StructFieldNode> fields = [];
         List<StructMethodNode> methods = [];
+        List<IdentifierNode> embedded = [];
         while (tokens.Peek().Type != TokenType.RightCurlyBrace && tokens.Peek().Type != TokenType.EOF)
         {
             if (tokens.Peek().Type is TokenType.Fn or TokenType.FnStatic)
@@ -366,6 +367,20 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
                 FunctionDeclNode? method = DoSafe(FnDeclaration, DeclarationSyncTokens);
                 if (method is not null)
                     methods.Add(new StructMethodNode(method));
+            }
+            else if (tokens.Peek().Type is TokenType.DotDot)
+            {
+                IdentifierNode? embeddedStruct = DoSafe(EmbeddedStruct, StructMemberSyncTokens);
+                if (embeddedStruct is not null)
+                    embedded.Add(embeddedStruct);
+                
+                if (tokens.Peek().Type == TokenType.Comma)
+                    tokens.Next(); // consume the comma
+                else if (tokens.Peek().Type != TokenType.RightCurlyBrace)
+                {
+                    LogDiagnostic(new ExpectedToken(", or }") { Location = tokens.Peek().Range });
+                    Synchronize(StructMemberSyncTokens);
+                }
             }
             else
             {
@@ -386,7 +401,7 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
         
         Expect(TokenType.RightCurlyBrace);
         
-        return new StructDeclNode(Fetch(name).ToString(), fields.AsReadOnly(), methods.AsReadOnly());
+        return new StructDeclNode(Fetch(name).ToString(), fields.AsReadOnly(), methods.AsReadOnly(), embedded.AsReadOnly());
     }
 
     public StructFieldNode StructField()
@@ -396,6 +411,14 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
         Token fieldType = Expect(TokenType.Identifier);
         
         return new StructFieldNode(Fetch(fieldName).ToString(), Fetch(fieldType).ToString());
+    }
+
+    public IdentifierNode EmbeddedStruct()
+    {
+        Expect(TokenType.DotDot);
+        
+        Token structName = Expect(TokenType.Identifier);
+        return new IdentifierNode(Fetch(structName).ToString()) { Location = structName.Range };
     }
 
     public InitializerListNode InitializerList()
@@ -560,3 +583,5 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
 
     private class ParseException : Exception;
 }
+
+

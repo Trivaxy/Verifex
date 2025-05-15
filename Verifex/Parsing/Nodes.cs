@@ -150,11 +150,12 @@ public class StructMethodNode(FunctionDeclNode function) : AstNode
     public readonly FunctionDeclNode Function = function;
 }
 
-public class StructDeclNode(string name, ReadOnlyCollection<StructFieldNode> fields, ReadOnlyCollection<StructMethodNode> methods) : AstNode
+public class StructDeclNode(string name, ReadOnlyCollection<StructFieldNode> fields, ReadOnlyCollection<StructMethodNode> methods, ReadOnlyCollection<IdentifierNode> embedded) : AstNode
 {
     public readonly string Name = name;
     public readonly ReadOnlyCollection<StructFieldNode> Fields = fields;
     public readonly ReadOnlyCollection<StructMethodNode> Methods = methods;
+    public readonly ReadOnlyCollection<IdentifierNode> Embedded = embedded;
 }
 
 public class InitializerFieldNode(IdentifierNode name, AstNode value) : AstNode

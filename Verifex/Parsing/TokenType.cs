@@ -44,6 +44,7 @@ public enum TokenType : byte
     Where,
     Struct,
     Dot,
+    DotDot,
     FnStatic,
 }
 
@@ -95,6 +96,7 @@ public static class TokenTypeExtensions
             TokenType.Where => "where",
             TokenType.Struct => "struct",
             TokenType.Dot => ".",
+            TokenType.DotDot => "..",
             TokenType.FnStatic => "fn!",
             _ => throw new ArgumentOutOfRangeException(nameof(token), token, null)
         };
@@ -109,3 +111,4 @@ public static class TokenTypeExtensions
     public static bool IsArithmeticOp(this TokenType token)
         => token is TokenType.Plus or TokenType.Minus or TokenType.Star or TokenType.Slash;
 }
+

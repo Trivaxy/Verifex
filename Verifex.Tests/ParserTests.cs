@@ -928,5 +928,53 @@ public class ParserTests
         Assert.Equal("x", nestedPoint2.InitializerList.Values[0].Name.Identifier);
         Assert.Equal("10", ((NumberNode)nestedPoint2.InitializerList.Values[0].Value).Value);
     }
+
+    [Fact]
+    public void Parse_StructWithEmbedded_ReturnsStructDeclNodeWithEmbedded()
+    {
+        var parser = CreateParser("struct Person { name: String, age: Int, ..ContactInfo, fn say_hello() { print(\"hello\"); } }");
+        var result = parser.StructDeclaration();
+        
+        Assert.IsType<StructDeclNode>(result);
+        Assert.Equal("Person", result.Name);
+        
+        // Check fields
+        Assert.Equal(2, result.Fields.Count);
+        Assert.Equal("name", result.Fields[0].Name);
+        Assert.Equal("String", result.Fields[0].Type);
+        Assert.Equal("age", result.Fields[1].Name);
+        Assert.Equal("Int", result.Fields[1].Type);
+        
+        // Check embedded struct
+        Assert.Single(result.Embedded);
+        Assert.Equal("ContactInfo", result.Embedded[0].Identifier);
+        
+        // Check methods
+        Assert.Single(result.Methods);
+        Assert.Equal("say_hello", result.Methods[0].Function.Name);
+    }
+    
+    [Fact]
+    public void Parse_StructWithMultipleEmbedded_ParsesCorrectly()
+    {
+        var parser = CreateParser("struct CompositeStruct { field1: Int, ..EmbeddedA, field2: String, ..EmbeddedB, ..EmbeddedC, }");
+        var result = parser.StructDeclaration();
+        
+        Assert.IsType<StructDeclNode>(result);
+        
+        // Check fields
+        Assert.Equal(2, result.Fields.Count);
+        Assert.Equal("field1", result.Fields[0].Name);
+        Assert.Equal("Int", result.Fields[0].Type);
+        Assert.Equal("field2", result.Fields[1].Name);
+        Assert.Equal("String", result.Fields[1].Type);
+        
+        // Check embedded structs (should be 3)
+        Assert.Equal(3, result.Embedded.Count);
+        Assert.Equal("EmbeddedA", result.Embedded[0].Identifier);
+        Assert.Equal("EmbeddedB", result.Embedded[1].Identifier);
+        Assert.Equal("EmbeddedC", result.Embedded[2].Identifier);
+    }
 }
+
 

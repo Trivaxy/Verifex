@@ -95,6 +95,7 @@ public class TokenStream
                     TokenType.Not when second == '=' => TokenType.NotEqual,
                     TokenType.BitwiseAnd when second == '&' => TokenType.And,
                     TokenType.BitwiseOr when second == '|' => TokenType.Or,
+                    TokenType.Dot when second == '.' => TokenType.DotDot,
                     _ => TokenType.Unknown
                 };
 
