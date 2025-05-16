@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Verifex.Parsing;
 
 namespace Verifex.Analysis.Pass;
 
@@ -8,6 +9,14 @@ public abstract class VerificationPass(SymbolTable symbols) : DefaultNodeVisitor
     protected readonly SymbolTable Symbols = symbols;
     
     public ReadOnlyCollection<CompileDiagnostic> Diagnostics => _diagnostics.AsReadOnly();
+
+    public void Run(AstNode node)
+    {
+        Visit(node);
+        PostPass();
+    }
+    
+    protected virtual void PostPass() {}
 
     protected void LogDiagnostic(CompileDiagnostic diagnostic) => _diagnostics.Add(diagnostic);
 

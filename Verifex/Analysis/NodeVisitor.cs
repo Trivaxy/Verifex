@@ -30,7 +30,7 @@ public abstract class NodeVisitor
     protected abstract void Visit(InitializerFieldNode node);
     protected abstract void Visit(StructMethodNode node);
     
-    public virtual void Visit(AstNode node)
+    protected void Visit(AstNode node)
     {
         switch (node)
         {

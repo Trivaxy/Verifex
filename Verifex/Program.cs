@@ -33,7 +33,7 @@ var diagnostics = parser.Diagnostics.ToList();
 
 foreach (var pass in passes)
 {
-    pass.Visit(ast);
+    pass.Run(ast);
     diagnostics.AddRange(pass.Diagnostics);
 }
 

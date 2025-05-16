@@ -19,7 +19,7 @@ public class VerificationPassTests
         passes = VerificationPass.CreateRegularPasses(out SymbolTable symbols);
 
         foreach (var pass in passes.TakeWhile(pass => pass is not TPass))
-            pass.Visit(ast);
+            pass.Run(ast);
 
         return symbols;
     }
@@ -29,7 +29,7 @@ public class VerificationPassTests
         passes = VerificationPass.CreateRegularPasses(out SymbolTable symbols);
 
         foreach (var pass in passes)
-            pass.Visit(ast);
+            pass.Run(ast);
 
         return symbols;
     }
@@ -77,7 +77,7 @@ public class VerificationPassTests
 
         var symbolTable = new SymbolTable();
         var pass = new TopLevelGatheringPass(symbolTable);
-        pass.Visit(ast);
+        pass.Run(ast);
 
         Assert.Single(pass.Diagnostics);
         AssertHasDiagnostic<DuplicateTopLevelSymbol>(pass, diagnostic =>
@@ -95,10 +95,10 @@ public class VerificationPassTests
 
         var symbolTable = new SymbolTable();
         var gatheringPass = new TopLevelGatheringPass(symbolTable);
-        gatheringPass.Visit(ast);
+        gatheringPass.Run(ast);
 
         var bindingPass = new FirstBindingPass(symbolTable);
-        bindingPass.Visit(ast);
+        bindingPass.Run(ast);
 
         Assert.Single(bindingPass.Diagnostics);
         AssertHasDiagnostic<UnknownIdentifier>(bindingPass, diagnostic =>
@@ -116,10 +116,10 @@ public class VerificationPassTests
 
         var symbolTable = new SymbolTable();
         var gatheringPass = new TopLevelGatheringPass(symbolTable);
-        gatheringPass.Visit(ast);
+        gatheringPass.Run(ast);
 
         var bindingPass = new FirstBindingPass(symbolTable);
-        bindingPass.Visit(ast);
+        bindingPass.Run(ast);
 
         Assert.Single(bindingPass.Diagnostics);
         AssertHasDiagnostic<VarNameAlreadyDeclared>(bindingPass, diagnostic =>
@@ -137,7 +137,7 @@ public class VerificationPassTests
 
         var symbolTable = new SymbolTable();
         var gatheringPass = new TopLevelGatheringPass(symbolTable);
-        gatheringPass.Visit(ast);
+        gatheringPass.Run(ast);
 
         Assert.True(symbolTable.TryLookupGlobalSymbol("PositiveInt", out var symbol));
 
@@ -154,10 +154,10 @@ public class VerificationPassTests
 
         var symbolTable = new SymbolTable();
         var gatheringPass = new TopLevelGatheringPass(symbolTable);
-        gatheringPass.Visit(ast);
+        gatheringPass.Run(ast);
 
         var bindingPass = new FirstBindingPass(symbolTable);
-        bindingPass.Visit(ast);
+        bindingPass.Run(ast);
 
         var refinedTypeDeclNode = Assert.IsType<RefinedTypeDeclNode>(ast.Nodes[0]);
         var expression = Assert.IsType<BinaryOperationNode>(refinedTypeDeclNode.Expression);
@@ -176,12 +176,12 @@ public class VerificationPassTests
         var ast = Parse(source);
 
         var symbolTable = SymbolTable.CreateDefaultTable();
-        new TopLevelGatheringPass(symbolTable).Visit(ast);
-        new FirstBindingPass(symbolTable).Visit(ast);
-        new PrimitiveTypeAnnotationPass(symbolTable).Visit(ast);
+        new TopLevelGatheringPass(symbolTable).Run(ast);
+        new FirstBindingPass(symbolTable).Run(ast);
+        new PrimitiveTypeAnnotationPass(symbolTable).Run(ast);
 
         var typeAnnotationPass = new TypeAnnotationPass(symbolTable);
-        typeAnnotationPass.Visit(ast);
+        typeAnnotationPass.Run(ast);
 
         Assert.Single(typeAnnotationPass.Diagnostics);
         AssertHasDiagnostic<UnknownType>(typeAnnotationPass, diagnostic =>
@@ -210,7 +210,7 @@ public class VerificationPassTests
         var symbols = RunPassesUntil<BasicTypeMismatchPass>(ast, out var passes);
 
         var typeMismatchPass = new BasicTypeMismatchPass(symbols);
-        typeMismatchPass.Visit(ast);
+        typeMismatchPass.Run(ast);
 
         // Check that Int + Bool is detected
         AssertHasDiagnostic<TypeCannotDoArithmetic>(typeMismatchPass, diagnostic =>
@@ -371,7 +371,7 @@ public class VerificationPassTests
         var symbolTable = RunPassesUntil<FirstBindingPass>(ast, out var passes);
 
         var bindingPass = passes.OfType<FirstBindingPass>().First();
-        bindingPass.Visit(ast);
+        bindingPass.Run(ast);
 
         var diagnostic = bindingPass.Diagnostics.OfType<UnknownIdentifier>().First();
 
@@ -700,7 +700,7 @@ public class VerificationPassTests
         var symbolTable = RunPassesUntil<FirstBindingPass>(ast, out var passes);
 
         var topLevelPass = passes.OfType<TopLevelGatheringPass>().First();
-        topLevelPass.Visit(ast);
+        topLevelPass.Run(ast);
 
         // Verify the struct symbol was created and is in the symbol table
         Assert.True(symbolTable.TryLookupGlobalSymbol("Person", out var symbol));
@@ -739,7 +739,7 @@ public class VerificationPassTests
 
         // Run the type annotation pass which should detect the unknown type
         var typeAnnotationPass = passes.OfType<TypeAnnotationPass>().First();
-        typeAnnotationPass.Visit(ast);
+        typeAnnotationPass.Run(ast);
 
         // Verify there's a diagnostic for unknown type
         AssertHasDiagnostic<UnknownType>(typeAnnotationPass, diagnostic =>
@@ -817,16 +817,16 @@ public class VerificationPassTests
 
         var symbolTable = new SymbolTable();
         var gatheringPass = new TopLevelGatheringPass(symbolTable);
-        gatheringPass.Visit(ast);
+        gatheringPass.Run(ast);
 
         var firstBindingPass = new FirstBindingPass(symbolTable);
-        firstBindingPass.Visit(ast);
+        firstBindingPass.Run(ast);
 
         var typeAnnotationPass = new TypeAnnotationPass(symbolTable);
-        typeAnnotationPass.Visit(ast);
+        typeAnnotationPass.Run(ast);
 
         var secondBindingPass = new SecondBindingPass(symbolTable);
-        secondBindingPass.Visit(ast);
+        secondBindingPass.Run(ast);
 
         // Find the initializer node
         var functionNode = ast.Nodes[1] as FunctionDeclNode;
