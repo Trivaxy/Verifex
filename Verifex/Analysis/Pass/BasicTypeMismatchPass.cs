@@ -110,5 +110,11 @@ public class BasicTypeMismatchPass(SymbolTable symbols) : VerificationPass(symbo
             LogDiagnostic(new ConditionMustBeBool("while") { Location = node.Condition.Location });
     }
 
+    protected override void Visit(IsCheckNode node)
+    {
+        if (node.Value.EffectiveType is not MaybeType)
+            LogDiagnostic(new IsCheckOnNonMaybeType() { Location = node.Value.Location });
+    }
+
     private static bool TypeSupportsArithmetic(VerifexType type) => type.FundamentalType is IntegerType or RealType;
 }

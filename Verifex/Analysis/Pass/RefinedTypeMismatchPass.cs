@@ -185,10 +185,21 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
     {
         _symbolsAsTerms[target] = _z3Mapper.CreateTerm(target.ResolvedType!, target.Name);
         
-        // if the target is of the 'Any' type but the source isn't, we can't assert that target = value
-        // ... unless both are 'Any'
-        if (target.ResolvedType!.EffectiveType is not AnyType || (_symbolsAsTerms[target].Sort == value.Sort))
+        if (_symbolsAsTerms[target].Sort == value.Sort)
             _solver.Assert(_z3Ctx.MkEq(_symbolsAsTerms[target], value));
+        else if (target.ResolvedType!.EffectiveType is MaybeType maybeType)
+        {
+            Constructor constructor = _z3Mapper.GetMaybeTypeZ3Info(maybeType).Constructors[value.Sort];
+            _solver.Assert(_z3Ctx.MkEq(_symbolsAsTerms[target], _z3Ctx.MkApp(constructor.ConstructorDecl, value)));
+        }
+        else if (_z3Mapper.TryGetMaybeTypeInfo(value, out Z3Mapper.MaybeTypeZ3Info? info))
+        {
+            FuncDecl accessor = info!.Constructors[_z3Mapper.AsSort(target.ResolvedType!.EffectiveType)]
+                .AccessorDecls[0];
+            _solver.Assert(_z3Ctx.MkEq(_symbolsAsTerms[target], _z3Ctx.MkApp(accessor, value)));
+        }
+        else
+            throw new InvalidOperationException("Unknown types for assignment");
     }
     
     
@@ -198,13 +209,18 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
            && (target.EffectiveType is AnyType // you can assign anything to Any
                || target == source // same type obviously
                || target.FundamentalType == source.FundamentalType // same fundamental type
-               || target.FundamentalType is RealType && source.FundamentalType is IntegerType); // integer to real is implicitly allowed
+               || target.FundamentalType is RealType && source.FundamentalType is IntegerType // integer to real is implicitly allowed
+               || target.FundamentalType is MaybeType maybe && maybe.Types.Contains(source) // "Foo" can be assigned to "Foo or Bar"
+               || source.FundamentalType is MaybeType maybe2 && maybe2.Types.Contains(target) // "Foo or Bar" can be assigned to "Foo", depending on context
+               );
 
     private bool IsTermAssignable(VerifexType target, Z3Expr value)
     {
         Z3BoolExpr assertion = _z3Ctx.MkTrue();
         if (target.EffectiveType is RefinedType refinedType) 
             assertion = _z3Ctx.MkNot(_z3Mapper.CreateRefinedTypeConstraintExpr(value, refinedType));
+        else if (_z3Mapper.TryGetMaybeTypeInfo(value, out Z3Mapper.MaybeTypeZ3Info? maybeInfo))
+            assertion = _z3Ctx.MkNot(_z3Ctx.MkApp(maybeInfo!.Testers[_z3Mapper.AsSort(target.EffectiveType)], value) as Z3BoolExpr);
         
         _solver.Push();
         _solver.Assert(assertion);
@@ -218,8 +234,17 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
     {
         if (target.FundamentalType is AnyType) return true;
         if (target.FundamentalType is CodeGen.Types.UnknownType) return false;
+
+        if (target.EffectiveType is MaybeType targetMaybe)
+        {
+            if (targetMaybe.Types.Contains(source))
+                return true;
+            
+            if (source.EffectiveType is MaybeType sourceMaybe)
+                return sourceMaybe.Types.All(s => targetMaybe.Types.Contains(s));
+        }
         
-        if (target.EffectiveType is not RefinedType && source.EffectiveType is not RefinedType)
+        if (target.EffectiveType is not RefinedType && source.EffectiveType is not RefinedType && source.EffectiveType is not MaybeType)
             return AreTypesBasicCompatible(target, source);
         
         return AreTypesBasicCompatible(target, source) && IsTermAssignable(target, LowerAstNodeToZ3(sourceValue));

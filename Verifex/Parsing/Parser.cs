@@ -87,6 +87,11 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
             IdentifierNode member = new IdentifierNode(parser.Fetch(identifier).ToString()) { Location = identifier.Range };
             
             return new MemberAccessNode(left, member);
+        } },
+        { TokenType.Is, (parser, left, _) =>
+        {
+            SimpleTypeNode type = parser.Do(parser.SimpleType);
+            return new IsCheckNode(left, type);
         } }
     };
 
@@ -100,6 +105,7 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
         { TokenType.LessThan, 4 },
         { TokenType.GreaterThanOrEqual, 4 },
         { TokenType.LessThanOrEqual, 4 },
+        { TokenType.Is, 4 },
         { TokenType.Plus, 5 },
         { TokenType.Minus, 5 },
         { TokenType.Star, 6 },
@@ -180,36 +186,36 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
     {
         Expect(TokenType.Let);
         Token name = Expect(TokenType.Identifier);
-        string? type = null;
+        AstNode? typeHint = null;
         
         if (tokens.Peek().Type == TokenType.Colon)
         {
             tokens.Next(); // consume colon
-            type = Fetch(Expect(TokenType.Identifier)).ToString();
+            typeHint = Do(TypeName);
         }
         
         Expect(TokenType.Equals);
         AstNode value = Do(Expression);
 
-        return new VarDeclNode(Fetch(name).ToString(), type, value);
+        return new VarDeclNode(Fetch(name).ToString(), typeHint, value);
     }
 
     public VarDeclNode MutDeclaration()
     {
         Expect(TokenType.Mut);
         Token name = Expect(TokenType.Identifier);
-        string? type = null;
+        AstNode? typeHint = null;
         
         if (tokens.Peek().Type == TokenType.Colon)
         {
             tokens.Next(); // consume colon
-            type = Fetch(Expect(TokenType.Identifier)).ToString();
+            typeHint = Do(TypeName);
         }
         
         Expect(TokenType.Equals);
         AstNode value = Do(Expression);
 
-        return new VarDeclNode(Fetch(name).ToString(), type, value, true);
+        return new VarDeclNode(Fetch(name).ToString(), typeHint, value, true);
     }
 
     public FunctionDeclNode FnDeclaration()
@@ -243,25 +249,24 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
         else
             tokens.Next();
         
-        Token? returnType = null;
+        AstNode? returnType = null;
         if (tokens.Peek().Type == TokenType.Arrow)
         {
             tokens.Next();
-            returnType = Expect(TokenType.Identifier);
+            returnType = Do(TypeName);
         }
 
         BlockNode body = DoSafe(Block, DeclarationSyncTokens) ?? new BlockNode(ReadOnlyCollection<AstNode>.Empty);
-        string? returnTypeName = returnType.HasValue ? Fetch(returnType.Value).ToString() : null;
-        return new FunctionDeclNode(Fetch(name).ToString(), isStatic, parameters.AsReadOnly(), returnTypeName, body);
+        return new FunctionDeclNode(Fetch(name).ToString(), isStatic, parameters.AsReadOnly(), returnType, body);
     }
 
     public ParamDeclNode ParameterDeclaration()
     {
         Token name = Expect(TokenType.Identifier);
         Expect(TokenType.Colon);
-        Token type = Expect(TokenType.Identifier);
+        AstNode type = Do(TypeName);
 
-        return new ParamDeclNode(Fetch(name).ToString(), Fetch(type).ToString());
+        return new ParamDeclNode(Fetch(name).ToString(), type);
     }
 
     public BlockNode Block()
@@ -344,11 +349,11 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
         Expect(TokenType.Type);
         Token name = Expect(TokenType.Identifier);
         Expect(TokenType.Equals);
-        Token baseType = Expect(TokenType.Identifier);
+        AstNode baseType = Do(TypeName);
         Expect(TokenType.Where);
         AstNode expression = Do(Expression);
 
-        return new RefinedTypeDeclNode(Fetch(name).ToString(), Fetch(baseType).ToString(), expression);
+        return new RefinedTypeDeclNode(Fetch(name).ToString(), baseType, expression);
     }
 
     public StructDeclNode StructDeclaration()
@@ -408,9 +413,9 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
     {
         Token fieldName = Expect(TokenType.Identifier);
         Expect(TokenType.Colon);
-        Token fieldType = Expect(TokenType.Identifier);
+        AstNode fieldType = Do(TypeName);
         
-        return new StructFieldNode(Fetch(fieldName).ToString(), Fetch(fieldType).ToString());
+        return new StructFieldNode(Fetch(fieldName).ToString(), fieldType);
     }
 
     public IdentifierNode EmbeddedStruct()
@@ -458,6 +463,27 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
     {
         Token identifier = Expect(TokenType.Identifier);
         return new IdentifierNode(Fetch(identifier).ToString()) { Location = identifier.Range };
+    }
+
+    public SimpleTypeNode SimpleType()
+    {
+        Token identifier = Expect(TokenType.Identifier);
+        return new SimpleTypeNode(Fetch(identifier).ToString()) { Location = identifier.Range };
+    }
+
+    public AstNode TypeName()
+    {
+        List<SimpleTypeNode> types = [Do(SimpleType)];
+
+        while (tokens.Peek().Type == TokenType.OrKeyword)
+        {
+            tokens.Next();
+            types.Add(Do(SimpleType));
+        }
+
+        if (types.Count == 1) return types[0];
+
+        return new MaybeTypeNode(types.AsReadOnly());
     }
 
     public AstNode Expression() => Expression(0);

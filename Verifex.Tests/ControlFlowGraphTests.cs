@@ -14,7 +14,7 @@ public class ControlFlowGraphTests
             "test",
             false,
             new ReadOnlyCollection<ParamDeclNode>(new List<ParamDeclNode>()),
-            "Void",
+            null,
             parser.Block()
         );
     }

@@ -391,16 +391,13 @@ public class AssemblyGen : DefaultNodeVisitor
     {
         if (from.IlType == to.IlType) return;
 
-        if (from.IlType.IsValueType && to.IlType == typeof(object))
+        if (from.IlType.IsValueType && to.FundamentalType is AnyType or MaybeType)
             _il.Emit(OpCodes.Box, from.IlType);
-        
-        if (from.IlType != typeof(string) && to.IlType == typeof(string))
-            _il.Emit(OpCodes.Call, typeof(Convert).GetMethod("ToString", [from.IlType])!);;
-        
-        if (from.IlType == typeof(int) && to.IlType == typeof(double))
+        else if (from.FundamentalType is not StringType && to.FundamentalType is StringType)
+            _il.Emit(OpCodes.Call, typeof(Convert).GetMethod("ToString", [from.IlType])!);
+        else if (from.FundamentalType is IntegerType && to.FundamentalType is RealType)
             _il.Emit(OpCodes.Conv_R8);
-
-        if (from.IlType == typeof(object))
+        else if (from.FundamentalType is AnyType or MaybeType)
             _il.Emit(to.IlType.IsValueType ? OpCodes.Unbox_Any : OpCodes.Castclass, to.IlType);
     }
 

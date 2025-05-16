@@ -29,6 +29,9 @@ public abstract class NodeVisitor
     protected abstract void Visit(InitializerListNode node);
     protected abstract void Visit(InitializerFieldNode node);
     protected abstract void Visit(StructMethodNode node);
+    protected abstract void Visit(SimpleTypeNode node);
+    protected abstract void Visit(MaybeTypeNode node);
+    protected abstract void Visit(IsCheckNode node);
     
     protected void Visit(AstNode node)
     {
@@ -51,6 +54,9 @@ public abstract class NodeVisitor
                 break;
             case ParamDeclNode typedIdentifierNode:
                 Visit(typedIdentifierNode);
+                break;
+            case SimpleTypeNode simpleTypeNode:
+                Visit(simpleTypeNode);
                 break;
             case IdentifierNode identifierNode:
                 Visit(identifierNode);
@@ -108,6 +114,12 @@ public abstract class NodeVisitor
                 break;
             case StructMethodNode structMethodNode:
                 Visit(structMethodNode);
+                break;
+            case MaybeTypeNode maybeTypeNode:
+                Visit(maybeTypeNode);
+                break;
+            case IsCheckNode isCheckNode:
+                Visit(isCheckNode);
                 break;
         }
     }

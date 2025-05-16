@@ -206,8 +206,8 @@ public class ParserTests
         var result = parser.LetDeclaration();
         
         Assert.IsType<VarDeclNode>(result);
-        Assert.Equal("x", result.Name);
-        Assert.Equal("int", result.TypeHint);
+        Assert.IsType<IdentifierNode>(result.TypeHint);
+        Assert.Equal("int", ((IdentifierNode)(result.TypeHint)).Identifier);
         Assert.IsType<NumberNode>(result.Value);
     }
     
@@ -232,7 +232,8 @@ public class ParserTests
         
         Assert.IsType<VarDeclNode>(result);
         Assert.Equal("x", result.Name);
-        Assert.Equal("int", result.TypeHint);
+        Assert.IsType<IdentifierNode>(result.TypeHint);
+        Assert.Equal("int", ((IdentifierNode)(result.TypeHint)).Identifier);
         Assert.IsType<NumberNode>(result.Value);
         Assert.True(result.Mutable);
     }
@@ -248,8 +249,11 @@ public class ParserTests
         Assert.Equal("add", result.Name);
         Assert.Equal(2, result.Parameters.Count);
         Assert.Equal("a", result.Parameters[0].Identifier);
-        Assert.Equal("int", result.Parameters[0].TypeName);
-        Assert.Equal("int", result.ReturnType);
+        Assert.IsType<IdentifierNode>(result.Parameters[0].Type);
+        Assert.Equal("int", ((IdentifierNode)(result.Parameters[0].Type)).Identifier);
+        Assert.NotNull(result.ReturnType);
+        Assert.IsType<IdentifierNode>(result.ReturnType);
+        Assert.Equal("int", ((IdentifierNode)(result.ReturnType)).Identifier);
         Assert.IsType<BlockNode>(result.Body);
         Assert.Single(result.Body.Nodes);
     }
@@ -503,9 +507,11 @@ public class ParserTests
         Assert.Equal("test", result.Name);
         Assert.Equal(2, result.Parameters.Count);
         Assert.Equal("a", result.Parameters[0].Identifier);
-        Assert.Equal("int", result.Parameters[0].TypeName);
+        Assert.IsType<IdentifierNode>(result.Parameters[0].Type);
+        Assert.Equal("int", ((IdentifierNode)(result.Parameters[0].Type)).Identifier);
         Assert.Equal("b", result.Parameters[1].Identifier);
-        Assert.Equal("int", result.Parameters[1].TypeName);
+        Assert.IsType<IdentifierNode>(result.Parameters[1].Type);
+        Assert.Equal("int", ((IdentifierNode)(result.Parameters[1].Type)).Identifier);
         
         // Verify the body was still parsed correctly despite the error
         Assert.NotNull(result.Body);
@@ -698,7 +704,8 @@ public class ParserTests
 
         Assert.IsType<RefinedTypeDeclNode>(result);
         Assert.Equal("NonZeroInt", result.Name);
-        Assert.Equal("Int", result.BaseType);
+        Assert.IsType<IdentifierNode>(result.BaseType);
+        Assert.Equal("Int", ((IdentifierNode)result.BaseType).Identifier);
         Assert.IsType<BinaryOperationNode>(result.Expression);
     }
 
@@ -713,9 +720,11 @@ public class ParserTests
         Assert.Equal("Person", result.Name);
         Assert.Equal(2, result.Fields.Count);
         Assert.Equal("name", result.Fields[0].Name);
-        Assert.Equal("String", result.Fields[0].Type);
+        Assert.IsType<IdentifierNode>(result.Fields[0].Type);
+        Assert.Equal("String", ((IdentifierNode)result.Fields[0].Type).Identifier);
         Assert.Equal("age", result.Fields[1].Name);
-        Assert.Equal("Int", result.Fields[1].Type);
+        Assert.IsType<IdentifierNode>(result.Fields[1].Type);
+        Assert.Equal("Int", ((IdentifierNode)result.Fields[1].Type).Identifier);
     }
     
     [Fact]
@@ -728,9 +737,11 @@ public class ParserTests
         Assert.Equal("Point", result.Name);
         Assert.Equal(2, result.Fields.Count);
         Assert.Equal("x", result.Fields[0].Name);
-        Assert.Equal("Int", result.Fields[0].Type);
+        Assert.IsType<IdentifierNode>(result.Fields[0].Type);
+        Assert.Equal("Int", ((IdentifierNode)result.Fields[0].Type).Identifier);
         Assert.Equal("y", result.Fields[1].Name);
-        Assert.Equal("Int", result.Fields[1].Type);
+        Assert.IsType<IdentifierNode>(result.Fields[1].Type);
+        Assert.Equal("Int", ((IdentifierNode)result.Fields[1].Type).Identifier);
     }
     
     [Fact]
@@ -754,9 +765,11 @@ public class ParserTests
         Assert.Equal("Malformed", result.Name);
         Assert.Equal(2, result.Fields.Count);
         Assert.Equal("name", result.Fields[0].Name);
-        Assert.Equal("String", result.Fields[0].Type);
+        Assert.IsType<IdentifierNode>(result.Fields[0].Type);
+        Assert.Equal("String", ((IdentifierNode)result.Fields[0].Type).Identifier);
         Assert.Equal("age", result.Fields[1].Name);
-        Assert.Equal("Int", result.Fields[1].Type);
+        Assert.IsType<IdentifierNode>(result.Fields[1].Type);
+        Assert.Equal("Int", ((IdentifierNode)result.Fields[1].Type).Identifier);
         Assert.NotEmpty(parser.Diagnostics); // Should report an error
     }
 
@@ -785,9 +798,11 @@ public class ParserTests
         Assert.Equal("Point", result.Name);
         Assert.Equal(2, result.Fields.Count);
         Assert.Equal("x", result.Fields[0].Name);
-        Assert.Equal("Int", result.Fields[0].Type);
+        Assert.IsType<IdentifierNode>(result.Fields[0].Type);
+        Assert.Equal("Int", ((IdentifierNode)result.Fields[0].Type).Identifier);
         Assert.Equal("y", result.Fields[1].Name);
-        Assert.Equal("Int", result.Fields[1].Type);
+        Assert.IsType<IdentifierNode>(result.Fields[1].Type);
+        Assert.Equal("Int", ((IdentifierNode)result.Fields[1].Type).Identifier);
         
         Assert.Single(result.Methods);
         Assert.Equal("distance", result.Methods[0].Function.Name);
@@ -941,9 +956,11 @@ public class ParserTests
         // Check fields
         Assert.Equal(2, result.Fields.Count);
         Assert.Equal("name", result.Fields[0].Name);
-        Assert.Equal("String", result.Fields[0].Type);
+        Assert.IsType<IdentifierNode>(result.Fields[0].Type);
+        Assert.Equal("String", ((IdentifierNode)result.Fields[0].Type).Identifier);
         Assert.Equal("age", result.Fields[1].Name);
-        Assert.Equal("Int", result.Fields[1].Type);
+        Assert.IsType<IdentifierNode>(result.Fields[1].Type);
+        Assert.Equal("Int", ((IdentifierNode)result.Fields[1].Type).Identifier);
         
         // Check embedded struct
         Assert.Single(result.Embedded);
@@ -965,9 +982,11 @@ public class ParserTests
         // Check fields
         Assert.Equal(2, result.Fields.Count);
         Assert.Equal("field1", result.Fields[0].Name);
-        Assert.Equal("Int", result.Fields[0].Type);
+        Assert.IsType<IdentifierNode>(result.Fields[0].Type);
+        Assert.Equal("Int", ((IdentifierNode)result.Fields[0].Type).Identifier);
         Assert.Equal("field2", result.Fields[1].Name);
-        Assert.Equal("String", result.Fields[1].Type);
+        Assert.IsType<IdentifierNode>(result.Fields[1].Type);
+        Assert.Equal("String", ((IdentifierNode)result.Fields[1].Type).Identifier);
         
         // Check embedded structs (should be 3)
         Assert.Equal(3, result.Embedded.Count);

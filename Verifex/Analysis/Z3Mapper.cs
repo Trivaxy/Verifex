@@ -1,3 +1,5 @@
+using System.Collections.ObjectModel;
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.Z3;
 using Verifex.CodeGen.Types;
 using Verifex.Parsing;
@@ -14,6 +16,7 @@ public class Z3Mapper
     private readonly UninterpretedSort _voidSort;
     private readonly Dictionary<VerifexType, FuncDecl> _toStringFuncDecls;
     private readonly Dictionary<StructType, DatatypeSort> _structToDatatypeSort;
+    private readonly Dictionary<MaybeType, MaybeTypeZ3Info> _maybeTypeZ3Infos;
     private int _nextTermId = 0;
     
     public Z3Expr? CurrentSelfTerm { get; set; }
@@ -28,6 +31,7 @@ public class Z3Mapper
         _voidSort = ctx.MkUninterpretedSort("Void");
         _toStringFuncDecls = CreateZ3ToStringFuncDecls();
         _structToDatatypeSort = [];
+        _maybeTypeZ3Infos = [];
         CurrentSelfTerm = null;
     }
     
@@ -45,6 +49,7 @@ public class Z3Mapper
             case InitializerNode init: return ConvertInitializer(init);
             case FunctionCallNode call: return ConvertFunctionCall(call);
             case MemberAccessNode member: return ConvertMemberAccess(member);
+            case IsCheckNode check: return ConvertIsCheck(check);
             default: 
                 throw new NotImplementedException($"Z3 conversion not implemented for AST node type: {node.GetType().Name}");
         }
@@ -163,6 +168,19 @@ public class Z3Mapper
         
         throw new InvalidOperationException($"Field '{node.Member.Identifier}' not found in struct '{structType.Name}'");
     }
+
+    private Z3Expr ConvertIsCheck(IsCheckNode node)
+    {
+        Z3Expr value = ConvertExpr(node.Value);
+        MaybeTypeZ3Info maybe = GetMaybeTypeZ3Info((node.Value.EffectiveType as MaybeType)!);
+        FuncDecl tester = maybe.Testers[AsSort(node.TestedType.EffectiveType!)];
+        Z3BoolExpr typeCheck = (_ctx.MkApp(tester, value) as Z3BoolExpr)!;
+        
+        if (node.TestedType.EffectiveType is RefinedType refinedType)
+            typeCheck = _ctx.MkAnd(typeCheck, CreateRefinedTypeConstraintExpr(value, refinedType));
+
+        return typeCheck;
+    }
     
     public Z3Expr CreateTerm(VerifexType type, string name)
     {
@@ -180,6 +198,8 @@ public class Z3Mapper
             term = _ctx.MkConst(termName, _anySort);
         else if (type.FundamentalType is StructType structType)
             term = _ctx.MkConst(termName, DatatypeSortForStruct(structType));
+        else if (type.FundamentalType is MaybeType maybeType)
+            term = _ctx.MkConst(termName, GetMaybeTypeZ3Info(maybeType).Sort);
         else
             throw new NotImplementedException();
 
@@ -200,9 +220,26 @@ public class Z3Mapper
         
         if (refinedType.BaseType.EffectiveType is RefinedType baseRefinedType)
             assertion = _ctx.MkAnd(assertion, CreateRefinedTypeConstraintExpr(term, baseRefinedType));
+        else if (refinedType.BaseType.EffectiveType is MaybeType maybeType)
+            assertion = _ctx.MkAnd(assertion, CreateMaybeTypeConstraintExpr(term, maybeType, refinedType.BaseType));
         
         _termMap.Remove(valueSymbol);
         return assertion;
+    }
+
+    private Z3BoolExpr CreateMaybeTypeConstraintExpr(Z3Expr term, MaybeType maybeType, VerifexType testedType)
+    {
+        if (!maybeType.Types.Contains(testedType))
+            throw new InvalidOperationException($"Type '{testedType.Name}' is not a valid type for MaybeType '{maybeType.Name}'");
+        
+        MaybeTypeZ3Info maybeInfo = GetMaybeTypeZ3Info(maybeType);
+        FuncDecl tester = maybeInfo.Testers[AsSort(testedType)];
+        
+        Z3BoolExpr typeCheck = (_ctx.MkApp(tester, term) as Z3BoolExpr)!;
+        if (testedType is RefinedType refinedType)
+            typeCheck = _ctx.MkAnd(typeCheck, CreateRefinedTypeConstraintExpr(term, refinedType));
+        
+        return typeCheck;
     }
     
     private Dictionary<VerifexType, FuncDecl> CreateZ3ToStringFuncDecls()
@@ -224,7 +261,7 @@ public class Z3Mapper
         return funcDecls;
     }
     
-    private Sort AsSort(VerifexType type)
+    public Sort AsSort(VerifexType type)
     {
         return type.FundamentalType switch
         {
@@ -235,6 +272,7 @@ public class Z3Mapper
             AnyType => _anySort,
             VoidType => _voidSort,
             StructType structType => DatatypeSortForStruct(structType),
+            MaybeType maybeType => GetMaybeTypeZ3Info(maybeType).Sort,
             CodeGen.Types.UnknownType => _anySort,
             _ => throw new NotImplementedException($"Type has no known sort: {type.Name}")
         };
@@ -261,4 +299,48 @@ public class Z3Mapper
         DatatypeSort sort = _ctx.MkDatatypeSort(type.Name, [constructor]);
         return sort;
     }
+    
+    public MaybeTypeZ3Info GetMaybeTypeZ3Info(MaybeType type)
+    {
+        if (_maybeTypeZ3Infos.TryGetValue(type, out MaybeTypeZ3Info? info))
+            return info;
+        
+        _maybeTypeZ3Infos[type] = CreateInfoForMaybeType(type);
+        return _maybeTypeZ3Infos[type];
+    }
+
+    private MaybeTypeZ3Info CreateInfoForMaybeType(MaybeType type)
+    {
+        Dictionary<Sort, Constructor> constructors = [];
+        Dictionary<Sort, FuncDecl> testers = [];
+        
+        foreach (VerifexType potentialType in type.Types)
+        {
+            Constructor constructor = _ctx.MkConstructor(
+                "Mk" + type.Name + "As" + potentialType.Name,
+                "Is" + type.Name + "As" + potentialType.Name,
+                [potentialType.Name],
+                [AsSort(potentialType)]
+            );
+            
+            constructors[AsSort(potentialType)] = constructor;
+        }
+        
+        DatatypeSort sort = _ctx.MkDatatypeSort(type.Name, constructors.Values.ToArray());
+        foreach (var kvp in constructors)
+            testers[kvp.Key] = kvp.Value.TesterDecl;
+        
+        return new MaybeTypeZ3Info(sort, constructors.AsReadOnly(), testers.AsReadOnly());
+    }
+
+    public bool TryGetMaybeTypeInfo(Z3Expr expr, out MaybeTypeZ3Info? info)
+    {
+        info = _maybeTypeZ3Infos.Values.FirstOrDefault(info => info.Sort.Equals(expr.Sort));
+        return info != null;
+    }
+
+    public record MaybeTypeZ3Info(
+        DatatypeSort Sort,
+        ReadOnlyDictionary<Sort, Constructor> Constructors,
+        ReadOnlyDictionary<Sort, FuncDecl> Testers);
 }

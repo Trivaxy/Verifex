@@ -80,10 +80,10 @@ public class TypeAnnotationPass(SymbolTable symbols) : VerificationPass(symbols)
 
         if (node.TypeHint != null)
         {
-            if (Symbols.TryLookupGlobalSymbol(node.TypeHint, out TypeSymbol? typeSymbol))
-                node.Symbol!.ResolvedType = typeSymbol!.ResolvedType;
+            if (node.TypeHint.EffectiveType == null)
+                LogDiagnostic(new UnknownType(node.TypeHint.ToString()) { Location = node.Location });
             else
-                LogDiagnostic(new UnknownType(node.TypeHint) { Location = node.Location });
+                node.Symbol!.ResolvedType = node.TypeHint.EffectiveType;
         }
         else
             node.Symbol!.ResolvedType = node.Value.ResolvedType;
@@ -93,21 +93,21 @@ public class TypeAnnotationPass(SymbolTable symbols) : VerificationPass(symbols)
     {
         base.Visit(node);
         
-        if (!Symbols.TryLookupGlobalSymbol(node.TypeName, out TypeSymbol? typeSymbol))
+        if (node.Type.EffectiveType == null)
         {
-            LogDiagnostic(new UnknownType(node.TypeName) { Location = node.Location });
+            LogDiagnostic(new UnknownType(node.Type.ToString()) { Location = node.Location });
             return;
         }
         
-        node.Symbol!.ResolvedType = typeSymbol!.ResolvedType;
+        node.Symbol!.ResolvedType = node.Type.ResolvedType;
     }
 
     protected override void Visit(StructFieldNode node)
     {
         base.Visit(node);
         
-        if (!Symbols.TryLookupGlobalSymbol(node.Type, out TypeSymbol? typeSymbol))
-            LogDiagnostic(new UnknownType(node.Type) { Location = node.Location });
+        if (node.Type.EffectiveType == null)
+            LogDiagnostic(new UnknownType(node.Type.ToString()) { Location = node.Location });
     }
 
     protected override void Visit(InitializerNode node)
@@ -169,5 +169,15 @@ public class TypeAnnotationPass(SymbolTable symbols) : VerificationPass(symbols)
             else
                 LogDiagnostic(new UnknownStructField(structSymbol.Name, node.Member.Identifier) { Location = node.Location });
         }
+    }
+
+    protected override void Visit(MaybeTypeNode node)
+    {
+        node.ResolvedType = new MaybeType(node.Types.Select(t => t.ResolvedType).ToList().AsReadOnly()!);
+    }
+
+    protected override void Visit(IsCheckNode node)
+    {
+        node.ResolvedType = Symbols.GetType("Bool");
     }
 }

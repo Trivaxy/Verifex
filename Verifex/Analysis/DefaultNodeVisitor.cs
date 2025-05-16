@@ -33,6 +33,10 @@ public class DefaultNodeVisitor : NodeVisitor
     {
         foreach (ParamDeclNode parameter in node.Parameters)
             Visit(parameter);
+        
+        if (node.ReturnType != null)
+            Visit(node.ReturnType);
+        
         Visit(node.Body);
     }
 
@@ -40,11 +44,16 @@ public class DefaultNodeVisitor : NodeVisitor
 
     protected override void Visit(NumberNode node) {}
 
-    protected override void Visit(ParamDeclNode node) {}
+    protected override void Visit(ParamDeclNode node) => Visit(node.Type);
 
     protected override void Visit(MinusNegationNode node) => Visit(node.Operand);
 
-    protected override void Visit(VarDeclNode node) => Visit(node.Value);
+    protected override void Visit(VarDeclNode node)
+    {
+        if (node.TypeHint != null)
+            Visit(node.TypeHint);
+        Visit(node.Value);
+    }
 
     protected override void Visit(StringLiteralNode node) {}
 
@@ -80,6 +89,7 @@ public class DefaultNodeVisitor : NodeVisitor
 
     protected override void Visit(RefinedTypeDeclNode node)
     {
+        Visit(node.BaseType);
         Visit(node.Expression);
     }
 
@@ -91,8 +101,8 @@ public class DefaultNodeVisitor : NodeVisitor
         foreach (StructMethodNode method in node.Methods)
             Visit(method);
     }
-    
-    protected override void Visit(StructFieldNode node) {}
+
+    protected override void Visit(StructFieldNode node) => Visit(node.Type);
 
     protected override void Visit(MemberAccessNode node)
     {
@@ -119,4 +129,18 @@ public class DefaultNodeVisitor : NodeVisitor
     }
 
     protected override void Visit(StructMethodNode node) => Visit(node.Function);
+
+    protected override void Visit(SimpleTypeNode node) {}
+
+    protected override void Visit(MaybeTypeNode node)
+    {
+        foreach (SimpleTypeNode type in node.Types)
+            Visit(type);
+    }
+
+    protected override void Visit(IsCheckNode node)
+    {
+        Visit(node.Value);
+        Visit(node.TestedType);
+    }
 }

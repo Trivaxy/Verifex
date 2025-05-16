@@ -16,8 +16,8 @@ public class TopLevelGatheringPass(SymbolTable symbols) : VerificationPass(symbo
             Function = new VerifexFunction(node.Name, node.Parameters.Select(p =>
             {
                 Visit(p);
-                return new ParameterInfo(p.Identifier, VerifexType.Delayed(() => Symbols.GetType(p.TypeName)));
-            }).ToList(), VerifexType.Delayed(() => Symbols.GetType(node.ReturnType ?? "Void")), null, node.IsStatic)
+                return new ParameterInfo(p.Identifier, VerifexType.Delayed(() => p.Type.ResolvedType));
+            }).ToList(), VerifexType.Delayed(() => node.ReturnType?.ResolvedType ?? Symbols.GetType("Void")), null, node.IsStatic)
         };
         
         if (node.IsStatic)
@@ -31,7 +31,7 @@ public class TopLevelGatheringPass(SymbolTable symbols) : VerificationPass(symbo
 
     protected override void Visit(RefinedTypeDeclNode node)
     {
-        VerifexType baseType = VerifexType.Delayed(() => Symbols.GetType(node.BaseType));
+        VerifexType baseType = VerifexType.Delayed(() => node.BaseType.ResolvedType);
         RefinedTypeSymbol refined = new RefinedTypeSymbol()
         {
             DeclaringNode = node,
@@ -64,7 +64,7 @@ public class TopLevelGatheringPass(SymbolTable symbols) : VerificationPass(symbo
             {
                 DeclaringNode = fieldNode,
                 Name = fieldNode.Name,
-                ResolvedType = VerifexType.Delayed(() => Symbols.GetType(fieldNode.Type)),
+                ResolvedType = VerifexType.Delayed(() => fieldNode.Type.ResolvedType),
                 Owner = null!, // set below
                 Index = i,
             };
@@ -90,9 +90,9 @@ public class TopLevelGatheringPass(SymbolTable symbols) : VerificationPass(symbo
                     methodNode.Function.Parameters.Select(p => 
                     {
                         Visit(p);
-                        return new ParameterInfo(p.Identifier, VerifexType.Delayed(() => Symbols.GetType(p.TypeName)));
+                        return new ParameterInfo(p.Identifier, VerifexType.Delayed(() => p.Type.ResolvedType));
                     }).ToList(),
-                    VerifexType.Delayed(() => Symbols.GetType(methodNode.Function.ReturnType ?? "Void")),
+                    VerifexType.Delayed(() => methodNode.Function.ReturnType?.ResolvedType ?? Symbols.GetType("Void")),
                     VerifexType.Delayed(() => Symbols.GetType(node.Name)),
                     methodNode.Function.IsStatic),
             };
@@ -106,7 +106,7 @@ public class TopLevelGatheringPass(SymbolTable symbols) : VerificationPass(symbo
             DeclaringNode = node,
             Name = node.Name,
             ResolvedType = new StructType(node.Name,
-                node.Fields.Select(f => new FieldInfo(f.Name, VerifexType.Delayed(() => Symbols.GetType(f.Type))))
+                node.Fields.Select(f => new FieldInfo(f.Name, VerifexType.Delayed(() => f.Type.ResolvedType)))
                     .ToDictionary(f => f.Name)),
             Fields = fields,
             Methods = methods,

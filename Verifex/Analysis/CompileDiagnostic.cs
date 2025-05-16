@@ -131,6 +131,9 @@ public record InitializerFieldTypeMismatch(string FieldName, string ExpectedType
 public record StaticFunctionOutsideStruct()
     : CompileDiagnostic(DiagnosticLevel.Error, "static functions cannot be defined outside of a struct");
 
+public record IsCheckOnNonMaybeType()
+    : CompileDiagnostic(DiagnosticLevel.Error, $"type checks can only be used maybe-types");
+
 public enum DiagnosticLevel
 {
     Error,

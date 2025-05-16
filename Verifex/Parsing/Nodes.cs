@@ -10,7 +10,7 @@ public abstract class AstNode
     
     public Symbol? Symbol { get; set; } // set during binding
 
-    private VerifexType? _explicitType; // set for expressions mainly, where there is no symbol (e.g. 2 + 4)
+    private VerifexType? _explicitType; // set for expressions and maybe types mainly, where there is no symbol
     public VerifexType? ResolvedType
     {
         get => _explicitType ?? Symbol?.ResolvedType;
@@ -40,12 +40,12 @@ public class FunctionCallNode(AstNode callee, ReadOnlyCollection<AstNode> argume
     public readonly ReadOnlyCollection<AstNode> Arguments = arguments;
 }
 
-public class FunctionDeclNode(string name, bool isStatic, ReadOnlyCollection<ParamDeclNode> parameters, string? returnType, BlockNode body) : AstNode
+public class FunctionDeclNode(string name, bool isStatic, ReadOnlyCollection<ParamDeclNode> parameters, AstNode? returnType, BlockNode body) : AstNode
 {
     public readonly string Name = name;
     public readonly bool IsStatic = isStatic;
     public readonly ReadOnlyCollection<ParamDeclNode> Parameters = parameters;
-    public readonly string? ReturnType = returnType;
+    public readonly AstNode? ReturnType = returnType;
     public readonly BlockNode Body = body;
 }
 
@@ -85,9 +85,9 @@ public class StringLiteralNode(string value) : AstNode
     public readonly string Value = value;
 }
 
-public class ParamDeclNode(string name, string type) : IdentifierNode(name)
+public class ParamDeclNode(string name, AstNode type) : IdentifierNode(name)
 {
-    public readonly string TypeName = type;
+    public readonly AstNode Type = type;
 }
 
 public class MinusNegationNode(AstNode operand) : AstNode
@@ -95,10 +95,10 @@ public class MinusNegationNode(AstNode operand) : AstNode
     public readonly AstNode Operand = operand;
 }
 
-public class VarDeclNode(string name, string? typeHint, AstNode value, bool mutable = false) : AstNode
+public class VarDeclNode(string name, AstNode? typeHint, AstNode value, bool mutable = false) : AstNode
 {
     public readonly string Name = name;
-    public readonly string? TypeHint = typeHint;
+    public readonly AstNode? TypeHint = typeHint;
     public readonly AstNode Value = value;
     public readonly bool Mutable = mutable;
 }
@@ -132,17 +132,17 @@ public class WhileNode(AstNode condition, BlockNode body) : AstNode
     public readonly BlockNode Body = body;
 }
 
-public class RefinedTypeDeclNode(string name, string baseType, AstNode expression) : AstNode
+public class RefinedTypeDeclNode(string name, AstNode baseType, AstNode expression) : AstNode
 {
     public readonly string Name = name;
-    public readonly string BaseType = baseType;
+    public readonly AstNode BaseType = baseType;
     public readonly AstNode Expression = expression;
 }
 
-public class StructFieldNode(string name, string type) : AstNode
+public class StructFieldNode(string name, AstNode type) : AstNode
 {
     public readonly string Name = name;
-    public readonly string Type = type;
+    public readonly AstNode Type = type;
 }
 
 public class StructMethodNode(FunctionDeclNode function) : AstNode
@@ -171,7 +171,7 @@ public class InitializerListNode(ReadOnlyCollection<InitializerFieldNode> values
 
 public class InitializerNode(IdentifierNode type, InitializerListNode initializerList) : AstNode
 {
-    public readonly IdentifierNode Type = type;
+    public readonly IdentifierNode Type = type; // TODO: Turn to SimpleTypeNode
     public readonly InitializerListNode InitializerList = initializerList;
 }
 
@@ -179,4 +179,17 @@ public class MemberAccessNode(AstNode target, IdentifierNode member) : AstNode
 {
     public readonly AstNode Target = target;
     public readonly IdentifierNode Member = member;
+}
+
+public class SimpleTypeNode(string identifier) : IdentifierNode(identifier);
+
+public class MaybeTypeNode(ReadOnlyCollection<SimpleTypeNode> types) : AstNode
+{
+    public readonly ReadOnlyCollection<SimpleTypeNode> Types = types;
+}
+
+public class IsCheckNode(AstNode value, SimpleTypeNode testedType) : AstNode
+{
+    public readonly AstNode Value = value;
+    public readonly SimpleTypeNode TestedType = testedType;
 }

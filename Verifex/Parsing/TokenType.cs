@@ -46,6 +46,8 @@ public enum TokenType : byte
     Dot,
     DotDot,
     FnStatic,
+    OrKeyword,
+    Is,
 }
 
 public static class TokenTypeExtensions
@@ -98,6 +100,8 @@ public static class TokenTypeExtensions
             TokenType.Dot => ".",
             TokenType.DotDot => "..",
             TokenType.FnStatic => "fn!",
+            TokenType.OrKeyword => "or",
+            TokenType.Is => "is",
             _ => throw new ArgumentOutOfRangeException(nameof(token), token, null)
         };
     }

@@ -77,7 +77,7 @@ public class TokenizerTests
     public void TokenStream_Keywords_ReturnsCorrectTokens()
     {
         // Arrange
-        var tokenStream = new TokenStream("let mut fn -> return true false if else while type where struct fn!");
+        var tokenStream = new TokenStream("let mut fn -> return true false if else while type where struct fn! or is");
         
         // Act & Assert
         Assert.Equal(TokenType.Let, tokenStream.Next().Type);
@@ -96,6 +96,8 @@ public class TokenizerTests
         Assert.Equal(TokenType.Where, tokenStream.Next().Type);
         Assert.Equal(TokenType.Struct, tokenStream.Next().Type);
         Assert.Equal(TokenType.FnStatic, tokenStream.Next().Type);
+        Assert.Equal(TokenType.OrKeyword, tokenStream.Next().Type);
+        Assert.Equal(TokenType.Is, tokenStream.Next().Type);
     }
     
     [Fact]
