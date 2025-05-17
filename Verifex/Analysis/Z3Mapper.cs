@@ -175,9 +175,12 @@ public class Z3Mapper
         MaybeTypeZ3Info maybe = GetMaybeTypeZ3Info((node.Value.EffectiveType as MaybeType)!);
         FuncDecl tester = maybe.Testers[AsSort(node.TestedType.EffectiveType!)];
         Z3BoolExpr typeCheck = (_ctx.MkApp(tester, value) as Z3BoolExpr)!;
-        
+
         if (node.TestedType.EffectiveType is RefinedType refinedType)
-            typeCheck = _ctx.MkAnd(typeCheck, CreateRefinedTypeConstraintExpr(value, refinedType));
+        {
+            Z3Expr unboxed = _ctx.MkApp(maybe.Constructors[AsSort(refinedType)].AccessorDecls[0], value);
+            typeCheck = _ctx.MkAnd(typeCheck, CreateRefinedTypeConstraintExpr(unboxed, refinedType));
+        }
 
         return typeCheck;
     }

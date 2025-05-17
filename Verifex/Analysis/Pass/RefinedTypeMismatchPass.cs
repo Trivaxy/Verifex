@@ -13,6 +13,7 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
     private readonly Z3Mapper _z3Mapper;
     private VerifexFunction _currentFunction = null!;
     private readonly HashSet<BasicBlock> _visitedBlocks;
+    private readonly Dictionary<VerifexType, Dictionary<VerifexType, CompatibilityStatus>> _typeCompatibilityCache; // key = target, value = sources
 
     public RefinedTypeMismatchPass(SymbolTable symbols) : base(symbols)
     {
@@ -20,6 +21,7 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
         _solver = _z3Ctx.MkSolver();
         _z3Mapper = new Z3Mapper(_z3Ctx, _solver, _symbolsAsTerms, symbols);
         _visitedBlocks = [];
+        _typeCompatibilityCache = [];
     }
     
     protected override void Visit(FunctionDeclNode node)
@@ -128,7 +130,7 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
         
         Visit(node.Value);
         
-        if (!IsTypeCompatible(node.Symbol!.ResolvedType!, node.Value!.ResolvedType!, node.Value))
+        if (!IsValueAssignable(node.Symbol!.ResolvedType!, node.Value))
             LogDiagnostic(new VarDeclTypeMismatch(node.Name, node.Symbol!.ResolvedType!.Name, node.Value!.ResolvedType!.Name) { Location = node.Location });
         else
             AssertAssignment(node.Symbol!, LowerAstNodeToZ3(node.Value));
@@ -138,7 +140,7 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
     {
         Visit(node.Value);
         
-        if (!IsTypeCompatible(node.Target!.Symbol!.ResolvedType!, node.Value!.ResolvedType!, node.Value))
+        if (!IsValueAssignable(node.Target!.Symbol!.ResolvedType!, node.Value))
             LogDiagnostic(new AssignmentTypeMismatch(node.Target!.ResolvedType!.Name, node.Value!.ResolvedType!.Name) { Location = node.Location });
         else
             AssertAssignment(node.Target.Symbol!, LowerAstNodeToZ3(node.Value));
@@ -157,7 +159,7 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
             
             Visit(argument);
                         
-            if (!IsTypeCompatible(param.Type, argument.ResolvedType!, argument))
+            if (!IsValueAssignable(param.Type, argument))
                 LogDiagnostic(new ParamTypeMismatch(param.Name, param.Type.Name, argument.ResolvedType!.Name) { Location = argument.Location });
         }
     }
@@ -167,7 +169,7 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
         if (node.Value != null)
             Visit(node.Value);
         
-        if (!IsTypeCompatible(_currentFunction.ReturnType, node.Value!.ResolvedType!, node.Value))
+        if (!IsValueAssignable(_currentFunction.ReturnType, node.Value!))
             LogDiagnostic(new ReturnTypeMismatch(_currentFunction.Name, _currentFunction.ReturnType.Name, node.Value.ResolvedType!.Name) { Location = node.Location });
     }
 
@@ -176,7 +178,7 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
         foreach (InitializerFieldNode field in node.InitializerList.Values)
         {
             if (field.EffectiveType == null) continue; // some error happened earlier, continue
-            if (!IsTypeCompatible(field.Name.ResolvedType!, field.Value.ResolvedType!, field.Value))
+            if (!IsValueAssignable(field.Name.ResolvedType!, field.Value))
                 LogDiagnostic(new InitializerFieldTypeMismatch(field.Name.Identifier, field.Name.ResolvedType!.Name, field.Value.ResolvedType!.Name) { Location = field.Location });
         }
     }
@@ -201,21 +203,15 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
         else
             throw new InvalidOperationException("Unknown types for assignment");
     }
-    
-    
-    private bool AreTypesBasicCompatible(VerifexType target, VerifexType source)
-        => target.EffectiveType is not VoidType
-           && source.EffectiveType is not VoidType // void is not assignable to anything
-           && (target.EffectiveType is AnyType // you can assign anything to Any
-               || target == source // same type obviously
-               || target.FundamentalType == source.FundamentalType // same fundamental type
-               || target.FundamentalType is RealType && source.FundamentalType is IntegerType // integer to real is implicitly allowed
-               || target.FundamentalType is MaybeType maybe && maybe.Types.Contains(source) // "Foo" can be assigned to "Foo or Bar"
-               || source.FundamentalType is MaybeType maybe2 && maybe2.Types.Contains(target) // "Foo or Bar" can be assigned to "Foo", depending on context
-               );
 
-    private bool IsTermAssignable(VerifexType target, Z3Expr value)
+    private bool IsValueAssignable(VerifexType target, AstNode rawValue)
     {
+        CompatibilityStatus compatibility = GetTypeCompatibility(target, rawValue.ResolvedType!);
+        if (compatibility == CompatibilityStatus.Incompatible) return false;
+        if (compatibility == CompatibilityStatus.Compatible) return true;
+        
+        // it's contextual, so use the path condition
+        Z3Expr value = LowerAstNodeToZ3(rawValue);
         Z3BoolExpr assertion = _z3Ctx.MkTrue();
         if (target.EffectiveType is RefinedType refinedType) 
             assertion = _z3Ctx.MkNot(_z3Mapper.CreateRefinedTypeConstraintExpr(value, refinedType));
@@ -229,25 +225,103 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
         
         return status == Status.UNSATISFIABLE;
     }
-    
-    private bool IsTypeCompatible(VerifexType target, VerifexType source, AstNode sourceValue)
-    {
-        if (target.FundamentalType is AnyType) return true;
-        if (target.FundamentalType is CodeGen.Types.UnknownType) return false;
 
-        if (target.EffectiveType is MaybeType targetMaybe)
+    private CompatibilityStatus GetTypeCompatibility(VerifexType target, VerifexType source)
+    {
+        if (!_typeCompatibilityCache.ContainsKey(target.EffectiveType))
+            _typeCompatibilityCache[target.EffectiveType] = new Dictionary<VerifexType, CompatibilityStatus>();
+        
+        if (_typeCompatibilityCache[target.EffectiveType].TryGetValue(source.EffectiveType, out CompatibilityStatus status))
+            return status;
+        
+        status = ComputeTypeCompatibility(target, source);
+        _typeCompatibilityCache[target.EffectiveType][source.EffectiveType] = status;
+
+        return status;
+    }
+
+    private CompatibilityStatus ComputeTypeCompatibility(VerifexType target, VerifexType source)
+    {
+        if (target == source) return CompatibilityStatus.Compatible;
+        if (target.FundamentalType is AnyType) return CompatibilityStatus.Compatible;
+        if (target.FundamentalType is CodeGen.Types.UnknownType) return CompatibilityStatus.Incompatible;
+        
+        // target is a maybe-type, we need to check if the source is a subtype of any of the types in the maybe-type
+        if (target.EffectiveType is MaybeType maybeType)
         {
-            if (targetMaybe.Types.Contains(source))
-                return true;
-            
             if (source.EffectiveType is MaybeType sourceMaybe)
-                return sourceMaybe.Types.All(s => targetMaybe.Types.Contains(s));
+            {
+                CompatibilityStatus status = CompatibilityStatus.Compatible;
+                foreach (VerifexType potential in sourceMaybe.Types)
+                {
+                    CompatibilityStatus innerStatus = ComputeTypeCompatibility(target, potential);
+                    if (innerStatus == CompatibilityStatus.Incompatible) return CompatibilityStatus.Incompatible;
+                    if (innerStatus == CompatibilityStatus.Contextual) status = CompatibilityStatus.Contextual;
+                }
+
+                return status;
+            }
+            else
+            {
+                CompatibilityStatus status = CompatibilityStatus.Compatible;
+                foreach (VerifexType potential in maybeType.Types)
+                {
+                    CompatibilityStatus innerStatus = ComputeTypeCompatibility(potential, source);
+                    if (innerStatus == CompatibilityStatus.Incompatible) return CompatibilityStatus.Incompatible;
+                    if (innerStatus == CompatibilityStatus.Contextual) status = CompatibilityStatus.Contextual;
+                }
+                
+                return status;
+            }
         }
         
-        if (target.EffectiveType is not RefinedType && source.EffectiveType is not RefinedType && source.EffectiveType is not MaybeType)
-            return AreTypesBasicCompatible(target, source);
+        // target is a refined type, solve for it
+        if (target.EffectiveType is RefinedType refinedType)
+        {
+            CompatibilityStatus status = CompatibilityStatus.Incompatible;
+            
+            using Solver solver = _z3Ctx.MkSolver();
+            Z3Expr sourceTerm = _z3Mapper.CreateTerm(source, "source");
+            Z3BoolExpr targetPredicate = _z3Mapper.CreateRefinedTypeConstraintExpr(sourceTerm, refinedType);
+            Z3BoolExpr sourcePredicate = source.EffectiveType is RefinedType sourceRefined
+                ? _z3Mapper.CreateRefinedTypeConstraintExpr(sourceTerm, sourceRefined)
+                : _z3Ctx.MkTrue();
+            Z3BoolExpr assertion = _z3Ctx.MkAnd(targetPredicate, sourcePredicate);
+            
+            // if source condition and target condition are both true, then it's at least contextual
+            if (solver.Check(assertion) == Status.SATISFIABLE)
+                status = CompatibilityStatus.Contextual;
+            
+            // now we check if we can promote to compatible if the source implies the target
+            if (status == CompatibilityStatus.Contextual)
+            {
+                assertion = _z3Ctx.MkAnd(sourcePredicate, _z3Ctx.MkNot(targetPredicate));
+                if (_solver.Check(assertion) == Status.UNSATISFIABLE)
+                    status = CompatibilityStatus.Compatible;
+            }
+
+            return status;
+        }
         
-        return AreTypesBasicCompatible(target, source) && IsTermAssignable(target, LowerAstNodeToZ3(sourceValue));
+        // the target isn't a refined or maybe type, but the source might be a maybe type
+        if (source.EffectiveType is MaybeType sourceMaybe2)
+        {
+            if (sourceMaybe2.Types.All(s => ComputeTypeCompatibility(target, s) == CompatibilityStatus.Compatible))
+                return CompatibilityStatus.Compatible;
+            if (sourceMaybe2.Types.All(s => ComputeTypeCompatibility(target, s) == CompatibilityStatus.Incompatible))
+                return CompatibilityStatus.Incompatible;
+            
+            return CompatibilityStatus.Contextual;
+        }
+        
+        // the target isn't a refined or maybe type, but the source might be a refined type, then just check if the fundamental type is the same
+        if (source.EffectiveType is RefinedType)
+        {
+            if (source.FundamentalType == target.FundamentalType)
+                return CompatibilityStatus.Compatible;
+        }
+
+        return CompatibilityStatus.Incompatible;
     }
 
     private Z3Expr LowerAstNodeToZ3(AstNode node)
@@ -263,5 +337,12 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
         GC.SuppressFinalize(this);
         _z3Ctx.Dispose();
         _solver.Dispose();
+    }
+
+    private enum CompatibilityStatus
+    {
+        Incompatible,
+        Contextual,
+        Compatible
     }
 }
