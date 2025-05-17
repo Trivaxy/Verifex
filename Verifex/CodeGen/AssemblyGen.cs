@@ -290,9 +290,9 @@ public class AssemblyGen : DefaultNodeVisitor
         
         Visit(node.IfBody);
 
-        if (node.ElseBody != null)
+        if (node.ElseBody is { Nodes.Count: > 0 } && node.ElseBody.Nodes[^1] is not ReturnNode)
             _il.Emit(OpCodes.Br, endLabel);
-            
+
         if (node.ElseBody != null)
         {
             _il.MarkLabel(elseLabel);
