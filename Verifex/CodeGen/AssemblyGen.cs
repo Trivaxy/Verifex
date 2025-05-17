@@ -386,6 +386,14 @@ public class AssemblyGen : DefaultNodeVisitor
         
         EmitConversion(_symbolTable.GetType("Any"), node.ResolvedType!);
     }
+
+    protected override void Visit(IsCheckNode node)
+    {
+        Visit(node.Value);
+        _il.Emit(OpCodes.Isinst, node.TestedType.EffectiveType!.IlType);
+        _il.Emit(OpCodes.Ldnull);
+        _il.Emit(OpCodes.Cgt_Un);
+    }
     
     private void EmitConversion(VerifexType from, VerifexType to)
     {
