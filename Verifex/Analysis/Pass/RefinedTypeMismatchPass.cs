@@ -196,8 +196,7 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
         }
         else if (_z3Mapper.TryGetMaybeTypeInfo(value, out Z3Mapper.MaybeTypeZ3Info? info))
         {
-            FuncDecl accessor = info!.Constructors[_z3Mapper.AsSort(target.ResolvedType!.EffectiveType)]
-                .AccessorDecls[0];
+            FuncDecl accessor = info!.Constructors[_z3Mapper.AsSort(target.ResolvedType!.EffectiveType)].AccessorDecls[0];
             _solver.Assert(_z3Ctx.MkEq(_symbolsAsTerms[target], _z3Ctx.MkApp(accessor, value)));
         }
         else
@@ -280,7 +279,7 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
         {
             CompatibilityStatus status = CompatibilityStatus.Incompatible;
             
-            using Solver solver = _z3Ctx.MkSolver();
+            using Solver freshSolver = _z3Ctx.MkSolver();
             Z3Expr sourceTerm = _z3Mapper.CreateTerm(source, "source");
             Z3BoolExpr targetPredicate = _z3Mapper.CreateRefinedTypeConstraintExpr(sourceTerm, refinedType);
             Z3BoolExpr sourcePredicate = source.EffectiveType is RefinedType sourceRefined
@@ -289,14 +288,15 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
             Z3BoolExpr assertion = _z3Ctx.MkAnd(targetPredicate, sourcePredicate);
             
             // if source condition and target condition are both true, then it's at least contextual
-            if (solver.Check(assertion) == Status.SATISFIABLE)
+            if (freshSolver.Check(assertion) == Status.SATISFIABLE)
                 status = CompatibilityStatus.Contextual;
             
             // now we check if we can promote to compatible if the source implies the target
             if (status == CompatibilityStatus.Contextual)
             {
+                freshSolver.Reset();
                 assertion = _z3Ctx.MkAnd(sourcePredicate, _z3Ctx.MkNot(targetPredicate));
-                if (_solver.Check(assertion) == Status.UNSATISFIABLE)
+                if (freshSolver.Check(assertion) == Status.UNSATISFIABLE)
                     status = CompatibilityStatus.Compatible;
             }
 
