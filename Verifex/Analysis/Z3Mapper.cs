@@ -230,17 +230,18 @@ public class Z3Mapper
         return assertion;
     }
 
-    private Z3BoolExpr CreateMaybeTypeConstraintExpr(Z3Expr term, MaybeType maybeType, VerifexType testedType)
+    public Z3BoolExpr CreateMaybeTypeConstraintExpr(Z3Expr term, MaybeType maybeType, VerifexType testedType)
     {
-        if (!maybeType.Types.Contains(testedType))
+        if (maybeType.Types.All(t => t.FundamentalType != testedType.FundamentalType))
             throw new InvalidOperationException($"Type '{testedType.Name}' is not a valid type for MaybeType '{maybeType.Name}'");
         
         MaybeTypeZ3Info maybeInfo = GetMaybeTypeZ3Info(maybeType);
         FuncDecl tester = maybeInfo.Testers[AsSort(testedType)];
-        
+        FuncDecl accessor = maybeInfo.Constructors[AsSort(testedType)].AccessorDecls[0];
         Z3BoolExpr typeCheck = (_ctx.MkApp(tester, term) as Z3BoolExpr)!;
-        if (testedType is RefinedType refinedType)
-            typeCheck = _ctx.MkAnd(typeCheck, CreateRefinedTypeConstraintExpr(term, refinedType));
+        
+        if (testedType.EffectiveType is RefinedType refinedType)
+            typeCheck = _ctx.MkAnd(typeCheck, CreateRefinedTypeConstraintExpr(_ctx.MkApp(accessor, term), refinedType));
         
         return typeCheck;
     }

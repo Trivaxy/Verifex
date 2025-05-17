@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Microsoft.Z3;
 using Verifex.CodeGen;
 using Verifex.CodeGen.Types;
@@ -211,18 +212,21 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
         
         // it's contextual, so use the path condition
         Z3Expr value = LowerAstNodeToZ3(rawValue);
-        Z3BoolExpr assertion = _z3Ctx.MkTrue();
-        if (target.EffectiveType is RefinedType refinedType) 
-            assertion = _z3Ctx.MkNot(_z3Mapper.CreateRefinedTypeConstraintExpr(value, refinedType));
-        else if (_z3Mapper.TryGetMaybeTypeInfo(value, out Z3Mapper.MaybeTypeZ3Info? maybeInfo))
-            assertion = _z3Ctx.MkNot(_z3Ctx.MkApp(maybeInfo!.Testers[_z3Mapper.AsSort(target.EffectiveType)], value) as Z3BoolExpr);
+        if (target.EffectiveType is RefinedType refinedType)
+        {
+            Z3BoolExpr assertion = _z3Ctx.MkNot(_z3Mapper.CreateRefinedTypeConstraintExpr(value, refinedType));
+            _solver.Push();
+            _solver.Assert(assertion);
+            Status status = _solver.Check();
+            _solver.Pop();
         
-        _solver.Push();
-        _solver.Assert(assertion);
-        Status status = _solver.Check();
-        _solver.Pop();
+            return status == Status.UNSATISFIABLE;
+        }
         
-        return status == Status.UNSATISFIABLE;
+        if (target.EffectiveType is MaybeType maybeType)
+            return maybeType.Types.Any(t => IsValueAssignable(t, rawValue));
+
+        return true;
     }
 
     private CompatibilityStatus GetTypeCompatibility(VerifexType target, VerifexType source)
@@ -244,6 +248,7 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
         if (target == source) return CompatibilityStatus.Compatible;
         if (target.FundamentalType is AnyType) return CompatibilityStatus.Compatible;
         if (target.FundamentalType is CodeGen.Types.UnknownType) return CompatibilityStatus.Incompatible;
+        if (target.FundamentalType is not MaybeType && source.FundamentalType is not MaybeType && target.FundamentalType != source.FundamentalType) return CompatibilityStatus.Incompatible;
         
         // target is a maybe-type, we need to check if the source is a subtype of any of the types in the maybe-type
         if (target.EffectiveType is MaybeType maybeType)
@@ -253,7 +258,7 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
                 CompatibilityStatus status = CompatibilityStatus.Compatible;
                 foreach (VerifexType potential in sourceMaybe.Types)
                 {
-                    CompatibilityStatus innerStatus = ComputeTypeCompatibility(target, potential);
+                    CompatibilityStatus innerStatus = GetTypeCompatibility(target, potential);
                     if (innerStatus == CompatibilityStatus.Incompatible) return CompatibilityStatus.Incompatible;
                     if (innerStatus == CompatibilityStatus.Contextual) status = CompatibilityStatus.Contextual;
                 }
@@ -262,15 +267,12 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
             }
             else
             {
-                CompatibilityStatus status = CompatibilityStatus.Compatible;
-                foreach (VerifexType potential in maybeType.Types)
-                {
-                    CompatibilityStatus innerStatus = ComputeTypeCompatibility(potential, source);
-                    if (innerStatus == CompatibilityStatus.Incompatible) return CompatibilityStatus.Incompatible;
-                    if (innerStatus == CompatibilityStatus.Contextual) status = CompatibilityStatus.Contextual;
-                }
-                
-                return status;
+                if (maybeType.Types.All(t => GetTypeCompatibility(t, source) == CompatibilityStatus.Incompatible))
+                    return CompatibilityStatus.Incompatible;
+                if (maybeType.Types.All(t => GetTypeCompatibility(t, source) == CompatibilityStatus.Compatible))
+                    return CompatibilityStatus.Compatible;
+
+                return CompatibilityStatus.Contextual;
             }
         }
         
@@ -281,10 +283,18 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
             
             using Solver freshSolver = _z3Ctx.MkSolver();
             Z3Expr sourceTerm = _z3Mapper.CreateTerm(source, "source");
+            Z3BoolExpr sourcePredicate = _z3Ctx.MkTrue();
+            
+            // if the source is a refined type, we need to create its assertion
+            if (source.EffectiveType is RefinedType sourceRefined)
+                sourcePredicate = _z3Mapper.CreateRefinedTypeConstraintExpr(sourceTerm, sourceRefined);
+            else if (source.EffectiveType is MaybeType sourceMaybe) // if it's a maybe type, we need to test it and unbox
+            {
+                sourcePredicate = _z3Ctx.MkAnd(_z3Mapper.CreateMaybeTypeConstraintExpr(sourceTerm, sourceMaybe, target.EffectiveType));
+                sourceTerm = _z3Ctx.MkApp(_z3Mapper.GetMaybeTypeZ3Info(sourceMaybe).Constructors[_z3Mapper.AsSort(target.EffectiveType)].AccessorDecls[0], sourceTerm);
+            }
+            
             Z3BoolExpr targetPredicate = _z3Mapper.CreateRefinedTypeConstraintExpr(sourceTerm, refinedType);
-            Z3BoolExpr sourcePredicate = source.EffectiveType is RefinedType sourceRefined
-                ? _z3Mapper.CreateRefinedTypeConstraintExpr(sourceTerm, sourceRefined)
-                : _z3Ctx.MkTrue();
             Z3BoolExpr assertion = _z3Ctx.MkAnd(targetPredicate, sourcePredicate);
             
             // if source condition and target condition are both true, then it's at least contextual
@@ -306,9 +316,9 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
         // the target isn't a refined or maybe type, but the source might be a maybe type
         if (source.EffectiveType is MaybeType sourceMaybe2)
         {
-            if (sourceMaybe2.Types.All(s => ComputeTypeCompatibility(target, s) == CompatibilityStatus.Compatible))
+            if (sourceMaybe2.Types.All(s => GetTypeCompatibility(target, s) == CompatibilityStatus.Compatible))
                 return CompatibilityStatus.Compatible;
-            if (sourceMaybe2.Types.All(s => ComputeTypeCompatibility(target, s) == CompatibilityStatus.Incompatible))
+            if (sourceMaybe2.Types.All(s => GetTypeCompatibility(target, s) == CompatibilityStatus.Incompatible))
                 return CompatibilityStatus.Incompatible;
             
             return CompatibilityStatus.Contextual;
