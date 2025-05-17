@@ -110,7 +110,20 @@ public class SymbolTable
         symbols.TryAddGlobalSymbol(BuiltinFunctionSymbol.Create(new BuiltinFunction("print",
             [new ParameterInfo("value", symbols.GetType("Any"))],
             symbols.GetType("Void"),
-            typeof(Console).GetMethod("WriteLine", [typeof(object)])!)));
+            typeof(Console).GetMethod("WriteLine", [typeof(object)])!
+            )));
+        
+        symbols.TryAddGlobalSymbol(BuiltinFunctionSymbol.Create(new BuiltinFunction("as_real",
+            [new ParameterInfo("value", symbols.GetType("Int"))],
+            symbols.GetType("Real"),
+            typeof(Convert).GetMethod("ToDouble", [typeof(int)])!)
+            ));
+        
+        symbols.TryAddGlobalSymbol(BuiltinFunctionSymbol.Create(new BuiltinFunction("as_int",
+            [new ParameterInfo("value", symbols.GetType("Real"))],
+            symbols.GetType("Int"),
+            typeof(Convert).GetMethod("ToInt32", [typeof(double)])!)
+            ));
         
         symbols.TryAddGlobalSymbol(BuiltinFunctionSymbol.Create(new BuiltinFunction("read",
             [],
