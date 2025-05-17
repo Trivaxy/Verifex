@@ -375,45 +375,57 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
 
         if (targetEffectiveType is MaybeType maybeTargetType)
         {
-            if (target is MemberAccessNode nestedAccess)
-                UpdateResolvedTypeInZ3Context(nestedAccess);
-
             Z3Expr z3TargetTerm = _z3Mapper.ConvertExpr(target);
-            foreach (VerifexType concreteOptionType in maybeTargetType.Types)
-            {
-                if (concreteOptionType.EffectiveType is not StructType potentialStructType) continue;
 
-                // Create Z3 assertion: z3TargetTerm is concreteOptionType
-                // This uses the existing Z3Mapper logic for checking types within a MaybeType context.
-                Z3BoolExpr isConcreteTypeAssertion = _z3Mapper.CreateMaybeTypeConstraintExpr(z3TargetTerm,
-                    maybeTargetType, potentialStructType);
+            VerifexType? definiteType = null;
+            int possibleOptions = 0;
+            
+            foreach (VerifexType concreteOption in maybeTargetType.Types)
+            {
+                if (concreteOption.EffectiveType is not StructType potentialStructType) continue;
 
                 _solver.Push();
-                _solver.Assert(isConcreteTypeAssertion);
-                Status checkStatus = _solver.Check();
-                _solver.Pop();
+                _solver.Assert(_z3Mapper.CreateMaybeTypeConstraintExpr(z3TargetTerm, maybeTargetType, potentialStructType));
 
-                if (checkStatus == Status.SATISFIABLE)
+                if (_solver.Check() == Status.SATISFIABLE)
                 {
-                    // the target *can* be this concreteOptionType in the current Z3 path.
-                    StructSymbol structSymbol = Symbols.GetSymbol<StructSymbol>(potentialStructType.Name);
-                    if (structSymbol.Fields.TryGetValue(memberAccessNode.Member.Identifier,
-                            out StructFieldSymbol? fieldSymbol))
-                    {
-                        memberAccessNode.ResolvedType = fieldSymbol.ResolvedType; // Sets _explicitType
-                        return; // Found the specific type for this context
-                    }
+                    possibleOptions++;
+                    definiteType = potentialStructType; // store the candidate
+                }
 
-                    if (structSymbol.Methods.TryGetValue(memberAccessNode.Member.Identifier,
-                            out FunctionSymbol? methodSymbol) && !methodSymbol.Function.IsStatic)
-                    {
-                        memberAccessNode.Symbol = methodSymbol;
-                        return; // Found the specific method for this context
-                    }
+                _solver.Pop();
+            }
+
+            // was the candidate uniquely determined?
+            if (possibleOptions == 1 && definiteType is StructType singleStructType)
+            {
+                StructSymbol structSymbol = Symbols.GetSymbol<StructSymbol>(singleStructType.Name);
+                if (structSymbol.Fields.TryGetValue(memberAccessNode.Member.Identifier,
+                        out StructFieldSymbol? fieldSymbol))
+                {
+                    memberAccessNode.ResolvedType = fieldSymbol.ResolvedType;
+                    memberAccessNode.Symbol = fieldSymbol;
+                }
+                else if (structSymbol.Methods.TryGetValue(memberAccessNode.Member.Identifier, 
+                             out FunctionSymbol? methodSymbol) && !methodSymbol.Function.IsStatic)
+                    memberAccessNode.Symbol = methodSymbol;
+                else
+                {
+                    // the type was unique, but unknown specified member
+                    LogDiagnostic(new UnknownStructField(singleStructType.Name, memberAccessNode.Member.Identifier) { Location = memberAccessNode.Location });
+                    memberAccessNode.ResolvedType = VerifexType.Unknown;
                 }
             }
-            
-            LogDiagnostic(new UnknownStructField(maybeTargetType.Name, memberAccessNode.Member.Identifier) { Location = memberAccessNode.Location });
+            else if (possibleOptions > 1)
+            {
+                LogDiagnostic(new MemberAccessOnAmbiguousType(memberAccessNode.Member.Identifier, maybeTargetType.Name) { Location = memberAccessNode.Location });
+                memberAccessNode.ResolvedType = VerifexType.Unknown;
+            }
+            else
+            {
+                LogDiagnostic(new UnknownStructField(maybeTargetType.Name, memberAccessNode.Member.Identifier) { Location = memberAccessNode.Location });
+                memberAccessNode.ResolvedType = VerifexType.Unknown;
+            }
         }
     }
 

@@ -134,6 +134,9 @@ public record StaticFunctionOutsideStruct()
 public record IsCheckOnNonMaybeType()
     : CompileDiagnostic(DiagnosticLevel.Error, $"type checks can only be used maybe-types");
 
+public record MemberAccessOnAmbiguousType(string FieldName, string TypeName)
+    : CompileDiagnostic(DiagnosticLevel.Error, $"cannot access member '{FieldName}' on an ambiguous type '{TypeName}'");
+
 public enum DiagnosticLevel
 {
     Error,
