@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics.CodeAnalysis;
 using Microsoft.Z3;
+using Verifex.Analysis.Pass;
 using Verifex.CodeGen.Types;
 using Verifex.Parsing;
 

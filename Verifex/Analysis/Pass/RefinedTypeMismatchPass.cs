@@ -15,6 +15,7 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
     private VerifexFunction _currentFunction = null!;
     private readonly HashSet<BasicBlock> _visitedBlocks;
     private readonly Dictionary<VerifexType, Dictionary<VerifexType, CompatibilityStatus>> _typeCompatibilityCache; // key = target, value = sources
+    private readonly TypeAnnotationPass _miniTypeAnnotationPass;
 
     public RefinedTypeMismatchPass(SymbolTable symbols) : base(symbols)
     {
@@ -23,6 +24,7 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
         _z3Mapper = new Z3Mapper(_z3Ctx, _solver, _symbolsAsTerms, symbols);
         _visitedBlocks = [];
         _typeCompatibilityCache = [];
+        _miniTypeAnnotationPass = new TypeAnnotationPass(symbols);
     }
     
     protected override void Visit(FunctionDeclNode node)
@@ -129,7 +131,7 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
     {
         if (_symbolsAsTerms.ContainsKey(node.Symbol!)) return; // erroneous duplicate definition, ignore
         
-        Visit(node.Value);
+        VisitValue(node.Value);
         
         if (!IsValueAssignable(node.Symbol!.ResolvedType!, node.Value))
             LogDiagnostic(new VarDeclTypeMismatch(node.Name, node.Symbol!.ResolvedType!.Name, node.Value!.ResolvedType!.Name) { Location = node.Location });
@@ -139,7 +141,7 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
 
     protected override void Visit(AssignmentNode node)
     {
-        Visit(node.Value);
+        VisitValue(node.Value);
         
         if (!IsValueAssignable(node.Target!.Symbol!.ResolvedType!, node.Value))
             LogDiagnostic(new AssignmentTypeMismatch(node.Target!.ResolvedType!.Name, node.Value!.ResolvedType!.Name) { Location = node.Location });
@@ -155,10 +157,9 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
             AstNode argument = node.Arguments[i];
             ParameterInfo param = function.Function.Parameters[i];
                         
-            // no resolved type means some type mismatch happened earlier; skip
-            if (argument.ResolvedType == null) continue;
-            
-            Visit(argument);
+            VisitValue(argument);
+
+            if (argument.EffectiveType == null) continue;
                         
             if (!IsValueAssignable(param.Type, argument))
                 LogDiagnostic(new ParamTypeMismatch(param.Name, param.Type.Name, argument.ResolvedType!.Name) { Location = argument.Location });
@@ -168,8 +169,8 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
     protected override void Visit(ReturnNode node)
     {
         if (node.Value != null)
-            Visit(node.Value);
-        
+            VisitValue(node.Value);
+
         if (!IsValueAssignable(_currentFunction.ReturnType, node.Value!))
             LogDiagnostic(new ReturnTypeMismatch(_currentFunction.Name, _currentFunction.ReturnType.Name, node.Value.ResolvedType!.Name) { Location = node.Location });
     }
@@ -183,6 +184,21 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
                 LogDiagnostic(new InitializerFieldTypeMismatch(field.Name.Identifier, field.Name.ResolvedType!.Name, field.Value.ResolvedType!.Name) { Location = field.Location });
         }
     }
+
+    protected override void Visit(MemberAccessNode node)
+    {
+        base.Visit(node);
+        UpdateResolvedTypeInZ3Context(node);
+    }
+
+    private void VisitValue(AstNode node)
+    {
+        // visit the node normally to reach everything
+        Visit(node);
+        // run the type annotator pass on it, in case any type got resolved (ugh maybe fields) so we update resolvedtype
+        _miniTypeAnnotationPass.Run(node);
+    }
+    
 
     private void AssertAssignment(Symbol target, Z3Expr value)
     {
@@ -350,6 +366,55 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
         }
 
         return CompatibilityStatus.Incompatible;
+    }
+
+    private void UpdateResolvedTypeInZ3Context(MemberAccessNode memberAccessNode)
+    {
+        AstNode target = memberAccessNode.Target;
+        VerifexType? targetEffectiveType = target.EffectiveType;
+
+        if (targetEffectiveType is MaybeType maybeTargetType)
+        {
+            if (target is MemberAccessNode nestedAccess)
+                UpdateResolvedTypeInZ3Context(nestedAccess);
+
+            Z3Expr z3TargetTerm = _z3Mapper.ConvertExpr(target);
+            foreach (VerifexType concreteOptionType in maybeTargetType.Types)
+            {
+                if (concreteOptionType.EffectiveType is not StructType potentialStructType) continue;
+
+                // Create Z3 assertion: z3TargetTerm is concreteOptionType
+                // This uses the existing Z3Mapper logic for checking types within a MaybeType context.
+                Z3BoolExpr isConcreteTypeAssertion = _z3Mapper.CreateMaybeTypeConstraintExpr(z3TargetTerm,
+                    maybeTargetType, potentialStructType);
+
+                _solver.Push();
+                _solver.Assert(isConcreteTypeAssertion);
+                Status checkStatus = _solver.Check();
+                _solver.Pop();
+
+                if (checkStatus == Status.SATISFIABLE)
+                {
+                    // the target *can* be this concreteOptionType in the current Z3 path.
+                    StructSymbol structSymbol = Symbols.GetSymbol<StructSymbol>(potentialStructType.Name);
+                    if (structSymbol.Fields.TryGetValue(memberAccessNode.Member.Identifier,
+                            out StructFieldSymbol? fieldSymbol))
+                    {
+                        memberAccessNode.ResolvedType = fieldSymbol.ResolvedType; // Sets _explicitType
+                        return; // Found the specific type for this context
+                    }
+
+                    if (structSymbol.Methods.TryGetValue(memberAccessNode.Member.Identifier,
+                            out FunctionSymbol? methodSymbol) && !methodSymbol.Function.IsStatic)
+                    {
+                        memberAccessNode.Symbol = methodSymbol;
+                        return; // Found the specific method for this context
+                    }
+                }
+            }
+            
+            LogDiagnostic(new UnknownStructField(maybeTargetType.Name, memberAccessNode.Member.Identifier) { Location = memberAccessNode.Location });
+        }
     }
 
     private Z3Expr LowerAstNodeToZ3(AstNode node)
