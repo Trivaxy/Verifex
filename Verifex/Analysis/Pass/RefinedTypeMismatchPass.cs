@@ -192,12 +192,12 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
             _solver.Assert(_z3Ctx.MkEq(_symbolsAsTerms[target], value));
         else if (target.ResolvedType!.EffectiveType is MaybeType maybeType)
         {
-            Constructor constructor = _z3Mapper.GetMaybeTypeZ3Info(maybeType).Constructors[value.Sort];
+            Constructor constructor = _z3Mapper.GetMaybeTypeZ3Info(maybeType).Constructors.First(c => _z3Mapper.AsSort(c.Key) == value.Sort).Value;
             _solver.Assert(_z3Ctx.MkEq(_symbolsAsTerms[target], _z3Ctx.MkApp(constructor.ConstructorDecl, value)));
         }
         else if (_z3Mapper.TryGetMaybeTypeInfo(value, out Z3Mapper.MaybeTypeZ3Info? info))
         {
-            FuncDecl accessor = info!.Constructors[_z3Mapper.AsSort(target.ResolvedType!.EffectiveType)].AccessorDecls[0];
+            FuncDecl accessor = info!.Constructors[target.ResolvedType!.EffectiveType].AccessorDecls[0];
             _solver.Assert(_z3Ctx.MkEq(_symbolsAsTerms[target], _z3Ctx.MkApp(accessor, value)));
         }
         else
@@ -214,7 +214,18 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
         Z3Expr value = LowerAstNodeToZ3(rawValue);
         if (target.EffectiveType is RefinedType refinedType)
         {
+            if (rawValue.EffectiveType is MaybeType maybeType)
+            {
+                Z3Mapper.MaybeTypeZ3Info info = _z3Mapper.GetMaybeTypeZ3Info(maybeType);
+                FuncDecl tester = info.Constructors[target].TesterDecl;
+                Z3BoolExpr testAssertion = (_z3Ctx.MkApp(tester, value) as Z3BoolExpr)!;
+                
+                _solver.Assert(testAssertion);
+                value = _z3Ctx.MkApp(info.Constructors[target].AccessorDecls[0], value);
+            }
+            
             Z3BoolExpr assertion = _z3Ctx.MkNot(_z3Mapper.CreateRefinedTypeConstraintExpr(value, refinedType));
+            
             _solver.Push();
             _solver.Assert(assertion);
             Status status = _solver.Check();
@@ -223,8 +234,8 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
             return status == Status.UNSATISFIABLE;
         }
         
-        if (target.EffectiveType is MaybeType maybeType)
-            return maybeType.Types.Any(t => IsValueAssignable(t, rawValue));
+        if (target.EffectiveType is MaybeType maybeType2)
+            return maybeType2.Types.Any(t => IsValueAssignable(t, rawValue));
 
         return true;
     }
@@ -248,7 +259,6 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
         if (target == source) return CompatibilityStatus.Compatible;
         if (target.FundamentalType is AnyType) return CompatibilityStatus.Compatible;
         if (target.FundamentalType is CodeGen.Types.UnknownType) return CompatibilityStatus.Incompatible;
-        if (target.FundamentalType is not MaybeType && source.FundamentalType is not MaybeType && target.FundamentalType != source.FundamentalType) return CompatibilityStatus.Incompatible;
         
         // target is a maybe-type, we need to check if the source is a subtype of any of the types in the maybe-type
         if (target.EffectiveType is MaybeType maybeType)
@@ -279,38 +289,46 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
         // target is a refined type, solve for it
         if (target.EffectiveType is RefinedType refinedType)
         {
-            CompatibilityStatus status = CompatibilityStatus.Incompatible;
-            
-            using Solver freshSolver = _z3Ctx.MkSolver();
-            Z3Expr sourceTerm = _z3Mapper.CreateTerm(source, "source");
-            Z3BoolExpr sourcePredicate = _z3Ctx.MkTrue();
-            
             // if the source is a refined type, we need to create its assertion
             if (source.EffectiveType is RefinedType sourceRefined)
-                sourcePredicate = _z3Mapper.CreateRefinedTypeConstraintExpr(sourceTerm, sourceRefined);
-            else if (source.EffectiveType is MaybeType sourceMaybe) // if it's a maybe type, we need to test it and unbox
             {
-                sourcePredicate = _z3Ctx.MkAnd(_z3Mapper.CreateMaybeTypeConstraintExpr(sourceTerm, sourceMaybe, target.EffectiveType));
-                sourceTerm = _z3Ctx.MkApp(_z3Mapper.GetMaybeTypeZ3Info(sourceMaybe).Constructors[_z3Mapper.AsSort(target.EffectiveType)].AccessorDecls[0], sourceTerm);
-            }
+                CompatibilityStatus status = CompatibilityStatus.Incompatible;
+                
+                using Solver freshSolver = _z3Ctx.MkSolver();
+                Z3Expr sourceTerm = _z3Mapper.CreateTerm(source, "source");
+                Z3BoolExpr sourcePredicate = _z3Mapper.CreateRefinedTypeConstraintExpr(sourceTerm, sourceRefined);
+                
+                Z3BoolExpr targetPredicate = _z3Mapper.CreateRefinedTypeConstraintExpr(sourceTerm, refinedType);
+                Z3BoolExpr assertion = _z3Ctx.MkAnd(targetPredicate, sourcePredicate);
             
-            Z3BoolExpr targetPredicate = _z3Mapper.CreateRefinedTypeConstraintExpr(sourceTerm, refinedType);
-            Z3BoolExpr assertion = _z3Ctx.MkAnd(targetPredicate, sourcePredicate);
+                // if source condition and target condition are both true, then it's at least contextual
+                if (freshSolver.Check(assertion) == Status.SATISFIABLE)
+                    status = CompatibilityStatus.Contextual;
             
-            // if source condition and target condition are both true, then it's at least contextual
-            if (freshSolver.Check(assertion) == Status.SATISFIABLE)
-                status = CompatibilityStatus.Contextual;
-            
-            // now we check if we can promote to compatible if the source implies the target
-            if (status == CompatibilityStatus.Contextual)
-            {
-                freshSolver.Reset();
-                assertion = _z3Ctx.MkAnd(sourcePredicate, _z3Ctx.MkNot(targetPredicate));
-                if (freshSolver.Check(assertion) == Status.UNSATISFIABLE)
-                    status = CompatibilityStatus.Compatible;
-            }
+                // now we check if we can promote to compatible if the source implies the target
+                if (status == CompatibilityStatus.Contextual)
+                {
+                    freshSolver.Assert(sourcePredicate);
+                    freshSolver.Assert(_z3Ctx.MkNot(targetPredicate));
+                    if (freshSolver.Check() == Status.UNSATISFIABLE)
+                        status = CompatibilityStatus.Compatible;
+                }
 
-            return status;
+                return status;
+            }
+            
+            if (source.EffectiveType is MaybeType sourceMaybe) // if it's a maybe type, we need to test its arms
+            {
+                if (sourceMaybe.Types.All(s => GetTypeCompatibility(target, s) == CompatibilityStatus.Incompatible))
+                    return CompatibilityStatus.Incompatible;
+                if (sourceMaybe.Types.All(s => GetTypeCompatibility(target, s) == CompatibilityStatus.Compatible))
+                    return CompatibilityStatus.Compatible;
+
+                return CompatibilityStatus.Contextual;
+            }
+            
+            // target is a refined type but source is neither refined or maybe, so it's just a fundamental type check
+            return target.FundamentalType == source.FundamentalType ? CompatibilityStatus.Compatible : CompatibilityStatus.Incompatible;
         }
         
         // the target isn't a refined or maybe type, but the source might be a maybe type

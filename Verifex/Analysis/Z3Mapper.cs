@@ -173,12 +173,12 @@ public class Z3Mapper
     {
         Z3Expr value = ConvertExpr(node.Value);
         MaybeTypeZ3Info maybe = GetMaybeTypeZ3Info((node.Value.EffectiveType as MaybeType)!);
-        FuncDecl tester = maybe.Testers[AsSort(node.TestedType.EffectiveType!)];
+        FuncDecl tester = maybe.Testers[node.TestedType.EffectiveType!];
         Z3BoolExpr typeCheck = (_ctx.MkApp(tester, value) as Z3BoolExpr)!;
 
         if (node.TestedType.EffectiveType is RefinedType refinedType)
         {
-            Z3Expr unboxed = _ctx.MkApp(maybe.Constructors[AsSort(refinedType)].AccessorDecls[0], value);
+            Z3Expr unboxed = _ctx.MkApp(maybe.Constructors[refinedType].AccessorDecls[0], value);
             typeCheck = _ctx.MkAnd(typeCheck, CreateRefinedTypeConstraintExpr(unboxed, refinedType));
         }
 
@@ -236,8 +236,8 @@ public class Z3Mapper
             throw new InvalidOperationException($"Type '{testedType.Name}' is not a valid type for MaybeType '{maybeType.Name}'");
         
         MaybeTypeZ3Info maybeInfo = GetMaybeTypeZ3Info(maybeType);
-        FuncDecl tester = maybeInfo.Testers[AsSort(testedType)];
-        FuncDecl accessor = maybeInfo.Constructors[AsSort(testedType)].AccessorDecls[0];
+        FuncDecl tester = maybeInfo.Testers[testedType];
+        FuncDecl accessor = maybeInfo.Constructors[testedType].AccessorDecls[0];
         Z3BoolExpr typeCheck = (_ctx.MkApp(tester, term) as Z3BoolExpr)!;
         
         if (testedType.EffectiveType is RefinedType refinedType)
@@ -315,8 +315,8 @@ public class Z3Mapper
 
     private MaybeTypeZ3Info CreateInfoForMaybeType(MaybeType type)
     {
-        Dictionary<Sort, Constructor> constructors = [];
-        Dictionary<Sort, FuncDecl> testers = [];
+        Dictionary<VerifexType, Constructor> constructors = [];
+        Dictionary<VerifexType, FuncDecl> testers = [];
         
         foreach (VerifexType potentialType in type.Types)
         {
@@ -327,7 +327,7 @@ public class Z3Mapper
                 [AsSort(potentialType)]
             );
             
-            constructors[AsSort(potentialType)] = constructor;
+            constructors[potentialType] = constructor;
         }
         
         DatatypeSort sort = _ctx.MkDatatypeSort(type.Name, constructors.Values.ToArray());
@@ -345,6 +345,6 @@ public class Z3Mapper
 
     public record MaybeTypeZ3Info(
         DatatypeSort Sort,
-        ReadOnlyDictionary<Sort, Constructor> Constructors,
-        ReadOnlyDictionary<Sort, FuncDecl> Testers);
+        ReadOnlyDictionary<VerifexType, Constructor> Constructors,
+        ReadOnlyDictionary<VerifexType, FuncDecl> Testers);
 }
