@@ -327,8 +327,8 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
                 return CompatibilityStatus.Contextual;
             }
             
-            // target is a refined type but source is neither refined or maybe, so it's just a fundamental type check
-            return target.FundamentalType == source.FundamentalType ? CompatibilityStatus.Compatible : CompatibilityStatus.Incompatible;
+            // target is a refined type but source is neither refined or maybe, so it's contextual
+            return target.FundamentalType == source.FundamentalType ? CompatibilityStatus.Contextual : CompatibilityStatus.Incompatible;
         }
         
         // the target isn't a refined or maybe type, but the source might be a maybe type
