@@ -63,7 +63,7 @@ public record VarNameAlreadyDeclared(string VarName)
     : CompileDiagnostic(DiagnosticLevel.Error, $"variable '{VarName}' already declared");
 
 public record ParameterAlreadyDeclared(string ParamName)
-    : CompileDiagnostic(DiagnosticLevel.Error, $"parameter {ParamName} already declared");
+    : CompileDiagnostic(DiagnosticLevel.Error, $"parameter '{ParamName}' name already taken");
 
 public record UnknownIdentifier(string Name)
     : CompileDiagnostic(DiagnosticLevel.Error, $"unknown variable, function, or type {Name}");
