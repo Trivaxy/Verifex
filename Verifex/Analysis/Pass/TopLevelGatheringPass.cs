@@ -22,9 +22,12 @@ public class TopLevelGatheringPass(VerificationContext context) : VerificationPa
         
         if (node.IsStatic)
             LogDiagnostic(new StaticFunctionOutsideStruct() { Location = node.Location });
-        
+
         if (!Symbols.TryAddGlobalSymbol(function))
+        {
             LogDiagnostic(new DuplicateTopLevelSymbol(function.Name) { Location = node.Location });
+            node.Symbol = Symbols.GetGlobalSymbol<FunctionSymbol>(node.Name); // point to the existing symbol
+        }
         else
             node.Symbol = function;
     }
@@ -39,9 +42,12 @@ public class TopLevelGatheringPass(VerificationContext context) : VerificationPa
             ResolvedType = new RefinedType(node.Name, baseType, node.Expression),
             BaseType = baseType,
         };
-        
+
         if (!Symbols.TryAddGlobalSymbol(refined))
+        {
             LogDiagnostic(new DuplicateTopLevelSymbol(refined.Name) { Location = node.Location });
+            node.Symbol = Symbols.GetGlobalSymbol<RefinedTypeSymbol>(node.Name); // point to the existing symbol
+        }
         else
             node.Symbol = refined;
     }
@@ -116,7 +122,10 @@ public class TopLevelGatheringPass(VerificationContext context) : VerificationPa
             field.Owner = structSymbol;
 
         if (!Symbols.TryAddGlobalSymbol(structSymbol))
+        {
             LogDiagnostic(new DuplicateTopLevelSymbol(structSymbol.Name) { Location = node.Location });
+            node.Symbol = Symbols.GetGlobalSymbol<StructSymbol>(node.Name); // point to the existing symbol
+        }
         else
             node.Symbol = structSymbol;
     }

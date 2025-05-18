@@ -6,7 +6,9 @@ public class CfgConstructionPass(VerificationContext context) : VerificationPass
 {
     protected override void Visit(FunctionDeclNode node)
     {
-        ControlFlowGraph cfg = CFGBuilder.Build(node);
-        Context.ControlFlowGraphs[(node.Symbol as FunctionSymbol)!] = cfg;
+        FunctionSymbol function = (node.Symbol as FunctionSymbol)!;
+        if (Context.ControlFlowGraphs.ContainsKey(function)) return; // check needed because functions with the same name point to same symbol
+        
+        Context.ControlFlowGraphs[function] = CFGBuilder.Build(node);
     }
 }
