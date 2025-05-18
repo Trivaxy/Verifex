@@ -119,7 +119,7 @@ public class FirstBindingPass(VerificationContext context) : VerificationPass(co
 
         if (Symbols.TryLookupSymbol(node.Name, out Symbol? existingSymbol))
         {
-            LogDiagnostic(new VarNameAlreadyDeclared(node.Name) { Location = node.Location });
+            LogDiagnostic(new NameAlreadyInUse(node.Name) { Location = node.Location });
             node.Symbol = existingSymbol; // point to existing symbol, makes things easier for the next passes
         }
         else
@@ -145,7 +145,7 @@ public class FirstBindingPass(VerificationContext context) : VerificationPass(co
 
         if (Symbols.TryLookupSymbol(parameter.Name, out Symbol? existingSymbol))
         {
-            LogDiagnostic(new ParameterAlreadyDeclared(parameter.Name) { Location = node.Location });
+            LogDiagnostic(new NameAlreadyInUse(parameter.Name) { Location = node.Location });
             node.Symbol = existingSymbol; // point to existing symbol, makes things easier for the next passes
         }
         else

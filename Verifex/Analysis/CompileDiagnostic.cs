@@ -59,11 +59,8 @@ public record UnexpectedToken(string What)
 
 // Verification errors
 
-public record VarNameAlreadyDeclared(string VarName)
-    : CompileDiagnostic(DiagnosticLevel.Error, $"variable '{VarName}' already declared");
-
-public record ParameterAlreadyDeclared(string ParamName)
-    : CompileDiagnostic(DiagnosticLevel.Error, $"parameter '{ParamName}' name already taken");
+public record NameAlreadyInUse(string Name)
+    : CompileDiagnostic(DiagnosticLevel.Error, $"name '{Name}' already in use");
 
 public record UnknownIdentifier(string Name)
     : CompileDiagnostic(DiagnosticLevel.Error, $"unknown variable, function, or type {Name}");
