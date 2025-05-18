@@ -162,7 +162,7 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
         {
             AstNode argument = node.Arguments[i];
             ParameterInfo param = function.Function.Parameters[i];
-                        
+            
             VisitValue(argument);
 
             if (argument.ResolvedType == VerifexType.Unknown) continue;
@@ -278,8 +278,22 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
             return status == Status.UNSATISFIABLE;
         }
         
+        // if target is a maybe type, check if the value can be applied to any of its components
         if (target.EffectiveType is MaybeType maybeType2)
             return maybeType2.Types.Any(t => IsValueAssignable(t, rawValue));
+        
+        // target isn't a maybe type or refined type, but if the source is a maybe type, we need to know if the path condition allows narrowing
+        if (rawValue.EffectiveType is MaybeType maybeType3)
+        {
+            Z3BoolExpr narrowingAssertion = _z3Mapper.CreateMaybeTypeConstraintExpr(value, maybeType3, target.EffectiveType);
+            
+            _solver.Push();
+            _solver.Assert(_z3Ctx.MkNot(narrowingAssertion));
+            Status status = _solver.Check();
+            _solver.Pop();
+            
+            return status == Status.UNSATISFIABLE;
+        }
 
         return true;
     }
