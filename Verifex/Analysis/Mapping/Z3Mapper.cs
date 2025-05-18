@@ -251,7 +251,8 @@ public class Z3Mapper
         _termStack.Push();
         _termStack.SetTerm(valueSymbol, term);
         
-        Z3BoolExpr assertion = (ConvertExpr(refinedType.RawConstraint) as Z3BoolExpr)!;
+        Z3BoolExpr? assertion = ConvertExpr(refinedType.RawConstraint) as Z3BoolExpr;
+        if (assertion == null) return _ctx.MkFalse(); // if the lowering of the constraint fails, it's not a bool expression, return false constant
         
         if (refinedType.BaseType.EffectiveType is RefinedType baseRefinedType)
             assertion = _ctx.MkAnd(assertion, CreateRefinedTypeConstraintExpr(term, baseRefinedType));
