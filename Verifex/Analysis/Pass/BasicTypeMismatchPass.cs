@@ -78,12 +78,7 @@ public class BasicTypeMismatchPass(VerificationContext context) : VerificationPa
     {
         base.Visit(node);
 
-        if (node.Callee.Symbol == null) return;
-        if (node.Callee.Symbol is not FunctionSymbol functionSymbol)
-        {
-            LogDiagnostic(new NotAFunction() { Location = node.Callee.Location });
-            return;
-        }
+        if (node.Callee.Symbol is not FunctionSymbol functionSymbol) return;
 
         VerifexFunction function = functionSymbol.Function;
         

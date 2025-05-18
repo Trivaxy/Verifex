@@ -174,7 +174,12 @@ public class RefiningPass : VerificationPass, IDisposable
 
     protected override void Visit(FunctionCallNode node)
     {
-        FunctionSymbol function = (node.Callee.Symbol as FunctionSymbol)!;
+        if (node.Callee.Symbol is not FunctionSymbol function)
+        {
+            LogDiagnostic(new NotAFunction() { Location = node.Callee.Location });
+            return;
+        }
+        
         for (int i = 0; i < Math.Min(node.Arguments.Count, function.Function.Parameters.Count); i++)
         {
             AstNode argument = node.Arguments[i];
