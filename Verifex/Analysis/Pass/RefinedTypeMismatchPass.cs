@@ -150,7 +150,11 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
         VisitValue(node.Value);
         
         if (!IsValueAssignable(node.Symbol!.ResolvedType, node.Value))
+        {
+            // just assign a bland term
+            AssertAssignment(node.Symbol, _z3Mapper.CreateTerm(node.Symbol!.ResolvedType, node.Name));
             LogDiagnostic(new VarDeclTypeMismatch(node.Name, node.Symbol!.ResolvedType.Name, node.Value.ResolvedType.Name) { Location = node.Location });
+        }
         else
             AssertAssignment(node.Symbol!, LowerAstNodeToZ3(node.Value)!);
     }
@@ -160,7 +164,11 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
         VisitValue(node.Value);
         
         if (!IsValueAssignable(node.Target.Symbol!.ResolvedType, node.Value))
+        {
+            // just make a bland term
+            _termStack.SetTerm(node.Target.Symbol!, _z3Mapper.CreateTerm(node.Target.ResolvedType, "arbitrary"));
             LogDiagnostic(new AssignmentTypeMismatch(node.Target.ResolvedType.Name, node.Value.ResolvedType.Name) { Location = node.Location });
+        }
         else
             AssertAssignment(node.Target.Symbol!, LowerAstNodeToZ3(node.Value)!);
     }
