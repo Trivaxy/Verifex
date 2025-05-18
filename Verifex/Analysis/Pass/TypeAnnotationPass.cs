@@ -86,7 +86,7 @@ public class TypeAnnotationPass(VerificationContext context) : VerificationPass(
                 node.Symbol!.ResolvedType = node.TypeHint.EffectiveType;
         }
         else
-            node.Symbol!.ResolvedType = node.Value.ResolvedType;
+            node.Symbol!.ResolvedType = VerifexType.Delayed(() => node.Value.ResolvedType);
     }
 
     protected override void Visit(ParamDeclNode node)
