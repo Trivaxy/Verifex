@@ -181,7 +181,7 @@ public class AssemblyGen : DefaultNodeVisitor
             Visit(child);
             
             // special case: if the statement is a function call, we need to pop its unused return off the stack
-            if (child is FunctionCallNode && (child.Symbol as FunctionSymbol)!.Function.ReturnType != null)
+            if (child is FunctionCallNode call && (call.Callee.Symbol as FunctionSymbol)!.Function.ReturnType != null)
                 _il.Emit(OpCodes.Pop);
         }
     }
