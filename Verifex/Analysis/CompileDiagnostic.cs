@@ -141,7 +141,10 @@ public record StructFieldNotInitialized(string TypeName, string FieldName)
     : CompileDiagnostic(DiagnosticLevel.Error, $"field '{FieldName}' for {TypeName} is missing");
 
 public record NotAValue()
-    : CompileDiagnostic(DiagnosticLevel.Error, $"not a value");
+    : CompileDiagnostic(DiagnosticLevel.Error, "not a value");
+
+public record NotAFunction()
+    : CompileDiagnostic(DiagnosticLevel.Error, "not a function");
 
 public enum DiagnosticLevel
 {
