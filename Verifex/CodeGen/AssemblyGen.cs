@@ -51,7 +51,7 @@ public class AssemblyGen : DefaultNodeVisitor
             }
             
             MethodBuilder method = _type.DefineMethod(function.Name, MethodAttributes.Public | MethodAttributes.Static);
-            Type returnType = function.ReturnType.IlType;
+            Type returnType = function.ReturnType?.IlType ?? typeof(void);
             Type[] parameterTypes = new Type[function.Parameters.Count];
             for (int i = 0; i < function.Parameters.Count; i++)
             {
@@ -83,7 +83,7 @@ public class AssemblyGen : DefaultNodeVisitor
                 if (_methodInfos.ContainsKey(function)) continue;
                 
                 MethodBuilder method = _type.DefineMethod(structSymbol.Name + "$" + function.Name, MethodAttributes.Public | MethodAttributes.Static);
-                Type returnType = function.ReturnType.IlType;
+                Type returnType = function.ReturnType?.IlType ?? typeof(void);
                 IEnumerable<Type> parameterTypes = function.Parameters.Select(p => p.Type.IlType);
                 
                 if (!function.IsStatic)
@@ -211,7 +211,7 @@ public class AssemblyGen : DefaultNodeVisitor
         Visit(node.Body);
         
         // if the function has a void return type and doesn't end with a return statement, emit a return implicitly
-        if (function.ReturnType.IlType == typeof(void) && (node.Body.Nodes.Count == 0 || node.Body.Nodes[^1] is not ReturnNode)) 
+        if (function.ReturnType == null && (node.Body.Nodes.Count == 0 || node.Body.Nodes[^1] is not ReturnNode)) 
             _il.Emit(OpCodes.Ret);
     }
 
@@ -259,7 +259,9 @@ public class AssemblyGen : DefaultNodeVisitor
         if (node.Value != null)
         {
             Visit(node.Value);
-            EmitConversion(node.Value.ResolvedType!, _currentFunction.ReturnType);
+            
+            if (_currentFunction.ReturnType != null) 
+                EmitConversion(node.Value.ResolvedType!, _currentFunction.ReturnType);
         }
 
         _il.Emit(OpCodes.Ret);
