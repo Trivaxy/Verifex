@@ -140,6 +140,9 @@ public record MemberAccessOnAmbiguousType(string FieldName, string TypeName)
 public record NotAllPathsReturn(string FunctionName)
     : CompileDiagnostic(DiagnosticLevel.Error, $"function '{FunctionName}' does not return a value on all paths");
 
+public record StructFieldNotInitialized(string TypeName, string FieldName)
+    : CompileDiagnostic(DiagnosticLevel.Error, $"field '{FieldName}' for {TypeName} is missing");
+
 public enum DiagnosticLevel
 {
     Error,

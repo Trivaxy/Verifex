@@ -116,6 +116,19 @@ public class BasicTypeMismatchPass(VerificationContext context) : VerificationPa
             LogDiagnostic(new IsCheckOnNonMaybeType() { Location = node.Location });
     }
 
+    protected override void Visit(InitializerNode node)
+    {
+        HashSet<string> seen = [];
+        foreach (InitializerFieldNode field in node.InitializerList.Values)
+            seen.Add(field.Name.Identifier);
+        
+        foreach (StructFieldSymbol field in (node.Type.Symbol as StructSymbol)!.Fields.Values)
+        {
+            if (!seen.Contains(field.Name))
+                LogDiagnostic(new StructFieldNotInitialized(node.Type.Identifier, field.Name) { Location = node.Location });
+        }
+    }
+
     private static bool SupportsIsCheck(VerifexType type)
     {
         if (type.EffectiveType is MaybeType) return true;

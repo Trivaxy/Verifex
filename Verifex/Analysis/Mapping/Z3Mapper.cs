@@ -140,25 +140,32 @@ public class Z3Mapper
         StructType structType = (node.FundamentalType as StructType)!;
         DatatypeSort datatype = DatatypeSortForStruct(structType);
         InitializerListNode initializers = node.InitializerList;
-        Z3Expr[] args = new Z3Expr[initializers.Values.Count];
+        Z3Expr?[] args = new Z3Expr[initializers.Values.Count];
 
         foreach (InitializerFieldNode fieldInit in initializers.Values)
         {
+            if (!structType.Fields.ContainsKey(fieldInit.Name.Identifier)) continue; // the field doesn't even exist, ignore
+            
             Z3Expr value = ConvertExpr(fieldInit.Value);
             FieldInfo targetFieldInfo = structType.Fields[fieldInit.Name.Identifier];
+            int index = (node.Type.Symbol as StructSymbol)!.Fields[fieldInit.Name.Identifier].Index;
             if (targetFieldInfo.Type.FundamentalType is MaybeType maybeType)
             {
-                int index = (node.Type.Symbol as StructSymbol)!.Fields[fieldInit.Name.Identifier].Index;
                 MaybeTypeZ3Info maybeInfo = GetMaybeTypeZ3Info(maybeType);
-
                 if (!maybeInfo.Constructors.TryGetValue(fieldInit.Value.EffectiveType, out Constructor? constructor))
                     throw new MismatchedTypesException(maybeType.Name, fieldInit.Value.ResolvedType.Name);
-                
+
                 FuncDecl constructorDecl = maybeInfo.Constructors[fieldInit.Value.EffectiveType].ConstructorDecl;
                 args[index] = _ctx.MkApp(constructorDecl, value);
             }
+            else
+                args[index] = value;
         }
-
+        
+        // if any of the arguments is null, means the user didn't even specify the field, so stop
+        if (args.Any(a => a == null))
+            throw new MissingFieldException();
+        
         return _ctx.MkApp(datatype.Constructors[0], args);
     }
 

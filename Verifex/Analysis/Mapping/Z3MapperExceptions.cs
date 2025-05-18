@@ -7,3 +7,5 @@ public class SymbolNotBoundException(string symbolName) : Z3MapperException($"Sy
 public class CannotUseIsOnNonMaybeTypeException() : Z3MapperException("Cannot use 'is' operator on a non-maybe type");
 
 public class MismatchedTypesException(string expectedType, string actualType) : Z3MapperException($"Expected type '{expectedType}', but got '{actualType}'");
+
+public class MissingFieldException() : Z3MapperException("Missing field");
