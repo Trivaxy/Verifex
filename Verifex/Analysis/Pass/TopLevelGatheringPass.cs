@@ -26,7 +26,10 @@ public class TopLevelGatheringPass(VerificationContext context) : VerificationPa
         if (!Symbols.TryAddGlobalSymbol(function))
         {
             LogDiagnostic(new DuplicateTopLevelSymbol(function.Name) { Location = node.Location });
-            node.Symbol = Symbols.GetGlobalSymbol<FunctionSymbol>(node.Name); // point to the existing symbol
+            if (Symbols.TryLookupGlobalSymbol(node.Name, out FunctionSymbol? symbol))
+                node.Symbol = symbol;
+            else
+                node.Symbol = function;
         }
         else
             node.Symbol = function;
@@ -46,7 +49,10 @@ public class TopLevelGatheringPass(VerificationContext context) : VerificationPa
         if (!Symbols.TryAddGlobalSymbol(refined))
         {
             LogDiagnostic(new DuplicateTopLevelSymbol(refined.Name) { Location = node.Location });
-            node.Symbol = Symbols.GetGlobalSymbol<RefinedTypeSymbol>(node.Name); // point to the existing symbol
+            if (Symbols.TryLookupGlobalSymbol(node.Name, out RefinedTypeSymbol symbol))
+                node.Symbol = symbol;
+            else
+                node.Symbol = refined;
         }
         else
             node.Symbol = refined;
@@ -124,7 +130,10 @@ public class TopLevelGatheringPass(VerificationContext context) : VerificationPa
         if (!Symbols.TryAddGlobalSymbol(structSymbol))
         {
             LogDiagnostic(new DuplicateTopLevelSymbol(structSymbol.Name) { Location = node.Location });
-            node.Symbol = Symbols.GetGlobalSymbol<StructSymbol>(node.Name); // point to the existing symbol
+            if (Symbols.TryLookupGlobalSymbol(node.Name, out StructSymbol? symbol))
+                node.Symbol = symbol;
+            else
+                node.Symbol = structSymbol;
         }
         else
             node.Symbol = structSymbol;
