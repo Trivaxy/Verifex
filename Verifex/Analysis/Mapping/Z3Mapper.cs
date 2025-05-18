@@ -90,7 +90,7 @@ public class Z3Mapper
             return z3Expr;
         }
 
-        throw new InvalidOperationException($"No Z3 expression found for symbol '{node.Symbol.Name}' in the current context");
+        throw new SymbolNotAValueException(node.Identifier);
     }
 
     private Z3Expr ConvertBinaryOperation(BinaryOperationNode node)

@@ -8,4 +8,4 @@ public class CannotUseIsOnNonMaybeTypeException() : Z3MapperException("Cannot us
 
 public class MismatchedTypesException(string expectedType, string actualType) : Z3MapperException($"Expected type '{expectedType}', but got '{actualType}'");
 
-public class MissingFieldException() : Z3MapperException("Missing field");
+public class SymbolNotAValueException(string symbolName) : Z3MapperException($"Symbol '{symbolName}' is not a value");
