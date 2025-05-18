@@ -345,9 +345,9 @@ public class RefiningPass : VerificationPass, IDisposable
 
     private CompatibilityStatus ComputeTypeCompatibility(VerifexType target, VerifexType source)
     {
+        if (target.FundamentalType is CodeGen.Types.UnknownType || source.FundamentalType is CodeGen.Types.UnknownType) return CompatibilityStatus.Incompatible;
         if (target == source) return CompatibilityStatus.Compatible;
         if (target.FundamentalType is AnyType) return CompatibilityStatus.Compatible;
-        if (target.FundamentalType is CodeGen.Types.UnknownType) return CompatibilityStatus.Incompatible;
         
         // target is a maybe-type, we need to check if the source is a subtype of any of the types in the maybe-type
         if (target.EffectiveType is MaybeType maybeType)
