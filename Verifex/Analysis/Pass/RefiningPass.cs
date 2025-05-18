@@ -252,9 +252,6 @@ public class RefiningPass : VerificationPass, IDisposable
         
         // run the type annotator pass on it, in case any type got narrowed or refined, so we propagate changes
         _miniTypeAnnotationPass.Run(node);
-        
-        if (node is IdentifierNode && node.Symbol is not LocalVarSymbol)
-            LogDiagnostic(new NotAValue() { Location = node.Location });
     }
 
     private void AssertAssignment(Symbol target, Z3Expr value)
