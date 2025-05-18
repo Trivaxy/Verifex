@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Microsoft.Z3;
+using Verifex.Analysis.Mapping;
 using Verifex.CodeGen;
 using Verifex.CodeGen.Types;
 using Verifex.Parsing;
@@ -17,14 +18,14 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
     private readonly Dictionary<VerifexType, Dictionary<VerifexType, CompatibilityStatus>> _typeCompatibilityCache; // key = target, value = sources
     private readonly TypeAnnotationPass _miniTypeAnnotationPass;
 
-    public RefinedTypeMismatchPass(SymbolTable symbols) : base(symbols)
+    public RefinedTypeMismatchPass(VerificationContext context) : base(context)
     {
         _z3Ctx = new Context();
         _solver = _z3Ctx.MkSolver();
-        _z3Mapper = new Z3Mapper(_z3Ctx, _solver, _symbolsAsTerms, symbols);
+        _z3Mapper = new Z3Mapper(_z3Ctx, _solver, _symbolsAsTerms, context.Symbols);
         _visitedBlocks = [];
         _typeCompatibilityCache = [];
-        _miniTypeAnnotationPass = new TypeAnnotationPass(symbols);
+        _miniTypeAnnotationPass = new TypeAnnotationPass(context);
     }
     
     protected override void Visit(FunctionDeclNode node)
@@ -40,7 +41,7 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
             
             foreach (StructFieldSymbol field in Symbols.GetSymbol<StructSymbol>(structType.Name).Fields.Values)
             {
-                if (field.ResolvedType == null) continue;
+                if (field.ResolvedType == VerifexType.Unknown) continue;
                 AssertAssignment(field, _z3Mapper.CreateTerm(field.ResolvedType!, field.Name));
                 
                 // we also have to link the field node with an equality to the accessor on the self term
@@ -53,11 +54,11 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
         
         foreach (ParamDeclNode param in node.Parameters)
         {
-            if (param.ResolvedType == null) continue;
+            if (param.ResolvedType == VerifexType.Unknown) continue;
             _symbolsAsTerms[param.Symbol!] = _z3Mapper.CreateTerm(param.Symbol!.ResolvedType!, param.Identifier);;
         }
-        
-        ControlFlowGraph cfg = CFGBuilder.Build(node);
+
+        ControlFlowGraph cfg = Context.ControlFlowGraphs[(node.Symbol as FunctionSymbol)!];
         VisitBasicBlock(cfg.Entry); // Traversing important AST nodes will happen via traversing the CFG
 
         _z3Mapper.CurrentSelfTerm = null;
@@ -107,7 +108,7 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
             AstNode rawCondition = block.Statements[^1];
             if (rawCondition.EffectiveType is BoolType)
             {
-                Z3BoolExpr z3Cond = (LowerAstNodeToZ3(rawCondition) as Z3BoolExpr)!;
+                Z3BoolExpr z3Cond = LowerAstNodeToZ3(rawCondition) as Z3BoolExpr ?? (_z3Mapper.CreateTerm(Symbols.GetType("Bool")!, "arbitrary") as Z3BoolExpr)!;
                 
                 // Visit the true branch first
                 _solver.Push();
@@ -136,7 +137,7 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
         if (!IsValueAssignable(node.Symbol!.ResolvedType!, node.Value))
             LogDiagnostic(new VarDeclTypeMismatch(node.Name, node.Symbol!.ResolvedType!.Name, node.Value!.ResolvedType!.Name) { Location = node.Location });
         else
-            AssertAssignment(node.Symbol!, LowerAstNodeToZ3(node.Value));
+            AssertAssignment(node.Symbol!, LowerAstNodeToZ3(node.Value)!);
     }
 
     protected override void Visit(AssignmentNode node)
@@ -146,7 +147,7 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
         if (!IsValueAssignable(node.Target!.Symbol!.ResolvedType!, node.Value))
             LogDiagnostic(new AssignmentTypeMismatch(node.Target!.ResolvedType!.Name, node.Value!.ResolvedType!.Name) { Location = node.Location });
         else
-            AssertAssignment(node.Target.Symbol!, LowerAstNodeToZ3(node.Value));
+            AssertAssignment(node.Target.Symbol!, LowerAstNodeToZ3(node.Value)!);
     }
 
     protected override void Visit(FunctionCallNode node)
@@ -227,9 +228,13 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
         if (compatibility == CompatibilityStatus.Compatible) return true;
         
         // it's contextual, so use the path condition
-        Z3Expr value = LowerAstNodeToZ3(rawValue);
+        Z3Expr? value = LowerAstNodeToZ3(rawValue);
+        if (value == null) return false; // couldn't lower, some error happened earlier, return false for safety
+        
         if (target.EffectiveType is RefinedType refinedType)
         {
+            if (refinedType.RawConstraint.ResolvedType == VerifexType.Unknown) return false; // constraint is invalid, dont bother
+            
             if (rawValue.EffectiveType is MaybeType maybeType)
             {
                 Z3Mapper.MaybeTypeZ3Info info = _z3Mapper.GetMaybeTypeZ3Info(maybeType);
@@ -429,12 +434,20 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
         }
     }
 
-    private Z3Expr LowerAstNodeToZ3(AstNode node)
+    private Z3Expr? LowerAstNodeToZ3(AstNode node)
     {
         if (node.ResolvedType == null)
             throw new InvalidOperationException("Cannot lower AST node without a resolved type");
+
+        try
+        {
+            return _z3Mapper.ConvertExpr(node);
+        }
+        catch (SymbolNotBoundException)
+        {
+            return null;
+        }
         
-        return _z3Mapper.ConvertExpr(node);
     }
 
     public void Dispose()

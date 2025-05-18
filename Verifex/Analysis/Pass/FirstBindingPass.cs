@@ -5,7 +5,7 @@ namespace Verifex.Analysis.Pass;
 
 // Creates symbols and attaches them to AST nodes (except member accesses & struct initializers), and completes top-level symbols which were gathered earlier
 // Also handles embedding of structs
-public class FirstBindingPass(SymbolTable symbols) : VerificationPass(symbols)
+public class FirstBindingPass(VerificationContext context) : VerificationPass(context)
 {
     private int _nextLocalIndex;
     private int _nextParameterIndex;
@@ -41,7 +41,7 @@ public class FirstBindingPass(SymbolTable symbols) : VerificationPass(symbols)
                         if (!_currentStruct.Fields.TryAdd(embeddedField.Name, field))
                             LogDiagnostic(new DuplicateMember(embeddedField.Name) { Location = embedded.Location });
                         
-                        structType.Fields.Add(embeddedField.Name, new FieldInfo(embeddedField.Name, embeddedField.ResolvedType!));
+                        structType.Fields.Add(embeddedField.Name, new FieldInfo(embeddedField.Name, embeddedField.ResolvedType));
                     }
                     
                     foreach (FunctionSymbol method in embeddedSymbol.Methods.Values)
@@ -81,7 +81,7 @@ public class FirstBindingPass(SymbolTable symbols) : VerificationPass(symbols)
 
         if (!node.IsStatic && _currentStruct != null)
         {
-            foreach (StructFieldSymbol field in _currentStruct!.Fields.Values)
+            foreach (StructFieldSymbol field in _currentStruct.Fields.Values)
                 Symbols.TryAddSymbol(field);
             
             _nextParameterIndex = 1; // skip the first parameter which is the instance
@@ -89,7 +89,7 @@ public class FirstBindingPass(SymbolTable symbols) : VerificationPass(symbols)
 
         if (_currentStruct != null)
         {
-            foreach (FunctionSymbol method in _currentStruct!.Methods.Values)
+            foreach (FunctionSymbol method in _currentStruct.Methods.Values)
                 Symbols.TryAddSymbol(method);
         }
         

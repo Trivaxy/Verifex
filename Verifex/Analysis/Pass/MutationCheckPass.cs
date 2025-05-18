@@ -3,7 +3,7 @@ using Verifex.Parsing;
 namespace Verifex.Analysis.Pass;
 
 // Validates immutability constraints in the program
-public class MutationCheckPass(SymbolTable symbols) : VerificationPass(symbols)
+public class MutationCheckPass(VerificationContext context) : VerificationPass(context)
 {
     // Check that assignment targets are mutable variables
     protected override void Visit(AssignmentNode node)

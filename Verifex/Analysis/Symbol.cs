@@ -11,7 +11,7 @@ public abstract class Symbol
     
     public required AstNode? DeclaringNode { get; init; }
 
-    public VerifexType? ResolvedType { get; set; } // set by the type annotator pass
+    public VerifexType ResolvedType { get; set; } = VerifexType.Unknown; // set by the type annotator pass
 }
 
 public class LocalVarSymbol : Symbol

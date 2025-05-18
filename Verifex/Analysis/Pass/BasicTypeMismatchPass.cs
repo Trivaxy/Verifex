@@ -5,17 +5,17 @@ using Verifex.Parsing;
 namespace Verifex.Analysis.Pass;
 
 // Checks for basic type mismatches throughout the annotated AST
-public class BasicTypeMismatchPass(SymbolTable symbols) : VerificationPass(symbols)
+public class BasicTypeMismatchPass(VerificationContext context) : VerificationPass(context)
 {
     // Checks that binary operations are performed on compatible types
     protected override void Visit(BinaryOperationNode node)
     {
         base.Visit(node);
 
-        VerifexType? leftType = node.Left.ResolvedType;
-        VerifexType? rightType = node.Right.ResolvedType;
+        VerifexType leftType = node.Left.ResolvedType;
+        VerifexType rightType = node.Right.ResolvedType;
 
-        if (leftType == null || rightType == null)
+        if (leftType == VerifexType.Unknown || rightType == VerifexType.Unknown)
             return; // don't bother if there's no types, means something failed earlier
 
         if (node.Operator.Type.IsBoolOp())
@@ -44,7 +44,7 @@ public class BasicTypeMismatchPass(SymbolTable symbols) : VerificationPass(symbo
         }
         else if (node.Operator.Type.IsArithmeticOp())
         {
-            if (node.Operator.Type == TokenType.Plus && (leftType.IlType == typeof(string) || rightType.IlType == typeof(string)))
+            if (node.Operator.Type == TokenType.Plus && (leftType.FundamentalType is StringType || rightType.FundamentalType is StringType))
                 return;
             
             switch (TypeSupportsArithmetic(leftType), TypeSupportsArithmetic(rightType))
@@ -67,7 +67,7 @@ public class BasicTypeMismatchPass(SymbolTable symbols) : VerificationPass(symbo
     {
         base.Visit(node);
         
-        if (node.Operand.ResolvedType == null)
+        if (node.Operand.ResolvedType == VerifexType.Unknown)
             return;
         
         if (!TypeSupportsArithmetic(node.Operand.ResolvedType))
@@ -92,7 +92,7 @@ public class BasicTypeMismatchPass(SymbolTable symbols) : VerificationPass(symbo
     {
         base.Visit(node);
         
-        if (node.Condition.ResolvedType == null)
+        if (node.Condition.ResolvedType == VerifexType.Unknown)
             return;
             
         if (node.Condition.ResolvedType.Name != "Bool")
@@ -103,7 +103,7 @@ public class BasicTypeMismatchPass(SymbolTable symbols) : VerificationPass(symbo
     {
         base.Visit(node);
 
-        if (node.Condition.ResolvedType == null)
+        if (node.Condition.ResolvedType == VerifexType.Unknown)
             return;
             
         if (node.Condition.ResolvedType.Name != "Bool")

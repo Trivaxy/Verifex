@@ -1,15 +1,13 @@
-using System.Collections.ObjectModel;
 using Verifex.Parsing;
 
 namespace Verifex.Analysis.Pass;
 
-public abstract class VerificationPass(SymbolTable symbols) : DefaultNodeVisitor
+public abstract class VerificationPass(VerificationContext context) : DefaultNodeVisitor
 {
-    private readonly List<CompileDiagnostic> _diagnostics = [];
-    protected readonly SymbolTable Symbols = symbols;
-    
-    public ReadOnlyCollection<CompileDiagnostic> Diagnostics => _diagnostics.AsReadOnly();
+    protected readonly VerificationContext Context = context;
 
+    protected SymbolTable Symbols => Context.Symbols;
+    
     public void Run(AstNode node)
     {
         Visit(node);
@@ -18,22 +16,24 @@ public abstract class VerificationPass(SymbolTable symbols) : DefaultNodeVisitor
     
     protected virtual void PostPass() {}
 
-    protected void LogDiagnostic(CompileDiagnostic diagnostic) => _diagnostics.Add(diagnostic);
+    protected void LogDiagnostic(CompileDiagnostic diagnostic) => Context.Diagnostics.Add(diagnostic);
 
-    public static VerificationPass[] CreateRegularPasses(out SymbolTable symbols)
-    {
-        symbols = SymbolTable.CreateDefaultTable();
+    public static VerificationPass[] CreateRegularPasses(out VerificationContext context)
+    { 
+        context = new VerificationContext(SymbolTable.CreateDefaultTable());
 
         return
         [
-            new TopLevelGatheringPass(symbols),
-            new FirstBindingPass(symbols),
-            new PrimitiveTypeAnnotationPass(symbols),
-            new TypeAnnotationPass(symbols),
-            new SecondBindingPass(symbols),
-            new BasicTypeMismatchPass(symbols),
-            new RefinedTypeMismatchPass(symbols),
-            new MutationCheckPass(symbols),
+            new TopLevelGatheringPass(context),
+            new CfgConstructionPass(context),
+            new FirstBindingPass(context),
+            new PrimitiveTypeAnnotationPass(context),
+            new TypeAnnotationPass(context),
+            new SecondBindingPass(context),
+            new BasicTypeMismatchPass(context),
+            new RefinedTypeMismatchPass(context),
+            new MutationCheckPass(context),
+            new ReturnFlowPass(context),
         ];
     }
 }

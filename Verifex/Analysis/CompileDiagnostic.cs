@@ -137,6 +137,9 @@ public record IsCheckOnNonMaybeType()
 public record MemberAccessOnAmbiguousType(string FieldName, string TypeName)
     : CompileDiagnostic(DiagnosticLevel.Error, $"cannot access member '{FieldName}' on an ambiguous type '{TypeName}'");
 
+public record NotAllPathsReturn(string FunctionName)
+    : CompileDiagnostic(DiagnosticLevel.Error, $"function '{FunctionName}' does not return a value on all paths");
+
 public enum DiagnosticLevel
 {
     Error,

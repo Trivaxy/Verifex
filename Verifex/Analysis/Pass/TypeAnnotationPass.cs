@@ -4,24 +4,24 @@ using Verifex.Parsing;
 namespace Verifex.Analysis.Pass;
 
 // Attach type info to expression nodes, and give symbols types
-public class TypeAnnotationPass(SymbolTable symbols) : VerificationPass(symbols)
+public class TypeAnnotationPass(VerificationContext context) : VerificationPass(context)
 {
     protected override void Visit(BinaryOperationNode node)
     {
         base.Visit(node);
         
-        if (node.Left.ResolvedType == null || node.Right.ResolvedType == null)
+        if (node.Left.ResolvedType == VerifexType.Unknown || node.Right.ResolvedType == VerifexType.Unknown)
             return;
 
         if (node.Operator.Type.IsBoolOp() && node.Left.FundamentalType is BoolType && node.Right.FundamentalType is BoolType)
         {
-            node.ResolvedType = Symbols.GetType("Bool");
+            node.ResolvedType = Symbols.GetType("Bool")!;
             return;
         }
         
         if (node.Operator.Type is TokenType.EqualEqual or TokenType.NotEqual && node.Left.FundamentalType == node.Right.FundamentalType)
         {
-            node.ResolvedType = Symbols.GetType("Bool");
+            node.ResolvedType = Symbols.GetType("Bool")!;
             return;
         }
         
@@ -29,7 +29,7 @@ public class TypeAnnotationPass(SymbolTable symbols) : VerificationPass(symbols)
             && node.Left.FundamentalType is IntegerType or RealType
             && node.Right.FundamentalType is IntegerType or RealType)
         {
-            node.ResolvedType = Symbols.GetType("Bool");
+            node.ResolvedType = Symbols.GetType("Bool")!;
             return;
         }
 
@@ -41,7 +41,7 @@ public class TypeAnnotationPass(SymbolTable symbols) : VerificationPass(symbols)
         {
             if (left.FundamentalType is StringType || right.FundamentalType is StringType)
             {
-                node.ResolvedType = Symbols.GetType("String");
+                node.ResolvedType = Symbols.GetType("String")!;
                 return;
             }
         }
@@ -49,7 +49,7 @@ public class TypeAnnotationPass(SymbolTable symbols) : VerificationPass(symbols)
         if (node.Operator.Type.IsArithmeticOp()
             && left.FundamentalType is IntegerType or RealType
             && right.FundamentalType is IntegerType or RealType)
-            node.ResolvedType = (left.FundamentalType is IntegerType && right.FundamentalType is IntegerType) ? Symbols.GetType("Int") : Symbols.GetType("Real");
+            node.ResolvedType = (left.FundamentalType is IntegerType && right.FundamentalType is IntegerType) ? Symbols.GetType("Int")! : Symbols.GetType("Real")!;
 
         // if none of the above, we have a type mismatch so ResolvedType stays null
     }
@@ -63,7 +63,7 @@ public class TypeAnnotationPass(SymbolTable symbols) : VerificationPass(symbols)
     protected override void Visit(NotNegationNode node)
     {
         base.Visit(node);
-        node.ResolvedType = Symbols.GetType("Bool");
+        node.ResolvedType = Symbols.GetType("Bool")!;
     }
     
     protected override void Visit(FunctionCallNode node)
@@ -80,8 +80,8 @@ public class TypeAnnotationPass(SymbolTable symbols) : VerificationPass(symbols)
 
         if (node.TypeHint != null)
         {
-            if (node.TypeHint.EffectiveType == null)
-                LogDiagnostic(new UnknownType(node.TypeHint.ToString()) { Location = node.Location });
+            if (node.TypeHint.EffectiveType == VerifexType.Unknown)
+                LogDiagnostic(new UnknownType(node.TypeHint.ToString()!) { Location = node.Location });
             else
                 node.Symbol!.ResolvedType = node.TypeHint.EffectiveType;
         }
@@ -93,9 +93,9 @@ public class TypeAnnotationPass(SymbolTable symbols) : VerificationPass(symbols)
     {
         base.Visit(node);
         
-        if (node.Type.EffectiveType == null)
+        if (node.Type.EffectiveType == VerifexType.Unknown)
         {
-            LogDiagnostic(new UnknownType(node.Type.ToString()) { Location = node.Location });
+            LogDiagnostic(new UnknownType(node.Type.ToString()!) { Location = node.Location });
             return;
         }
         
@@ -106,8 +106,8 @@ public class TypeAnnotationPass(SymbolTable symbols) : VerificationPass(symbols)
     {
         base.Visit(node);
         
-        if (node.Type.EffectiveType == null)
-            LogDiagnostic(new UnknownType(node.Type.ToString()) { Location = node.Location });
+        if (node.Type.EffectiveType == VerifexType.Unknown)
+            LogDiagnostic(new UnknownType(node.Type.ToString()!) { Location = node.Location });
     }
 
     protected override void Visit(InitializerNode node)
@@ -178,6 +178,6 @@ public class TypeAnnotationPass(SymbolTable symbols) : VerificationPass(symbols)
 
     protected override void Visit(IsCheckNode node)
     {
-        node.ResolvedType = Symbols.GetType("Bool");
+        node.ResolvedType = Symbols.GetType("Bool")!;
     }
 }

@@ -5,7 +5,7 @@ using Verifex.Parsing;
 namespace Verifex.Analysis.Pass;
 
 // Gathering pass for top-level symbols, like functions, structs, etc.
-public class TopLevelGatheringPass(SymbolTable symbols) : VerificationPass(symbols)
+public class TopLevelGatheringPass(VerificationContext context) : VerificationPass(context)
 {
     protected override void Visit(FunctionDeclNode node)
     {

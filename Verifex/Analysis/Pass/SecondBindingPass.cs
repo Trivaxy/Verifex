@@ -1,9 +1,8 @@
-using Verifex.CodeGen.Types;
 using Verifex.Parsing;
 
 namespace Verifex.Analysis.Pass;
 
-public class SecondBindingPass(SymbolTable symbols) : VerificationPass(symbols)
+public class SecondBindingPass(VerificationContext context) : VerificationPass(context)
 {
     protected override void Visit(InitializerNode node)
     {

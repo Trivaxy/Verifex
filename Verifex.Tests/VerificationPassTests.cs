@@ -13,60 +13,40 @@ public class VerificationPassTests
         return parser.Program();
     }
 
-    private SymbolTable RunPassesUntil<TPass>(ProgramNode ast, out VerificationPass[] passes)
+    private VerificationContext RunPassesUntil<TPass>(ProgramNode ast, out VerificationPass[] passes)
         where TPass : VerificationPass
     {
-        passes = VerificationPass.CreateRegularPasses(out SymbolTable symbols);
+        passes = VerificationPass.CreateRegularPasses(out var context);
 
         foreach (var pass in passes.TakeWhile(pass => pass is not TPass))
             pass.Run(ast);
 
-        return symbols;
+        return context;
     }
 
-    private SymbolTable RunAllPasses(ProgramNode ast, out VerificationPass[] passes)
+    private VerificationContext RunAllPasses(ProgramNode ast, out VerificationPass[] passes)
     {
-        passes = VerificationPass.CreateRegularPasses(out SymbolTable symbols);
+        passes = VerificationPass.CreateRegularPasses(out var context);
 
         foreach (var pass in passes)
             pass.Run(ast);
 
-        return symbols;
+        return context;
     }
 
-    private T AssertHasDiagnostic<T>(IEnumerable<VerificationPass> passes) where T : CompileDiagnostic
+    private T AssertHasDiagnostic<T>(VerificationContext context) where T : CompileDiagnostic
     {
-        var diagnostic = passes
-            .SelectMany(p => p.Diagnostics)
-            .FirstOrDefault(d => d is T);
-
+        var diagnostic = context.Diagnostics.FirstOrDefault(d => d is T);
         Assert.NotNull(diagnostic);
         return (T)diagnostic;
     }
 
-    private T AssertHasDiagnostic<T>(VerificationPass pass) where T : CompileDiagnostic
+    private T AssertHasDiagnostic<T>(VerificationContext context, Action<T> validator) where T : CompileDiagnostic
     {
-        var diagnostic = pass.Diagnostics.FirstOrDefault(d => d is T);
+        var diagnostic = context.Diagnostics.FirstOrDefault(d => d is T);
         Assert.NotNull(diagnostic);
+        validator((T)diagnostic);
         return (T)diagnostic;
-    }
-
-    private static void AssertHasDiagnostic<T>(VerificationPass pass, Action<T> validator) where T : CompileDiagnostic
-    {
-        var diagnostic = pass.Diagnostics.FirstOrDefault(d => d is T);
-        Assert.NotNull(diagnostic);
-        validator((T)diagnostic);
-    }
-
-    private static void AssertHasDiagnostic<T>(IEnumerable<VerificationPass> passes, Action<T> validator)
-        where T : CompileDiagnostic
-    {
-        var diagnostic = passes
-            .SelectMany(p => p.Diagnostics)
-            .FirstOrDefault(d => d is T);
-
-        Assert.NotNull(diagnostic);
-        validator((T)diagnostic);
     }
 
     [Fact]
@@ -75,12 +55,12 @@ public class VerificationPassTests
         var source = "fn test() {} fn test() {}";
         var ast = Parse(source);
 
-        var symbolTable = new SymbolTable();
-        var pass = new TopLevelGatheringPass(symbolTable);
+        var passes = VerificationPass.CreateRegularPasses(out var context);
+        var pass = passes.OfType<TopLevelGatheringPass>().First();
         pass.Run(ast);
 
-        Assert.Single(pass.Diagnostics);
-        AssertHasDiagnostic<DuplicateTopLevelSymbol>(pass, diagnostic =>
+        Assert.Single(context.Diagnostics);
+        AssertHasDiagnostic<DuplicateTopLevelSymbol>(context, diagnostic =>
         {
             Assert.Equal("test", diagnostic.Name);
             Assert.Equal(DiagnosticLevel.Error, diagnostic.Level);
@@ -93,15 +73,15 @@ public class VerificationPassTests
         var source = "fn test() { let x = y; }";
         var ast = Parse(source);
 
-        var symbolTable = new SymbolTable();
-        var gatheringPass = new TopLevelGatheringPass(symbolTable);
+        var passes = VerificationPass.CreateRegularPasses(out var context);
+        var gatheringPass = passes.OfType<TopLevelGatheringPass>().First();
         gatheringPass.Run(ast);
 
-        var bindingPass = new FirstBindingPass(symbolTable);
+        var bindingPass = passes.OfType<FirstBindingPass>().First();
         bindingPass.Run(ast);
 
-        Assert.Single(bindingPass.Diagnostics);
-        AssertHasDiagnostic<UnknownIdentifier>(bindingPass, diagnostic =>
+        Assert.Single(context.Diagnostics);
+        AssertHasDiagnostic<UnknownIdentifier>(context, diagnostic =>
         {
             Assert.Equal("y", diagnostic.Name);
             Assert.Equal(DiagnosticLevel.Error, diagnostic.Level);
@@ -114,15 +94,15 @@ public class VerificationPassTests
         var source = "fn test() { let x = 1; let x = 2; }";
         var ast = Parse(source);
 
-        var symbolTable = new SymbolTable();
-        var gatheringPass = new TopLevelGatheringPass(symbolTable);
+        var passes = VerificationPass.CreateRegularPasses(out var context);
+        var gatheringPass = passes.OfType<TopLevelGatheringPass>().First();
         gatheringPass.Run(ast);
 
-        var bindingPass = new FirstBindingPass(symbolTable);
+        var bindingPass = passes.OfType<FirstBindingPass>().First();
         bindingPass.Run(ast);
 
-        Assert.Single(bindingPass.Diagnostics);
-        AssertHasDiagnostic<VarNameAlreadyDeclared>(bindingPass, diagnostic =>
+        Assert.Single(context.Diagnostics);
+        AssertHasDiagnostic<VarNameAlreadyDeclared>(context, diagnostic =>
         {
             Assert.Equal("x", diagnostic.VarName);
             Assert.Equal(DiagnosticLevel.Error, diagnostic.Level);
@@ -135,11 +115,11 @@ public class VerificationPassTests
         var source = "type PositiveInt = Int where value > 0;";
         var ast = Parse(source);
 
-        var symbolTable = new SymbolTable();
-        var gatheringPass = new TopLevelGatheringPass(symbolTable);
+        var passes = VerificationPass.CreateRegularPasses(out var context);
+        var gatheringPass = passes.OfType<TopLevelGatheringPass>().First();
         gatheringPass.Run(ast);
 
-        Assert.True(symbolTable.TryLookupGlobalSymbol("PositiveInt", out var symbol));
+        Assert.True(context.Symbols.TryLookupGlobalSymbol("PositiveInt", out var symbol));
 
         var refinedTypeSymbol = Assert.IsType<RefinedTypeSymbol>(symbol);
         Assert.Equal(ast.Nodes[0], refinedTypeSymbol.DeclaringNode);
@@ -152,11 +132,11 @@ public class VerificationPassTests
         var source = "type PositiveInt = Int where value > 0;";
         var ast = Parse(source);
 
-        var symbolTable = new SymbolTable();
-        var gatheringPass = new TopLevelGatheringPass(symbolTable);
+        var passes = VerificationPass.CreateRegularPasses(out var context);
+        var gatheringPass = passes.OfType<TopLevelGatheringPass>().First();
         gatheringPass.Run(ast);
 
-        var bindingPass = new FirstBindingPass(symbolTable);
+        var bindingPass = passes.OfType<FirstBindingPass>().First();
         bindingPass.Run(ast);
 
         var refinedTypeDeclNode = Assert.IsType<RefinedTypeDeclNode>(ast.Nodes[0]);
@@ -175,16 +155,12 @@ public class VerificationPassTests
         var source = "fn test() { let x: NonExistentType = 5; }";
         var ast = Parse(source);
 
-        var symbolTable = SymbolTable.CreateDefaultTable();
-        new TopLevelGatheringPass(symbolTable).Run(ast);
-        new FirstBindingPass(symbolTable).Run(ast);
-        new PrimitiveTypeAnnotationPass(symbolTable).Run(ast);
-
-        var typeAnnotationPass = new TypeAnnotationPass(symbolTable);
+        var context = RunPassesUntil<TypeAnnotationPass>(ast, out var passes);
+        var typeAnnotationPass = passes.OfType<TypeAnnotationPass>().First();
         typeAnnotationPass.Run(ast);
 
-        Assert.Single(typeAnnotationPass.Diagnostics);
-        AssertHasDiagnostic<UnknownType>(typeAnnotationPass, diagnostic =>
+        Assert.Single(context.Diagnostics);
+        AssertHasDiagnostic<UnknownType>(context, diagnostic =>
         {
             Assert.Equal("NonExistentType", diagnostic.TypeName);
             Assert.Equal(DiagnosticLevel.Error, diagnostic.Level);
@@ -207,13 +183,13 @@ public class VerificationPassTests
             """;
 
         var ast = Parse(source);
-        var symbols = RunPassesUntil<BasicTypeMismatchPass>(ast, out var passes);
+        var context = RunPassesUntil<BasicTypeMismatchPass>(ast, out var passes);
 
-        var typeMismatchPass = new BasicTypeMismatchPass(symbols);
+        var typeMismatchPass = passes.OfType<BasicTypeMismatchPass>().First();
         typeMismatchPass.Run(ast);
 
         // Check that Int + Bool is detected
-        AssertHasDiagnostic<TypeCannotDoArithmetic>(typeMismatchPass, diagnostic =>
+        AssertHasDiagnostic<TypeCannotDoArithmetic>(context, diagnostic =>
         {
             Assert.Equal("Bool", diagnostic.Type);
             Assert.Equal(DiagnosticLevel.Error, diagnostic.Level);
@@ -230,9 +206,9 @@ public class VerificationPassTests
             """;
 
         var ast = Parse(source);
-        RunAllPasses(ast, out var passes);
+        var context = RunAllPasses(ast, out var passes);
 
-        AssertHasDiagnostic<ReturnTypeMismatch>(passes, diagnostic =>
+        AssertHasDiagnostic<ReturnTypeMismatch>(context, diagnostic =>
         {
             Assert.Equal("test", diagnostic.FunctionName);
             Assert.Equal("Int", diagnostic.ExpectedType);
@@ -255,9 +231,9 @@ public class VerificationPassTests
             """;
 
         var ast = Parse(source);
-        RunAllPasses(ast, out var passes);
+        var context = RunAllPasses(ast, out var passes);
 
-        AssertHasDiagnostic<ParamTypeMismatch>(passes, diagnostic =>
+        AssertHasDiagnostic<ParamTypeMismatch>(context, diagnostic =>
         {
             Assert.Equal("a", diagnostic.ParamName);
             Assert.Equal("Int", diagnostic.ExpectedType);
@@ -281,9 +257,9 @@ public class VerificationPassTests
             """;
 
         var ast = Parse(source);
-        RunAllPasses(ast, out var passes);
+        var context = RunAllPasses(ast, out var passes);
 
-        AssertHasDiagnostic<NotEnoughArguments>(passes, diagnostic =>
+        AssertHasDiagnostic<NotEnoughArguments>(context, diagnostic =>
         {
             Assert.Equal("add", diagnostic.FunctionName);
             Assert.Equal(2, diagnostic.Expected);
@@ -291,7 +267,7 @@ public class VerificationPassTests
             Assert.Equal(DiagnosticLevel.Error, diagnostic.Level);
         });
 
-        AssertHasDiagnostic<TooManyArguments>(passes, diagnostic =>
+        AssertHasDiagnostic<TooManyArguments>(context, diagnostic =>
         {
             Assert.Equal("add", diagnostic.FunctionName);
             Assert.Equal(2, diagnostic.Expected);
@@ -310,9 +286,9 @@ public class VerificationPassTests
             """;
 
         var ast = Parse(source);
-        RunAllPasses(ast, out var passes);
+        var context = RunAllPasses(ast, out var passes);
 
-        AssertHasDiagnostic<VarDeclTypeMismatch>(passes, diagnostic =>
+        AssertHasDiagnostic<VarDeclTypeMismatch>(context, diagnostic =>
         {
             Assert.Equal("x", diagnostic.VarName);
             Assert.Equal("Int", diagnostic.ExpectedType);
@@ -335,11 +311,10 @@ public class VerificationPassTests
             """;
 
         var ast = Parse(source);
-        RunAllPasses(ast, out var passes);
+        var context = RunAllPasses(ast, out var passes);
 
         // Find all parameter type mismatch diagnostics
-        var paramMismatches = passes
-            .SelectMany(p => p.Diagnostics)
+        var paramMismatches = context.Diagnostics
             .OfType<ParamTypeMismatch>()
             .ToList();
 
@@ -368,12 +343,12 @@ public class VerificationPassTests
             """;
 
         var ast = Parse(source);
-        var symbolTable = RunPassesUntil<FirstBindingPass>(ast, out var passes);
+        var context = RunPassesUntil<FirstBindingPass>(ast, out var passes);
 
         var bindingPass = passes.OfType<FirstBindingPass>().First();
         bindingPass.Run(ast);
 
-        var diagnostic = bindingPass.Diagnostics.OfType<UnknownIdentifier>().First();
+        var diagnostic = context.Diagnostics.OfType<UnknownIdentifier>().First();
 
         // The diagnostic should be located at the undefinedVar identifier
         Assert.Equal("undefinedVar", diagnostic.Name);
@@ -403,11 +378,10 @@ public class VerificationPassTests
             """;
 
         var ast = Parse(source);
-        RunAllPasses(ast, out var passes);
+        var context = RunAllPasses(ast, out var passes);
 
         // Find all TypeCannotDoBoolOps diagnostics
-        var boolOpErrors = passes
-            .SelectMany(p => p.Diagnostics)
+        var boolOpErrors = context.Diagnostics
             .OfType<TypeCannotDoBoolOps>()
             .ToList();
 
@@ -437,11 +411,11 @@ public class VerificationPassTests
             """;
 
         var ast = Parse(source);
-        RunAllPasses(ast, out var passes);
+        var context = RunAllPasses(ast, out var passes);
 
         // Find all TypeCannotDoComparison diagnostics
-        var comparisonErrors = passes
-            .SelectMany(p => p.Diagnostics.Where(d => d is TypeCannotDoComparison or BinaryOpTypeMismatch))
+        var comparisonErrors = context.Diagnostics
+            .Where(d => d is TypeCannotDoComparison or BinaryOpTypeMismatch)
             .ToList();
 
         Assert.Equal(3, comparisonErrors.Count(error => error is TypeCannotDoComparison));
@@ -472,11 +446,10 @@ public class VerificationPassTests
             """;
 
         var ast = Parse(source);
-        RunAllPasses(ast, out var passes);
+        var context = RunAllPasses(ast, out var passes);
 
         // Find all BinaryOpTypeMismatch diagnostics for equality operators
-        var typeMismatches = passes
-            .SelectMany(p => p.Diagnostics)
+        var typeMismatches = context.Diagnostics
             .OfType<BinaryOpTypeMismatch>()
             .Where(d => d.Operator is "==" or "!=")
             .ToList();
@@ -510,11 +483,10 @@ public class VerificationPassTests
             """;
 
         var ast = Parse(source);
-        RunAllPasses(ast, out var passes);
+        var context = RunAllPasses(ast, out var passes);
 
         // Find all ConditionMustBeBool diagnostics
-        var conditionErrors = passes
-            .SelectMany(p => p.Diagnostics)
+        var conditionErrors = context.Diagnostics
             .OfType<ConditionMustBeBool>()
             .ToList();
 
@@ -545,11 +517,10 @@ public class VerificationPassTests
             """;
 
         var ast = Parse(source);
-        RunAllPasses(ast, out var passes);
+        var context = RunAllPasses(ast, out var passes);
 
         // Find all ConditionMustBeBool diagnostics
-        var conditionErrors = passes
-            .SelectMany(p => p.Diagnostics)
+        var conditionErrors = context.Diagnostics
             .OfType<ConditionMustBeBool>()
             .ToList();
 
@@ -577,11 +548,10 @@ public class VerificationPassTests
             """;
 
         var ast = Parse(source);
-        RunAllPasses(ast, out var passes);
+        var context = RunAllPasses(ast, out var passes);
 
         // Find all ConditionMustBeBool diagnostics
-        var conditionErrors = passes
-            .SelectMany(p => p.Diagnostics)
+        var conditionErrors = context.Diagnostics
             .OfType<ConditionMustBeBool>()
             .ToList();
 
@@ -605,11 +575,10 @@ public class VerificationPassTests
             """;
 
         var ast = Parse(source);
-        RunAllPasses(ast, out var passes);
+        var context = RunAllPasses(ast, out var passes);
 
         // Find ImmutableVarReassignment diagnostics
-        var reassignmentErrors = passes
-            .SelectMany(p => p.Diagnostics)
+        var reassignmentErrors = context.Diagnostics
             .OfType<ImmutableVarReassignment>()
             .ToList();
 
@@ -634,11 +603,10 @@ public class VerificationPassTests
             """;
 
         var ast = Parse(source);
-        RunAllPasses(ast, out var passes);
+        var context = RunAllPasses(ast, out var passes);
 
         // Find ImmutableVarReassignment diagnostics
-        var reassignmentErrors = passes
-            .SelectMany(p => p.Diagnostics)
+        var reassignmentErrors = context.Diagnostics
             .OfType<ImmutableVarReassignment>()
             .ToList();
 
@@ -663,11 +631,10 @@ public class VerificationPassTests
             """;
 
         var ast = Parse(source);
-        RunAllPasses(ast, out var passes);
+        var context = RunAllPasses(ast, out var passes);
 
         // Find all ConditionMustBeBool diagnostics for 'while' statements
-        var conditionErrors = passes
-            .SelectMany(p => p.Diagnostics)
+        var conditionErrors = context.Diagnostics
             .OfType<ConditionMustBeBool>()
             .Where(e => e.StatementType == "while")
             .ToList();
@@ -697,13 +664,13 @@ public class VerificationPassTests
             """;
 
         var ast = Parse(source);
-        var symbolTable = RunPassesUntil<FirstBindingPass>(ast, out var passes);
+        var passes = VerificationPass.CreateRegularPasses(out var context);
 
         var topLevelPass = passes.OfType<TopLevelGatheringPass>().First();
         topLevelPass.Run(ast);
 
         // Verify the struct symbol was created and is in the symbol table
-        Assert.True(symbolTable.TryLookupGlobalSymbol("Person", out var symbol));
+        Assert.True(context.Symbols.TryLookupGlobalSymbol("Person", out var symbol));
         var structSymbol = Assert.IsType<StructSymbol>(symbol);
 
         // Verify struct has the correct fields
@@ -735,14 +702,14 @@ public class VerificationPassTests
             """;
 
         var ast = Parse(source);
-        var symbolTable = RunPassesUntil<TypeAnnotationPass>(ast, out var passes);
+        var context = RunPassesUntil<TypeAnnotationPass>(ast, out var passes);
 
         // Run the type annotation pass which should detect the unknown type
         var typeAnnotationPass = passes.OfType<TypeAnnotationPass>().First();
         typeAnnotationPass.Run(ast);
 
         // Verify there's a diagnostic for unknown type
-        AssertHasDiagnostic<UnknownType>(typeAnnotationPass, diagnostic =>
+        AssertHasDiagnostic<UnknownType>(context, diagnostic =>
         {
             Assert.Equal("NonExistentType", diagnostic.TypeName);
             Assert.Equal(DiagnosticLevel.Error, diagnostic.Level);
@@ -767,10 +734,10 @@ public class VerificationPassTests
             """;
 
         var ast = Parse(source);
-        RunPassesUntil<BasicTypeMismatchPass>(ast, out var passes);
+        var context = RunPassesUntil<BasicTypeMismatchPass>(ast, out var passes);
 
         // Verify error for non-existent field access
-        AssertHasDiagnostic<UnknownStructField>(passes, diagnostic =>
+        AssertHasDiagnostic<UnknownStructField>(context, diagnostic =>
         {
             Assert.Equal("Person", diagnostic.StructTypeName);
             Assert.Equal("address", diagnostic.MemberIdentifier);
@@ -814,18 +781,18 @@ public class VerificationPassTests
             """;
 
         var ast = Parse(source);
+        var passes = VerificationPass.CreateRegularPasses(out var context);
 
-        var symbolTable = new SymbolTable();
-        var gatheringPass = new TopLevelGatheringPass(symbolTable);
+        var gatheringPass = passes.OfType<TopLevelGatheringPass>().First();
         gatheringPass.Run(ast);
 
-        var firstBindingPass = new FirstBindingPass(symbolTable);
+        var firstBindingPass = passes.OfType<FirstBindingPass>().First();
         firstBindingPass.Run(ast);
 
-        var typeAnnotationPass = new TypeAnnotationPass(symbolTable);
+        var typeAnnotationPass = passes.OfType<TypeAnnotationPass>().First();
         typeAnnotationPass.Run(ast);
 
-        var secondBindingPass = new SecondBindingPass(symbolTable);
+        var secondBindingPass = passes.OfType<SecondBindingPass>().First();
         secondBindingPass.Run(ast);
 
         // Find the initializer node

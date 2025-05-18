@@ -1,11 +1,9 @@
 using System.Collections.ObjectModel;
-using System.Diagnostics.CodeAnalysis;
 using Microsoft.Z3;
-using Verifex.Analysis.Pass;
 using Verifex.CodeGen.Types;
 using Verifex.Parsing;
 
-namespace Verifex.Analysis;
+namespace Verifex.Analysis.Mapping;
 
 public class Z3Mapper
 {
@@ -71,7 +69,7 @@ public class Z3Mapper
     private Z3Expr ConvertIdentifier(IdentifierNode node)
     {
         if (node.Symbol == null)
-            throw new InvalidOperationException($"Identifier '{node.Identifier}' has no associated symbol");
+            throw new SymbolNotBoundException(node.Identifier);
 
         if (node.Symbol is StructFieldSymbol field)
         {

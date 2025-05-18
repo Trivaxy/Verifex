@@ -1,5 +1,6 @@
 using Microsoft.Z3;
 using Verifex.Analysis;
+using Verifex.Analysis.Mapping;
 using Verifex.Parsing;
 using Symbol = Verifex.Analysis.Symbol;
 

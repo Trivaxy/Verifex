@@ -28,14 +28,13 @@ Console.WriteLine("Compiling...");
 var tokenStream = new TokenStream(program);
 var parser = new Parser(tokenStream, program.AsMemory());
 var ast = parser.Program();
-var passes = VerificationPass.CreateRegularPasses(out SymbolTable symbols);
+var passes = VerificationPass.CreateRegularPasses(out VerificationContext context);
 var diagnostics = parser.Diagnostics.ToList();
 
 foreach (var pass in passes)
-{
     pass.Run(ast);
-    diagnostics.AddRange(pass.Diagnostics);
-}
+
+diagnostics.AddRange(context.Diagnostics);
 
 if (diagnostics.Count > 0)
 {
@@ -44,7 +43,7 @@ if (diagnostics.Count > 0)
     return;
 }
 
-var gen = new AssemblyGen(symbols);
+var gen = new AssemblyGen(context.Symbols);
 gen.Consume(ast);
 gen.Save(outputPath);
 

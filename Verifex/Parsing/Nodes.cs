@@ -10,16 +10,16 @@ public abstract class AstNode
     
     public Symbol? Symbol { get; set; } // set during binding
 
-    private VerifexType? _explicitType; // set for expressions and maybe types mainly, where there is no symbol
-    public VerifexType? ResolvedType
+    private VerifexType _explicitType = VerifexType.Unknown;
+    public VerifexType ResolvedType
     {
-        get => _explicitType ?? Symbol?.ResolvedType;
+        get => _explicitType != VerifexType.Unknown ? _explicitType : (Symbol?.ResolvedType ?? VerifexType.Unknown);
         set => _explicitType = value;
     }
     
-    public VerifexType? EffectiveType => ResolvedType?.EffectiveType;
+    public VerifexType EffectiveType => ResolvedType.EffectiveType;
     
-    public VerifexType? FundamentalType => ResolvedType?.FundamentalType;
+    public VerifexType FundamentalType => ResolvedType.FundamentalType;
 }
 
 public class BinaryOperationNode(Token operatorToken, AstNode left, AstNode right) : AstNode
