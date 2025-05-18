@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using Microsoft.Z3;
+using Verifex.Analysis.Pass;
 using Verifex.CodeGen.Types;
 using Verifex.Parsing;
 
@@ -9,7 +10,7 @@ public class Z3Mapper
 {
     private readonly Context _ctx;
     private readonly Solver _solver;
-    private readonly Dictionary<Symbol, Z3Expr> _termMap;
+    private readonly TermStack _termStack;
     private readonly SymbolTable _symbols;
     private readonly UninterpretedSort _anySort;
     private readonly UninterpretedSort _voidSort;
@@ -20,11 +21,11 @@ public class Z3Mapper
     
     public Z3Expr? CurrentSelfTerm { get; set; }
 
-    public Z3Mapper(Context ctx, Solver solver, Dictionary<Symbol, Z3Expr> termMap, SymbolTable symbols)
+    public Z3Mapper(Context ctx, Solver solver, TermStack termStack, SymbolTable symbols)
     {
         _ctx = ctx;
         _solver = solver;
-        _termMap = termMap;
+        _termStack = termStack;
         _symbols = symbols;
         _anySort = ctx.MkUninterpretedSort("Any");
         _voidSort = ctx.MkUninterpretedSort("Void");
@@ -79,7 +80,7 @@ public class Z3Mapper
             return _ctx.MkApp(DatatypeSortForStruct((field.Owner.ResolvedType as StructType)!).Accessors[0][field.Index], CurrentSelfTerm);
         }
 
-        if (_termMap.TryGetValue(node.Symbol, out Z3Expr? z3Expr))
+        if (_termStack.TryGetTerm(node.Symbol, out Z3Expr? z3Expr))
         {
             // the type has been narrowed down, we need to take it out of the maybe type
             if (node.Symbol.ResolvedType != node.ResolvedType)
@@ -247,7 +248,8 @@ public class Z3Mapper
     public Z3BoolExpr CreateRefinedTypeConstraintExpr(Z3Expr term, RefinedType refinedType)
     {
         RefinedTypeValueSymbol valueSymbol = _symbols.GetGlobalSymbol<RefinedTypeSymbol>(refinedType.Name).ValueSymbol;
-        _termMap[valueSymbol] = term;
+        _termStack.Push();
+        _termStack.SetTerm(valueSymbol, term);
         
         Z3BoolExpr assertion = (ConvertExpr(refinedType.RawConstraint) as Z3BoolExpr)!;
         
@@ -256,7 +258,7 @@ public class Z3Mapper
         else if (refinedType.BaseType.EffectiveType is MaybeType maybeType)
             assertion = _ctx.MkAnd(assertion, CreateMaybeTypeConstraintExpr(term, maybeType, refinedType.BaseType));
         
-        _termMap.Remove(valueSymbol);
+        _termStack.Pop();
         return assertion;
     }
 

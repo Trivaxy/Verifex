@@ -1,6 +1,7 @@
 using Microsoft.Z3;
 using Verifex.Analysis;
 using Verifex.Analysis.Mapping;
+using Verifex.Analysis.Pass;
 using Verifex.Parsing;
 using Symbol = Verifex.Analysis.Symbol;
 
@@ -10,7 +11,7 @@ public class Z3MapperTests
 {
     private readonly Context _ctx = new();
 
-    private Z3Mapper CreateMapper(Dictionary<Symbol, Z3Expr>? map = null) => new Z3Mapper(_ctx, _ctx.MkSolver(), [], SymbolTable.CreateDefaultTable());
+    private Z3Mapper CreateMapper(Dictionary<Symbol, Z3Expr>? map = null) => new Z3Mapper(_ctx, _ctx.MkSolver(), new TermStack(), SymbolTable.CreateDefaultTable());
 
     private static NumberNode IntNode(int value) => new NumberNode(value.ToString());
     

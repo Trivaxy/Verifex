@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.Z3;
 using Verifex.Analysis.Mapping;
 using Verifex.CodeGen;
@@ -9,7 +10,7 @@ namespace Verifex.Analysis.Pass;
 
 public class RefinedTypeMismatchPass : VerificationPass, IDisposable
 {
-    private readonly Dictionary<Symbol, Z3Expr> _symbolsAsTerms = [];
+    private readonly TermStack _termStack;
     private readonly Context _z3Ctx;
     private readonly Solver _solver;
     private readonly Z3Mapper _z3Mapper;
@@ -20,9 +21,10 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
 
     public RefinedTypeMismatchPass(VerificationContext context) : base(context)
     {
+        _termStack = new TermStack();
         _z3Ctx = new Context();
         _solver = _z3Ctx.MkSolver();
-        _z3Mapper = new Z3Mapper(_z3Ctx, _solver, _symbolsAsTerms, context.Symbols);
+        _z3Mapper = new Z3Mapper(_z3Ctx, _solver, _termStack, context.Symbols);
         _visitedBlocks = [];
         _typeCompatibilityCache = [];
         _miniTypeAnnotationPass = new TypeAnnotationPass(context);
@@ -30,7 +32,7 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
     
     protected override void Visit(FunctionDeclNode node)
     {
-        _symbolsAsTerms.Clear();
+        _termStack.Clear();
         _solver.Reset();
         _currentFunction = (node.Symbol as FunctionSymbol)!.Function;
         _visitedBlocks.Clear();
@@ -47,7 +49,7 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
                 // we also have to link the field node with an equality to the accessor on the self term
                 _solver.Assert(_z3Ctx.MkEq(
                     _z3Ctx.MkApp(_z3Mapper.DatatypeSortForStruct(structType).Accessors[0][field.Index], _z3Mapper.CurrentSelfTerm),
-                    _symbolsAsTerms[field]
+                    _termStack.GetTerm(field)
                     ));
             }
         }
@@ -55,7 +57,7 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
         foreach (ParamDeclNode param in node.Parameters)
         {
             if (param.ResolvedType == VerifexType.Unknown) continue;
-            _symbolsAsTerms[param.Symbol!] = _z3Mapper.CreateTerm(param.Symbol!.ResolvedType, param.Identifier);
+            _termStack.SetTerm(param.Symbol!, _z3Mapper.CreateTerm(param.Symbol!.ResolvedType, param.Identifier));
         }
 
         ControlFlowGraph cfg = Context.ControlFlowGraphs[(node.Symbol as FunctionSymbol)!];
@@ -116,26 +118,34 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
                 Z3BoolExpr z3Cond = (LowerAstNodeToZ3(rawCondition) as Z3BoolExpr)!;
                 
                 // Visit the true branch first
+                _termStack.Push();
                 _solver.Push();
                 _solver.Assert(z3Cond);
                 VisitBasicBlock(block.TrueSuccessor!);
                 _solver.Pop();
+                _termStack.Pop();
                 
                 // Visit the false branch second
+                _termStack.Push();
                 _solver.Push();
                 _solver.Assert(_z3Ctx.MkNot(z3Cond));
                 VisitBasicBlock(block.FalseSuccessor!);
                 _solver.Pop();
+                _termStack.Pop();
             }
         }
 
         if (block.UnconditionalSuccessor != null)
+        {
+            _termStack.Push();
             VisitBasicBlock(block.UnconditionalSuccessor);
+            _termStack.Pop();
+        }
     }
 
     protected override void Visit(VarDeclNode node)
     {
-        if (_symbolsAsTerms.ContainsKey(node.Symbol!)) return; // erroneous duplicate definition, ignore
+        if (_termStack.Contains(node.Symbol!)) return; // erroneous duplicate definition, ignore
         
         VisitValue(node.Value);
         
@@ -228,19 +238,19 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
 
     private void AssertAssignment(Symbol target, Z3Expr value)
     {
-        _symbolsAsTerms[target] = _z3Mapper.CreateTerm(target.ResolvedType, target.Name);
+        _termStack.SetTerm(target, _z3Mapper.CreateTerm(target.ResolvedType, target.Name));
         
-        if (_symbolsAsTerms[target].Sort == value.Sort)
-            _solver.Assert(_z3Ctx.MkEq(_symbolsAsTerms[target], value));
+        if (_termStack.GetTerm(target).Sort == value.Sort)
+            _solver.Assert(_z3Ctx.MkEq(_termStack.GetTerm(target), value));
         else if (target.ResolvedType.EffectiveType is MaybeType maybeType)
         {
             Constructor constructor = _z3Mapper.GetMaybeTypeZ3Info(maybeType).Constructors.First(c => _z3Mapper.AsSort(c.Key) == value.Sort).Value;
-            _solver.Assert(_z3Ctx.MkEq(_symbolsAsTerms[target], _z3Ctx.MkApp(constructor.ConstructorDecl, value)));
+            _solver.Assert(_z3Ctx.MkEq(_termStack.GetTerm(target), _z3Ctx.MkApp(constructor.ConstructorDecl, value)));
         }
         else if (_z3Mapper.TryGetMaybeTypeInfo(value, out Z3Mapper.MaybeTypeZ3Info? info))
         {
             FuncDecl accessor = info!.Constructors[target.ResolvedType.EffectiveType].AccessorDecls[0];
-            _solver.Assert(_z3Ctx.MkEq(_symbolsAsTerms[target], _z3Ctx.MkApp(accessor, value)));
+            _solver.Assert(_z3Ctx.MkEq(_termStack.GetTerm(target), _z3Ctx.MkApp(accessor, value)));
         }
         else
             throw new InvalidOperationException("Unknown types for assignment");
@@ -537,5 +547,56 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
         Incompatible,
         Contextual,
         Compatible
+    }
+}
+
+public class TermStack
+{
+    private readonly Stack<Dictionary<Symbol, Z3Expr>> _stack = [];
+
+    public void Push() => _stack.Push([]);
+    
+    public void SetTerm(Symbol symbol, Z3Expr value) => _stack.Peek()[symbol] = value;
+    
+    public Z3Expr GetTerm(Symbol symbol)
+    {
+        foreach (Dictionary<Symbol, Z3Expr> dict in _stack)
+        {
+            if (dict.TryGetValue(symbol, out Z3Expr? value))
+                return value;
+        }
+        
+        throw new InvalidOperationException($"Symbol {symbol.Name} not found");
+    }
+    
+    public bool TryGetTerm(Symbol symbol, [MaybeNullWhen(false)] out Z3Expr value)
+    {
+        foreach (Dictionary<Symbol, Z3Expr> dict in _stack)
+        {
+            if (dict.TryGetValue(symbol, out value))
+                return true;
+        }
+        
+        value = null;
+        return false;
+    }
+
+    public bool Contains(Symbol symbol)
+    {
+        foreach (Dictionary<Symbol, Z3Expr> dict in _stack)
+        {
+            if (dict.TryGetValue(symbol, out Z3Expr? value))
+                return true;
+        }
+        
+        return false;
+    }
+    
+    public void Pop() => _stack.Pop();
+
+    public void Clear()
+    {
+        _stack.Clear();
+        _stack.Push([]);
     }
 }
