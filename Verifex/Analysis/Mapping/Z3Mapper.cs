@@ -137,11 +137,27 @@ public class Z3Mapper
 
     private Z3Expr ConvertInitializer(InitializerNode node)
     {
-        DatatypeSort datatype = DatatypeSortForStruct((node.FundamentalType as StructType)!);
-        Z3Expr[] args = new Z3Expr[node.InitializerList.Values.Count];
-        
-        for (int i = 0; i < node.InitializerList.Values.Count; i++)
-            args[i] = ConvertExpr(node.InitializerList.Values[i].Value);
+        StructType structType = (node.FundamentalType as StructType)!;
+        DatatypeSort datatype = DatatypeSortForStruct(structType);
+        InitializerListNode initializers = node.InitializerList;
+        Z3Expr[] args = new Z3Expr[initializers.Values.Count];
+
+        foreach (InitializerFieldNode fieldInit in initializers.Values)
+        {
+            Z3Expr value = ConvertExpr(fieldInit.Value);
+            FieldInfo targetFieldInfo = structType.Fields[fieldInit.Name.Identifier];
+            if (targetFieldInfo.Type.FundamentalType is MaybeType maybeType)
+            {
+                int index = (node.Type.Symbol as StructSymbol)!.Fields[fieldInit.Name.Identifier].Index;
+                MaybeTypeZ3Info maybeInfo = GetMaybeTypeZ3Info(maybeType);
+
+                if (!maybeInfo.Constructors.TryGetValue(fieldInit.Value.EffectiveType, out Constructor? constructor))
+                    throw new MismatchedTypesException(maybeType.Name, fieldInit.Value.ResolvedType.Name);
+                
+                FuncDecl constructorDecl = maybeInfo.Constructors[fieldInit.Value.EffectiveType].ConstructorDecl;
+                args[index] = _ctx.MkApp(constructorDecl, value);
+            }
+        }
 
         return _ctx.MkApp(datatype.Constructors[0], args);
     }

@@ -108,7 +108,7 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
             AstNode rawCondition = block.Statements[^1];
             if (rawCondition.EffectiveType is BoolType)
             {
-                Z3BoolExpr z3Cond = LowerAstNodeToZ3(rawCondition) as Z3BoolExpr ?? (_z3Mapper.CreateTerm(Symbols.GetType("Bool")!, "arbitrary") as Z3BoolExpr)!;
+                Z3BoolExpr z3Cond = (LowerAstNodeToZ3(rawCondition) as Z3BoolExpr)!;
                 
                 // Visit the true branch first
                 _solver.Push();
@@ -190,7 +190,10 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
     {
         foreach (InitializerFieldNode field in node.InitializerList.Values)
         {
-            if (field.ResolvedType == VerifexType.Unknown) continue; // some error happened earlier, continue
+            if (field.Name.ResolvedType == VerifexType.Unknown || field.Value.ResolvedType == VerifexType.Unknown) continue; // some error happened earlier, continue
+            
+            VisitValue(field.Value);
+            
             if (!IsValueAssignable(field.Name.ResolvedType, field.Value))
                 LogDiagnostic(new InitializerFieldTypeMismatch(field.Name.Identifier, field.Name.ResolvedType.Name, field.Value.ResolvedType.Name) { Location = field.Location });
         }
@@ -238,9 +241,7 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
         if (compatibility == CompatibilityStatus.Compatible) return true;
         
         // it's contextual, so use the path condition
-        Z3Expr? value = LowerAstNodeToZ3(rawValue);
-        if (value == null) return false; // couldn't lower, some error happened earlier, return false for safety
-        
+        Z3Expr value = LowerAstNodeToZ3(rawValue);
         if (target.EffectiveType is RefinedType refinedType)
         {
             if (refinedType.RawConstraint.ResolvedType == VerifexType.Unknown) return false; // constraint is invalid, dont bother
@@ -444,7 +445,7 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
         }
     }
 
-    private Z3Expr? LowerAstNodeToZ3(AstNode node)
+    private Z3Expr LowerAstNodeToZ3(AstNode node)
     {
         if (node.ResolvedType == null)
             throw new InvalidOperationException("Cannot lower AST node without a resolved type");
@@ -455,9 +456,10 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
         }
         catch (Z3MapperException)
         {
-            return null;
+            // not much we can do - there's an error in the node. it's caught elsewhere, so the best we can do
+            // is return a fresh term of the expected sort.
+            return _z3Mapper.CreateTerm(node.ResolvedType, "arbitrary");
         }
-        
     }
 
     public void Dispose()
