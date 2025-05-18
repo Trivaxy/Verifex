@@ -118,11 +118,14 @@ public class BasicTypeMismatchPass(VerificationContext context) : VerificationPa
 
     protected override void Visit(InitializerNode node)
     {
+        if (node.Type.Symbol is not StructSymbol structSymbol)
+            return; // error caught earlier
+        
         HashSet<string> seen = [];
         foreach (InitializerFieldNode field in node.InitializerList.Values)
             seen.Add(field.Name.Identifier);
         
-        foreach (StructFieldSymbol field in (node.Type.Symbol as StructSymbol)!.Fields.Values)
+        foreach (StructFieldSymbol field in structSymbol.Fields.Values)
         {
             if (!seen.Contains(field.Name))
                 LogDiagnostic(new StructFieldNotInitialized(node.Type.Identifier, field.Name) { Location = node.Location });
