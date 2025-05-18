@@ -15,7 +15,7 @@ public abstract class VerifexType : IEquatable<VerifexType>
     
     public static readonly VerifexType Unknown = new UnknownType();
 
-    public static VerifexType Delayed(Func<VerifexType?> resolver) => new DelayedType(resolver);
+    public static VerifexType Delayed(Func<VerifexType> resolver) => new DelayedType(resolver);
 
     public override bool Equals(object? obj)
     {
@@ -42,16 +42,16 @@ public abstract class VerifexType : IEquatable<VerifexType>
 
     public static bool operator !=(VerifexType? left, VerifexType? right) => !(left == right);
     
-    private class DelayedType(Func<VerifexType?> resolver) : VerifexType
+    private class DelayedType(Func<VerifexType> resolver) : VerifexType
     {
-        private VerifexType? _resolvedType;
+        private VerifexType _resolvedType = Unknown;
 
         public override string Name
         {
             get
             {
                 EnsureResolved();
-                return _resolvedType!.Name;
+                return _resolvedType.Name;
             }
         }
 
@@ -60,7 +60,7 @@ public abstract class VerifexType : IEquatable<VerifexType>
             get
             {
                 EnsureResolved();
-                return _resolvedType!.IlType;
+                return _resolvedType.IlType;
             }
         }
 
@@ -69,7 +69,7 @@ public abstract class VerifexType : IEquatable<VerifexType>
             get
             {
                 EnsureResolved();
-                return _resolvedType!.EffectiveType;
+                return _resolvedType.EffectiveType;
             }
         }
         
@@ -78,14 +78,14 @@ public abstract class VerifexType : IEquatable<VerifexType>
             get
             {
                 EnsureResolved();
-                return _resolvedType!.FundamentalType;
+                return _resolvedType.FundamentalType;
             }
         }
 
         private void EnsureResolved()
         {
-            if (_resolvedType != null) return;
-            _resolvedType = resolver() ?? Unknown;
+            if (_resolvedType != Unknown) return;
+            _resolvedType = resolver();
         }
 
         public override bool Equals(object? obj) => EffectiveType.Equals(obj);
