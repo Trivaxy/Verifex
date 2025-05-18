@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using Microsoft.Z3;
 using Verifex.Analysis.Mapping;
@@ -8,7 +7,7 @@ using Verifex.Parsing;
 
 namespace Verifex.Analysis.Pass;
 
-public class RefinedTypeMismatchPass : VerificationPass, IDisposable
+public class RefiningPass : VerificationPass, IDisposable
 {
     private readonly TermStack _termStack;
     private readonly Context _z3Ctx;
@@ -19,7 +18,7 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
     private readonly Dictionary<VerifexType, Dictionary<VerifexType, CompatibilityStatus>> _typeCompatibilityCache; // key = target, value = sources
     private readonly TypeAnnotationPass _miniTypeAnnotationPass;
 
-    public RefinedTypeMismatchPass(VerificationContext context) : base(context)
+    public RefiningPass(VerificationContext context) : base(context)
     {
         _termStack = new TermStack();
         _z3Ctx = new Context();
@@ -240,8 +239,12 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
     {
         // visit the node normally to reach everything
         Visit(node);
+        
         // run the type annotator pass on it, in case any type got narrowed or refined, so we propagate changes
         _miniTypeAnnotationPass.Run(node);
+        
+        if (node is IdentifierNode && node.Symbol is not LocalVarSymbol)
+            LogDiagnostic(new NotAValue() { Location = node.Location });
     }
 
     private void AssertAssignment(Symbol target, Z3Expr value)

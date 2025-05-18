@@ -71,9 +71,6 @@ public record UnknownIdentifier(string Name)
 public record DuplicateTopLevelSymbol(string Name)
     : CompileDiagnostic(DiagnosticLevel.Error, $"a top-level symbol with the same name {Name} already exists");
 
-public record InvalidFunctionCall()
-    : CompileDiagnostic(DiagnosticLevel.Error, "function call must be an identifier");
-
 public record UnknownType(string TypeName)
     : CompileDiagnostic(DiagnosticLevel.Error, $"unknown type '{TypeName}'");
 
@@ -142,6 +139,9 @@ public record NotAllPathsReturn(string FunctionName)
 
 public record StructFieldNotInitialized(string TypeName, string FieldName)
     : CompileDiagnostic(DiagnosticLevel.Error, $"field '{FieldName}' for {TypeName} is missing");
+
+public record NotAValue()
+    : CompileDiagnostic(DiagnosticLevel.Error, $"not a value");
 
 public enum DiagnosticLevel
 {
