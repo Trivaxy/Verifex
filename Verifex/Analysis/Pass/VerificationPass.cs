@@ -30,8 +30,8 @@ public abstract class VerificationPass(VerificationContext context) : DefaultNod
             new PrimitiveTypeAnnotationPass(context),
             new TypeAnnotationPass(context),
             new SecondBindingPass(context),
-            new BasicTypeMismatchPass(context),
             new RefinedTypeMismatchPass(context),
+            new BasicTypeMismatchPass(context),
             new MutationCheckPass(context),
             new ReturnFlowPass(context),
         ];

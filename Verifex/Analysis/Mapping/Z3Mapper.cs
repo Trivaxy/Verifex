@@ -78,9 +78,14 @@ public class Z3Mapper
             
             return _ctx.MkApp(DatatypeSortForStruct((field.Owner.ResolvedType as StructType)!).Accessors[0][field.Index], CurrentSelfTerm);
         }
-        
+
         if (_termMap.TryGetValue(node.Symbol, out Z3Expr? z3Expr))
+        {
+            // the type has been narrowed down, we need to take it out of the maybe type
+            if (node.Symbol.ResolvedType != node.ResolvedType)
+                return CreateUnbox(z3Expr, (node.Symbol.ResolvedType.EffectiveType as MaybeType)!, node.ResolvedType);
             return z3Expr;
+        }
 
         throw new InvalidOperationException($"No Z3 expression found for symbol '{node.Symbol.Name}' in the current context");
     }
@@ -288,6 +293,12 @@ public class Z3Mapper
         }
         
         return funcDecls;
+    }
+
+    private Z3Expr CreateUnbox(Z3Expr value, MaybeType maybeType, VerifexType chosenType)
+    {
+        MaybeTypeZ3Info info = GetMaybeTypeZ3Info(maybeType);
+        return _ctx.MkApp(info.Constructors[chosenType].AccessorDecls[0], value);
     }
     
     public Sort AsSort(VerifexType type)

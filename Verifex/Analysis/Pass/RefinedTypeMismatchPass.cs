@@ -77,8 +77,13 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
         foreach (AstNode statement in block.Statements)
         {
             if (statement == block.Statements[^1] && block.HasConditionalSuccessors)
-                break; // the last statement is just a condition expression if there are conditional successors, ignore
-            
+            {
+                // the last statement is just a condition expression if there are conditional successors
+                // we don't need to emit anything for it but we do need to visit it at least once to try and narrow types
+                VisitValue(statement);
+                break;
+            }
+
             switch (statement)
             {
                 case VarDeclNode varDecl when varDecl.EffectiveType != null && varDecl.Value.EffectiveType != null:
@@ -205,14 +210,21 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
         UpdateResolvedTypeInZ3Context(node);
     }
 
+    protected override void Visit(IdentifierNode node)
+    {
+        if (node.FundamentalType is not MaybeType maybeType) return;
+        if (node.Symbol is not LocalVarSymbol local) return;
+
+        node.ResolvedType = NarrowTypeFor(_z3Mapper.ConvertExpr(node), maybeType);
+    }
+
     private void VisitValue(AstNode node)
     {
         // visit the node normally to reach everything
         Visit(node);
-        // run the type annotator pass on it, in case any type got resolved (ugh maybe fields) so we update resolvedtype
+        // run the type annotator pass on it, in case any type got narrowed or refined, so we propagate changes
         _miniTypeAnnotationPass.Run(node);
     }
-    
 
     private void AssertAssignment(Symbol target, Z3Expr value)
     {
@@ -443,6 +455,43 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
                 memberAccessNode.ResolvedType = VerifexType.Unknown;
             }
         }
+    }
+
+    private VerifexType NarrowTypeFor(Z3Expr value, MaybeType maybeType)
+    {
+        if (_solver.Check() != Status.SATISFIABLE)
+            return VerifexType.Unknown;
+
+        List<VerifexType> possibleTypes = [];
+        Z3Mapper.MaybeTypeZ3Info info = _z3Mapper.GetMaybeTypeZ3Info(maybeType);
+
+        foreach (VerifexType component in maybeType.Types)
+        {
+            _solver.Push();
+            
+            FuncDecl tester = info.Constructors[component].TesterDecl;
+            Z3BoolExpr isComponentAssertion = (_z3Ctx.MkApp(tester, value) as Z3BoolExpr)!;
+            
+            if (component.EffectiveType is RefinedType refinedComponent)
+            {
+                Z3Expr unboxedTerm = _z3Ctx.MkApp(info.Constructors[component].AccessorDecls[0], value);
+                Z3BoolExpr refinementConstraint = _z3Mapper.CreateRefinedTypeConstraintExpr(unboxedTerm, refinedComponent);
+                _solver.Assert(_z3Ctx.MkAnd(isComponentAssertion, refinementConstraint));
+            }
+            else
+                _solver.Assert(isComponentAssertion);
+            
+            if (_solver.Check() == Status.SATISFIABLE)
+                possibleTypes.Add(component);
+            
+            _solver.Pop();
+        }
+        
+        if (possibleTypes.Count == 0) return VerifexType.Unknown;
+        if (possibleTypes.Count == 1) return possibleTypes[0];
+        if (possibleTypes.Count == maybeType.Types.Count) return maybeType;
+
+        return new MaybeType(possibleTypes);
     }
 
     private Z3Expr LowerAstNodeToZ3(AstNode node)
