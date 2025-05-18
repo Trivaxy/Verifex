@@ -42,7 +42,7 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
             foreach (StructFieldSymbol field in Symbols.GetSymbol<StructSymbol>(structType.Name).Fields.Values)
             {
                 if (field.ResolvedType == VerifexType.Unknown) continue;
-                AssertAssignment(field, _z3Mapper.CreateTerm(field.ResolvedType!, field.Name));
+                AssertAssignment(field, _z3Mapper.CreateTerm(field.ResolvedType, field.Name));
                 
                 // we also have to link the field node with an equality to the accessor on the self term
                 _solver.Assert(_z3Ctx.MkEq(
@@ -55,7 +55,7 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
         foreach (ParamDeclNode param in node.Parameters)
         {
             if (param.ResolvedType == VerifexType.Unknown) continue;
-            _symbolsAsTerms[param.Symbol!] = _z3Mapper.CreateTerm(param.Symbol!.ResolvedType!, param.Identifier);;
+            _symbolsAsTerms[param.Symbol!] = _z3Mapper.CreateTerm(param.Symbol!.ResolvedType, param.Identifier);
         }
 
         ControlFlowGraph cfg = Context.ControlFlowGraphs[(node.Symbol as FunctionSymbol)!];
@@ -134,8 +134,8 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
         
         VisitValue(node.Value);
         
-        if (!IsValueAssignable(node.Symbol!.ResolvedType!, node.Value))
-            LogDiagnostic(new VarDeclTypeMismatch(node.Name, node.Symbol!.ResolvedType!.Name, node.Value!.ResolvedType!.Name) { Location = node.Location });
+        if (!IsValueAssignable(node.Symbol!.ResolvedType, node.Value))
+            LogDiagnostic(new VarDeclTypeMismatch(node.Name, node.Symbol!.ResolvedType.Name, node.Value.ResolvedType.Name) { Location = node.Location });
         else
             AssertAssignment(node.Symbol!, LowerAstNodeToZ3(node.Value)!);
     }
@@ -144,8 +144,8 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
     {
         VisitValue(node.Value);
         
-        if (!IsValueAssignable(node.Target!.Symbol!.ResolvedType!, node.Value))
-            LogDiagnostic(new AssignmentTypeMismatch(node.Target!.ResolvedType!.Name, node.Value!.ResolvedType!.Name) { Location = node.Location });
+        if (!IsValueAssignable(node.Target.Symbol!.ResolvedType, node.Value))
+            LogDiagnostic(new AssignmentTypeMismatch(node.Target.ResolvedType.Name, node.Value.ResolvedType.Name) { Location = node.Location });
         else
             AssertAssignment(node.Target.Symbol!, LowerAstNodeToZ3(node.Value)!);
     }
@@ -163,7 +163,7 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
             if (argument.ResolvedType == VerifexType.Unknown) continue;
                         
             if (!IsValueAssignable(param.Type, argument))
-                LogDiagnostic(new ParamTypeMismatch(param.Name, param.Type.Name, argument.ResolvedType!.Name) { Location = argument.Location });
+                LogDiagnostic(new ParamTypeMismatch(param.Name, param.Type.Name, argument.ResolvedType.Name) { Location = argument.Location });
         }
     }
     
@@ -172,10 +172,18 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
         if (node.Value != null)
             VisitValue(node.Value);
 
-        if (_currentFunction.ReturnType == null) return;
-
-        if (!IsValueAssignable(_currentFunction.ReturnType, node.Value!))
-            LogDiagnostic(new ReturnTypeMismatch(_currentFunction.Name, _currentFunction.ReturnType.Name, node.Value.ResolvedType!.Name) { Location = node.Location });
+        if (_currentFunction.ReturnType == null)
+        {
+            if (node.Value != null)
+                LogDiagnostic(new ReturnTypeMismatch(_currentFunction.Name, "Void", node.Value.ResolvedType.Name) { Location = node.Location });
+        }
+        else
+        {
+            if (node.Value == null)
+                LogDiagnostic(new ReturnTypeMismatch(_currentFunction.Name, _currentFunction.ReturnType.Name, "Void") { Location = node.Location });
+            else if (!IsValueAssignable(_currentFunction.ReturnType, node.Value!))
+                LogDiagnostic(new ReturnTypeMismatch(_currentFunction.Name, _currentFunction.ReturnType.Name, node.Value.ResolvedType.Name) { Location = node.Location });
+        }
     }
 
     protected override void Visit(InitializerNode node)
@@ -183,8 +191,8 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
         foreach (InitializerFieldNode field in node.InitializerList.Values)
         {
             if (field.ResolvedType == VerifexType.Unknown) continue; // some error happened earlier, continue
-            if (!IsValueAssignable(field.Name.ResolvedType!, field.Value))
-                LogDiagnostic(new InitializerFieldTypeMismatch(field.Name.Identifier, field.Name.ResolvedType!.Name, field.Value.ResolvedType!.Name) { Location = field.Location });
+            if (!IsValueAssignable(field.Name.ResolvedType, field.Value))
+                LogDiagnostic(new InitializerFieldTypeMismatch(field.Name.Identifier, field.Name.ResolvedType.Name, field.Value.ResolvedType.Name) { Location = field.Location });
         }
     }
 
@@ -205,18 +213,18 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
 
     private void AssertAssignment(Symbol target, Z3Expr value)
     {
-        _symbolsAsTerms[target] = _z3Mapper.CreateTerm(target.ResolvedType!, target.Name);
+        _symbolsAsTerms[target] = _z3Mapper.CreateTerm(target.ResolvedType, target.Name);
         
         if (_symbolsAsTerms[target].Sort == value.Sort)
             _solver.Assert(_z3Ctx.MkEq(_symbolsAsTerms[target], value));
-        else if (target.ResolvedType!.EffectiveType is MaybeType maybeType)
+        else if (target.ResolvedType.EffectiveType is MaybeType maybeType)
         {
             Constructor constructor = _z3Mapper.GetMaybeTypeZ3Info(maybeType).Constructors.First(c => _z3Mapper.AsSort(c.Key) == value.Sort).Value;
             _solver.Assert(_z3Ctx.MkEq(_symbolsAsTerms[target], _z3Ctx.MkApp(constructor.ConstructorDecl, value)));
         }
         else if (_z3Mapper.TryGetMaybeTypeInfo(value, out Z3Mapper.MaybeTypeZ3Info? info))
         {
-            FuncDecl accessor = info!.Constructors[target.ResolvedType!.EffectiveType].AccessorDecls[0];
+            FuncDecl accessor = info!.Constructors[target.ResolvedType.EffectiveType].AccessorDecls[0];
             _solver.Assert(_z3Ctx.MkEq(_symbolsAsTerms[target], _z3Ctx.MkApp(accessor, value)));
         }
         else
@@ -225,7 +233,7 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
 
     private bool IsValueAssignable(VerifexType target, AstNode rawValue)
     {
-        CompatibilityStatus compatibility = GetTypeCompatibility(target, rawValue.ResolvedType!);
+        CompatibilityStatus compatibility = GetTypeCompatibility(target, rawValue.ResolvedType);
         if (compatibility == CompatibilityStatus.Incompatible) return false;
         if (compatibility == CompatibilityStatus.Compatible) return true;
         
