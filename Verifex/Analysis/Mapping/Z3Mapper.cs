@@ -206,6 +206,10 @@ public class Z3Mapper
         
         Z3Expr value = ConvertExpr(node.Value);
         MaybeTypeZ3Info maybe = GetMaybeTypeZ3Info(maybeType);
+
+        if (!maybe.Testers.ContainsKey(node.TestedType.EffectiveType))
+            throw new NotComponentOfMaybeType(node.TestedType.Identifier);
+        
         FuncDecl tester = maybe.Testers[node.TestedType.EffectiveType!];
         Z3BoolExpr typeCheck = (_ctx.MkApp(tester, value) as Z3BoolExpr)!;
 
