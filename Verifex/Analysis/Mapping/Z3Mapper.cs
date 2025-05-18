@@ -170,8 +170,11 @@ public class Z3Mapper
 
     private Z3Expr ConvertIsCheck(IsCheckNode node)
     {
+        if (node.Value.EffectiveType is not MaybeType maybeType)
+            throw new CannotUseIsOnNonMaybeTypeException();
+        
         Z3Expr value = ConvertExpr(node.Value);
-        MaybeTypeZ3Info maybe = GetMaybeTypeZ3Info((node.Value.EffectiveType as MaybeType)!);
+        MaybeTypeZ3Info maybe = GetMaybeTypeZ3Info(maybeType);
         FuncDecl tester = maybe.Testers[node.TestedType.EffectiveType!];
         Z3BoolExpr typeCheck = (_ctx.MkApp(tester, value) as Z3BoolExpr)!;
 
@@ -273,7 +276,6 @@ public class Z3Mapper
             BoolType => _ctx.BoolSort,
             StringType => _ctx.StringSort,
             AnyType => _anySort,
-            VoidType => _voidSort,
             StructType structType => DatatypeSortForStruct(structType),
             MaybeType maybeType => GetMaybeTypeZ3Info(maybeType).Sort,
             CodeGen.Types.UnknownType => _anySort,

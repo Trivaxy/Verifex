@@ -102,7 +102,6 @@ public class SymbolTable
         SymbolTable symbols = new();
         symbols.TryAddGlobalSymbol(BuiltinTypeSymbol.Create(new IntegerType()));
         symbols.TryAddGlobalSymbol(BuiltinTypeSymbol.Create(new RealType()));
-        symbols.TryAddGlobalSymbol(BuiltinTypeSymbol.Create(new VoidType()));
         symbols.TryAddGlobalSymbol(BuiltinTypeSymbol.Create(new StringType()));
         symbols.TryAddGlobalSymbol(BuiltinTypeSymbol.Create(new BoolType()));
         symbols.TryAddGlobalSymbol(BuiltinTypeSymbol.Create(new AnyType()));

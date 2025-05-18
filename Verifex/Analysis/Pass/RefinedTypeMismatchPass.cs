@@ -85,7 +85,7 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
                     Visit(varDecl);
                     break;
                 
-                case AssignmentNode assNode when assNode.Target.EffectiveType != null && assNode.Value.EffectiveType != null:
+                case AssignmentNode assNode when assNode.Target.EffectiveType != VerifexType.Unknown && assNode.Value.EffectiveType != VerifexType.Unknown:
                     Visit(assNode);
                     break;
                 
@@ -93,11 +93,11 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
                     Visit(callNode);
                     break;
                 
-                case ReturnNode retNode when retNode.Value != null && retNode.Value.ResolvedType != null:
+                case ReturnNode retNode when retNode.Value != null && retNode.Value.ResolvedType != VerifexType.Unknown:
                     Visit(retNode);
                     break;
                 
-                case InitializerNode initNode when initNode.Type.EffectiveType != null:
+                case InitializerNode initNode when initNode.Type.EffectiveType != VerifexType.Unknown:
                     Visit(initNode);
                     break;
             }
@@ -160,7 +160,7 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
                         
             VisitValue(argument);
 
-            if (argument.EffectiveType == null) continue;
+            if (argument.ResolvedType == VerifexType.Unknown) continue;
                         
             if (!IsValueAssignable(param.Type, argument))
                 LogDiagnostic(new ParamTypeMismatch(param.Name, param.Type.Name, argument.ResolvedType!.Name) { Location = argument.Location });
@@ -172,6 +172,8 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
         if (node.Value != null)
             VisitValue(node.Value);
 
+        if (_currentFunction.ReturnType == null) return;
+
         if (!IsValueAssignable(_currentFunction.ReturnType, node.Value!))
             LogDiagnostic(new ReturnTypeMismatch(_currentFunction.Name, _currentFunction.ReturnType.Name, node.Value.ResolvedType!.Name) { Location = node.Location });
     }
@@ -180,7 +182,7 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
     {
         foreach (InitializerFieldNode field in node.InitializerList.Values)
         {
-            if (field.EffectiveType == null) continue; // some error happened earlier, continue
+            if (field.ResolvedType == VerifexType.Unknown) continue; // some error happened earlier, continue
             if (!IsValueAssignable(field.Name.ResolvedType!, field.Value))
                 LogDiagnostic(new InitializerFieldTypeMismatch(field.Name.Identifier, field.Name.ResolvedType!.Name, field.Value.ResolvedType!.Name) { Location = field.Location });
         }
@@ -443,7 +445,7 @@ public class RefinedTypeMismatchPass : VerificationPass, IDisposable
         {
             return _z3Mapper.ConvertExpr(node);
         }
-        catch (SymbolNotBoundException)
+        catch (Z3MapperException)
         {
             return null;
         }

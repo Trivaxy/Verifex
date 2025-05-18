@@ -38,15 +38,6 @@ public class BoolType : VerifexType
     public override VerifexType FundamentalType => this;
 }
 
-public class VoidType : VerifexType
-{
-    public override string Name => "Void";
-
-    public override TypeInfo IlType => typeof(void).GetTypeInfo();
-    
-    public override VerifexType FundamentalType => this;
-}
-
 public class AnyType : VerifexType
 {
     public override string Name => "Any";

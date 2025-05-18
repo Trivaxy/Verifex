@@ -113,7 +113,7 @@ public class BasicTypeMismatchPass(VerificationContext context) : VerificationPa
     protected override void Visit(IsCheckNode node)
     {
         if (node.Value.EffectiveType is not MaybeType)
-            LogDiagnostic(new IsCheckOnNonMaybeType() { Location = node.Value.Location });
+            LogDiagnostic(new IsCheckOnNonMaybeType() { Location = node.Location });
     }
 
     private static bool TypeSupportsArithmetic(VerifexType type) => type.FundamentalType is IntegerType or RealType;

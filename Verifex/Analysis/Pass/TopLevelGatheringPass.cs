@@ -17,7 +17,7 @@ public class TopLevelGatheringPass(VerificationContext context) : VerificationPa
             {
                 Visit(p);
                 return new ParameterInfo(p.Identifier, VerifexType.Delayed(() => p.Type.ResolvedType));
-            }).ToList(), VerifexType.Delayed(() => node.ReturnType?.ResolvedType ?? Symbols.GetType("Void")), null, node.IsStatic)
+            }).ToList(), node.ReturnType != null ? VerifexType.Delayed(() => node.ReturnType.ResolvedType) : null, null, node.IsStatic)
         };
         
         if (node.IsStatic)
@@ -92,7 +92,7 @@ public class TopLevelGatheringPass(VerificationContext context) : VerificationPa
                         Visit(p);
                         return new ParameterInfo(p.Identifier, VerifexType.Delayed(() => p.Type.ResolvedType));
                     }).ToList(),
-                    VerifexType.Delayed(() => methodNode.Function.ReturnType?.ResolvedType ?? Symbols.GetType("Void")),
+                    methodNode.Function.ReturnType != null ? VerifexType.Delayed(() => methodNode.Function.ReturnType.ResolvedType) : null,
                     VerifexType.Delayed(() => Symbols.GetType(node.Name)),
                     methodNode.Function.IsStatic),
             };
