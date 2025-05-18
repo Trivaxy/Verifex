@@ -229,8 +229,13 @@ public class RefiningPass : VerificationPass, IDisposable
 
     protected override void Visit(IdentifierNode node)
     {
+        if (node.Symbol is not LocalVarSymbol)
+        {
+            LogDiagnostic(new NotAValue() { Location = node.Location });
+            return;
+        }
+        
         if (node.FundamentalType is not MaybeType maybeType) return;
-        if (node.Symbol is not LocalVarSymbol local) return;
 
         node.ResolvedType = NarrowTypeFor(_z3Mapper.ConvertExpr(node), maybeType);
     }
