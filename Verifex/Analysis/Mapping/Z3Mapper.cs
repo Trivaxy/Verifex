@@ -14,6 +14,7 @@ public class Z3Mapper
     private readonly SymbolTable _symbols;
     private readonly UninterpretedSort _anySort;
     private readonly UninterpretedSort _voidSort;
+    private readonly UninterpretedSort _unknownSort;
     private readonly Dictionary<VerifexType, FuncDecl> _toStringFuncDecls;
     private readonly Dictionary<StructType, DatatypeSort> _structToDatatypeSort;
     private readonly Dictionary<MaybeType, MaybeTypeZ3Info> _maybeTypeZ3Infos;
@@ -29,6 +30,7 @@ public class Z3Mapper
         _symbols = symbols;
         _anySort = ctx.MkUninterpretedSort("Any");
         _voidSort = ctx.MkUninterpretedSort("Void");
+        _unknownSort = ctx.MkUninterpretedSort("Unknown");
         _toStringFuncDecls = CreateZ3ToStringFuncDecls();
         _structToDatatypeSort = [];
         _maybeTypeZ3Infos = [];
@@ -234,6 +236,8 @@ public class Z3Mapper
             term = _ctx.MkConst(termName, DatatypeSortForStruct(structType));
         else if (type.FundamentalType is MaybeType maybeType)
             term = _ctx.MkConst(termName, GetMaybeTypeZ3Info(maybeType).Sort);
+        else if (type.FundamentalType is CodeGen.Types.UnknownType)
+            term = _ctx.MkConst(termName, _voidSort);
         else
             throw new NotImplementedException();
 
