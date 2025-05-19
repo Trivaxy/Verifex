@@ -229,8 +229,9 @@ public class Z3Mapper
     private Z3Expr ConvertArrayLiteral(ArrayLiteralNode node)
     {
         ArrayType arrayType = (node.FundamentalType as ArrayType)!;
+        if (node.Elements.Count == 0) return _ctx.MkEmptySeq(SeqSortForArrayType(arrayType));
+        
         Z3SeqExpr[] units = new Z3SeqExpr[node.Elements.Count];
-
         for (int i = 0; i < node.Elements.Count; i++)
         {
             Z3Expr value = ConvertExpr(node.Elements[i]);

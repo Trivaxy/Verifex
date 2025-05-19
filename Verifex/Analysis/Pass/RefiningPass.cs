@@ -232,6 +232,19 @@ public class RefiningPass : VerificationPass, IDisposable
         UpdateResolvedTypeInZ3Context(node);
     }
 
+    protected override void Visit(ArrayLiteralNode node)
+    {
+        foreach (AstNode element in node.Elements)
+        {
+            if (element.ResolvedType == VerifexType.Unknown) continue; // some error happened earlier, continue
+            
+            VisitValue(element);
+            
+            if (!IsValueAssignable((node.ResolvedType as ArrayType)!.ElementType, element))
+                LogDiagnostic(new ArrayElementTypeMismatch(node.ResolvedType.Name, element.ResolvedType.Name) { Location = element.Location });
+        }
+    }
+
     protected override void Visit(IdentifierNode node)
     {
         if (node.Symbol is not LocalVarSymbol)
@@ -309,6 +322,27 @@ public class RefiningPass : VerificationPass, IDisposable
         // if target is a maybe type, check if the value can be applied to any of its components
         if (target.EffectiveType is MaybeType maybeType2)
             return maybeType2.Types.Any(t => IsValueAssignable(t, rawValue));
+        
+        // if the target is an array, we need to check for the source's variance
+        if (target.EffectiveType is ArrayType arrayType)
+        {
+            if (rawValue is ArrayLiteralNode rawArrayLiteral)
+            {
+                if (rawArrayLiteral.Elements.Count == 0) return true; // empty array is always assignable
+            
+                foreach (AstNode element in rawArrayLiteral.Elements)
+                {
+                    if (!IsValueAssignable(arrayType.ElementType, element))
+                        return false;
+                }
+
+                return true;
+            }
+            
+            // source isn't a literal but it is an array, check if the element type is assignable
+            if (rawValue.EffectiveType is ArrayType sourceArrayType)
+                return GetTypeCompatibility(arrayType.ElementType, sourceArrayType.ElementType) == CompatibilityStatus.Compatible;
+        }
         
         // target isn't a maybe type or refined type, but if the source is a maybe type, we need to know if the path condition allows narrowing
         if (rawValue.EffectiveType is MaybeType maybeType3)
@@ -416,6 +450,10 @@ public class RefiningPass : VerificationPass, IDisposable
             // target is a refined type but source is neither refined or maybe, so it's contextual
             return target.FundamentalType == source.FundamentalType ? CompatibilityStatus.Contextual : CompatibilityStatus.Incompatible;
         }
+        
+        // target is an array, but if the source is also an array which is compatible, we need to allow it
+        if (target.FundamentalType is ArrayType targetArray && source.FundamentalType is ArrayType sourceArray)
+            return GetTypeCompatibility(targetArray.ElementType, sourceArray.ElementType);
         
         // the target isn't a refined or maybe type, but the source might be a maybe type
         if (source.EffectiveType is MaybeType sourceMaybe2)

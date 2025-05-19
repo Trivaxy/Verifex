@@ -146,6 +146,9 @@ public record NotAFunction()
 public record IndexValueNotInt(string Type)
     : CompileDiagnostic(DiagnosticLevel.Error, $"index value must be of type 'Int', but got '{Type}'");
 
+public record ArrayElementTypeMismatch(string ExpectedType, string ActualType)
+    : CompileDiagnostic(DiagnosticLevel.Error, $"array elements are of type '{ExpectedType}', but got '{ActualType}'");
+
 public enum DiagnosticLevel
 {
     Error,
