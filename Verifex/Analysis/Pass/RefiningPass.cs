@@ -256,7 +256,7 @@ public class RefiningPass : VerificationPass, IDisposable
 
     protected override void Visit(IdentifierNode node)
     {
-        if (node.Symbol is not LocalVarSymbol)
+        if (node.Symbol is not LocalVarSymbol and not StructFieldSymbol)
         {
             LogDiagnostic(new NotAValue() { Location = node.Location });
             return;
