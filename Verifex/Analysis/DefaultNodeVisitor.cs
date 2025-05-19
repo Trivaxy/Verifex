@@ -134,7 +134,7 @@ public class DefaultNodeVisitor : NodeVisitor
 
     protected override void Visit(MaybeTypeNode node)
     {
-        foreach (SimpleTypeNode type in node.Types)
+        foreach (AstNode type in node.Types)
             Visit(type);
     }
 
