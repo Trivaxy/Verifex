@@ -149,6 +149,9 @@ public record IndexValueNotInt(string Type)
 public record ArrayElementTypeMismatch(string ExpectedType, string ActualType)
     : CompileDiagnostic(DiagnosticLevel.Error, $"array elements are of type '{ExpectedType}', but got '{ActualType}'");
 
+public record ArrayTypeNotKnown()
+    : CompileDiagnostic(DiagnosticLevel.Error, "array type is not known");
+
 public enum DiagnosticLevel
 {
     Error,

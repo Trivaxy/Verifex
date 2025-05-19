@@ -146,6 +146,15 @@ public class RefiningPass : VerificationPass, IDisposable
     {
         if (_termStack.Contains(node.Symbol!)) return; // erroneous duplicate definition, ignore
         
+        // special case: if assigning to [] and there's no type hint, we don't know the type.
+        if (node.Value.ResolvedType == VerifexType.Empty && node.TypeHint == null)
+        {
+            node.Symbol!.ResolvedType = node.Value.ResolvedType = VerifexType.Unknown;
+            AssertAssignment(node.Symbol, _z3Mapper.CreateTerm(node.Symbol!.ResolvedType, node.Name)); // just assign a bland term
+            LogDiagnostic(new ArrayTypeNotKnown() { Location = node.Location });
+            return;
+        }
+        
         VisitValue(node.Value);
         
         if (!IsValueAssignable(node.Symbol!.ResolvedType, node.Value))
