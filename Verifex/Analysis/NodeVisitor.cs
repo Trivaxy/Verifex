@@ -35,7 +35,7 @@ public abstract class NodeVisitor
     protected abstract void Visit(ArrayLiteralNode node);
     protected abstract void Visit(ArrayTypeNode node);
     protected abstract void Visit(IndexAccessNode node);
-    protected abstract void Visit(ForInLoopNode node);
+    protected abstract void Visit(GetLengthNode node);
     
     protected void Visit(AstNode node)
     {
@@ -134,8 +134,8 @@ public abstract class NodeVisitor
             case IndexAccessNode indexAccessNode:
                 Visit(indexAccessNode);
                 break;
-            case ForInLoopNode forInLoopNode:
-                Visit(forInLoopNode);
+            case GetLengthNode getLengthNode:
+                Visit(getLengthNode);
                 break;
         }
     }

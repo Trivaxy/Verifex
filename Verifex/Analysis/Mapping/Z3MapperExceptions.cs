@@ -11,3 +11,5 @@ public class MismatchedTypesException(string expectedType, string actualType) : 
 public class SymbolNotAValueException(string symbolName) : Z3MapperException($"Symbol '{symbolName}' is not a value");
 
 public class NotComponentOfMaybeType(string type) : Z3MapperException($"{type} is not part of the maybe type");
+
+public class NotSequence() : Z3MapperException("Not a sequence type");

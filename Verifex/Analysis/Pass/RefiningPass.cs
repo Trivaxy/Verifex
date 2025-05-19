@@ -266,6 +266,12 @@ public class RefiningPass : VerificationPass, IDisposable
         node.ResolvedType = NarrowTypeFor(_z3Mapper.ConvertExpr(node), maybeType);
     }
 
+    protected override void Visit(GetLengthNode node)
+    {
+        if (node.Target.FundamentalType is not ArrayType or StringType)
+            LogDiagnostic(new CannotGetLength(node.ResolvedType.Name) { Location = node.Location });
+    }
+
     protected override void Visit(IndexAccessNode node)
     {
         if (node.FundamentalType is not MaybeType maybeType) return;

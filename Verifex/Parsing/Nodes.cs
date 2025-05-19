@@ -210,9 +210,7 @@ public class IndexAccessNode(AstNode target, AstNode index) : AstNode
     public readonly AstNode Index = index;
 }
 
-public class ForInLoopNode(IdentifierNode loopVariable, AstNode iterable, BlockNode body) : AstNode
+public class GetLengthNode(AstNode target) : AstNode
 {
-    public readonly IdentifierNode LoopVariable = loopVariable;
-    public readonly AstNode Iterable = iterable;
-    public readonly BlockNode Body = body;
+    public readonly AstNode Target = target;
 }

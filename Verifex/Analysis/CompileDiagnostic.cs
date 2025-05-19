@@ -152,6 +152,9 @@ public record ArrayElementTypeMismatch(string ExpectedType, string ActualType)
 public record ArrayTypeNotKnown()
     : CompileDiagnostic(DiagnosticLevel.Error, "array type is not known");
 
+public record CannotGetLength(string Type)
+    : CompileDiagnostic(DiagnosticLevel.Error, $"cannot get length of type {Type}");
+
 public enum DiagnosticLevel
 {
     Error,

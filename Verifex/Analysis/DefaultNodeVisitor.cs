@@ -157,11 +157,6 @@ public class DefaultNodeVisitor : NodeVisitor
         Visit(node.Target);
         Visit(node.Index);
     }
-    
-    protected override void Visit(ForInLoopNode node)
-    {
-        Visit(node.LoopVariable);
-        Visit(node.Iterable);
-        Visit(node.Body);
-    }
+
+    protected override void Visit(GetLengthNode node) => Visit(node.Target);
 }

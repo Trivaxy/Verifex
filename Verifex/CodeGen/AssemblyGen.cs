@@ -427,6 +427,15 @@ public class AssemblyGen : DefaultNodeVisitor
         _il.Emit(OpCodes.Callvirt, typeof(List<object>).GetMethod("get_Item", [typeof(int)])!);
         EmitConversion(_symbolTable.GetType("Any")!, node.ResolvedType);
     }
+
+    protected override void Visit(GetLengthNode node)
+    {
+        Visit(node.Target);
+        if (node.Target.FundamentalType is ArrayType)
+            _il.Emit(OpCodes.Callvirt, typeof(List<object>).GetMethod("get_Count")!);
+        else
+            _il.Emit(OpCodes.Callvirt, typeof(string).GetMethod("get_Length")!);
+    }
     
     private void EmitConversion(VerifexType from, VerifexType to)
     {

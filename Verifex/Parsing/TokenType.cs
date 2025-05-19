@@ -50,6 +50,7 @@ public enum TokenType : byte
     Is,
     LeftBracket,
     RightBracket,
+    Hashtag,
 }
 
 public static class TokenTypeExtensions
@@ -106,6 +107,7 @@ public static class TokenTypeExtensions
             TokenType.Is => "is",
             TokenType.LeftBracket => "[",
             TokenType.RightBracket => "]",
+            TokenType.Hashtag => "#",
             _ => throw new ArgumentOutOfRangeException(nameof(token), token, null)
         };
     }

@@ -216,4 +216,12 @@ public class TypeAnnotationPass(VerificationContext context) : VerificationPass(
         if (node.ResolvedType == VerifexType.Unknown) 
             node.ResolvedType = node.Target.FundamentalType is ArrayType arrayType ? arrayType.ElementType : VerifexType.Unknown;
     }
+
+    protected override void Visit(GetLengthNode node)
+    {
+        base.Visit(node);
+        
+        if (node.Target.FundamentalType is ArrayType or StringType)
+            node.ResolvedType = Symbols.GetType("Int")!;
+    }
 }

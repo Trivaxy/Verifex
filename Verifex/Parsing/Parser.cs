@@ -25,9 +25,9 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
     
     private static readonly Dictionary<TokenType, Func<Parser, Token, AstNode>> PrefixParsers = new()
     {
-        { TokenType.Minus, (parser, _) => new MinusNegationNode(parser.Expression(0)) },
-        { TokenType.Not, (parser, _) => new NotNegationNode(parser.Expression(0)) },
-        { TokenType.Plus, (parser, _) => parser.Expression(0) },
+        { TokenType.Minus, (parser, _) => new MinusNegationNode(parser.Expression()) },
+        { TokenType.Not, (parser, _) => new NotNegationNode(parser.Expression()) },
+        { TokenType.Plus, (parser, _) => parser.Expression() },
         { TokenType.Number, (parser, token) => new NumberNode(parser.Fetch(token).ToString()) { Location = token.Range } },
         { TokenType.Identifier, (parser, token) =>
         {
@@ -66,6 +66,7 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
                 return arrayLiteralNode;
             }
         },
+        { TokenType.Hashtag, (parser, token) => new GetLengthNode(parser.Expression()) },
     };
 
     private static readonly Dictionary<TokenType, Func<Parser, AstNode, Token, AstNode>> InfixParsers = new()

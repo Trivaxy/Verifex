@@ -28,6 +28,7 @@ public class TokenStream
         ['.'] = TokenType.Dot,
         ['['] = TokenType.LeftBracket,
         [']'] = TokenType.RightBracket,
+        ['#'] = TokenType.Hashtag,
     };
 
     public TokenStream(string source)

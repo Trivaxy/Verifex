@@ -56,6 +56,7 @@ public class Z3Mapper
             case IsCheckNode check: return ConvertIsCheck(check);
             case ArrayLiteralNode array: return ConvertArrayLiteral(array);
             case IndexAccessNode index: return ConvertIndexAccess(index);
+            case GetLengthNode length: return ConvertGetLength(length);
             default: 
                 throw new NotImplementedException($"Z3 conversion not implemented for AST node type: {node.GetType().Name}");
         }
@@ -261,6 +262,16 @@ public class Z3Mapper
         Z3Expr index = ConvertExpr(node.Index);
 
         return _ctx.MkNth(target as Z3SeqExpr, index);
+    }
+    
+    private Z3Expr ConvertGetLength(GetLengthNode node)
+    {
+        Z3Expr target = ConvertExpr(node.Target);
+
+        if (node.Target.FundamentalType is not ArrayType and not StringType)
+            throw new NotSequence();
+                
+        return _ctx.MkLength(target as Z3SeqExpr);
     }
     
     public Z3Expr CreateTerm(VerifexType type, string name)
