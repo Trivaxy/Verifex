@@ -395,11 +395,11 @@ public class RefiningPass : VerificationPass, IDisposable
 
                 return status;
             }
-            else
+            else // source isn't a maybe type, so we just need at least one matching component in the maybe type
             {
                 if (maybeType.Types.All(t => GetTypeCompatibility(t, source) == CompatibilityStatus.Incompatible))
                     return CompatibilityStatus.Incompatible;
-                if (maybeType.Types.All(t => GetTypeCompatibility(t, source) == CompatibilityStatus.Compatible))
+                if (maybeType.Types.Any(t => GetTypeCompatibility(t, source) == CompatibilityStatus.Compatible))
                     return CompatibilityStatus.Compatible;
 
                 return CompatibilityStatus.Contextual;
@@ -447,8 +447,8 @@ public class RefiningPass : VerificationPass, IDisposable
                 return CompatibilityStatus.Contextual;
             }
             
-            // target is a refined type but source is neither refined or maybe, so it's contextual
-            return target.FundamentalType == source.FundamentalType ? CompatibilityStatus.Contextual : CompatibilityStatus.Incompatible;
+            // target is a refined type but source is neither refined or maybe, so we just need to check fundamental compatibility
+            return GetTypeCompatibility(refinedType.FundamentalType, source);
         }
         
         // target is an array, but if the source is also an array which is compatible, we need to allow it
