@@ -268,8 +268,8 @@ public class RefiningPass : VerificationPass, IDisposable
 
     protected override void Visit(GetLengthNode node)
     {
-        if (node.Target.FundamentalType is not ArrayType or StringType)
-            LogDiagnostic(new CannotGetLength(node.ResolvedType.Name) { Location = node.Location });
+        if (node.Target.FundamentalType is not ArrayType and not StringType)
+            LogDiagnostic(new CannotGetLength(node.Target.ResolvedType.Name) { Location = node.Location });
     }
 
     protected override void Visit(IndexAccessNode node)
