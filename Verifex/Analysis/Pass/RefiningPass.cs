@@ -254,17 +254,23 @@ public class RefiningPass : VerificationPass, IDisposable
         }
         
         if (node.FundamentalType is not MaybeType maybeType) return;
+        node.ResolvedType = NarrowTypeFor(_z3Mapper.ConvertExpr(node), maybeType);
+    }
 
+    protected override void Visit(IndexAccessNode node)
+    {
+        if (node.FundamentalType is not MaybeType maybeType) return;
         node.ResolvedType = NarrowTypeFor(_z3Mapper.ConvertExpr(node), maybeType);
     }
 
     private void VisitValue(AstNode node)
     {
-        // visit the node normally to reach everything
-        Visit(node);
+        Visit(node); // visit the node normally to reach everything
+        VerifexType newType = node.ResolvedType;
         
-        // run the type annotator pass on it, in case any type got narrowed or refined, so we propagate changes
+        // run the type annotator pass on the node, in case any type got narrowed or refined, so we propagate changes
         _miniTypeAnnotationPass.Run(node);
+        
     }
 
     private void AssertAssignment(Symbol target, Z3Expr value)
@@ -282,6 +288,12 @@ public class RefiningPass : VerificationPass, IDisposable
         {
             FuncDecl accessor = info!.Constructors[target.ResolvedType.EffectiveType].AccessorDecls[0];
             _solver.Assert(_z3Ctx.MkEq(_termStack.GetTerm(target), _z3Ctx.MkApp(accessor, value)));
+        }
+        else if (value.Sort is SeqSort)
+        {
+            // in this case, what's happening is we're assigning two arrays of different types
+            // because the type of array A accepts the types in array B, so they won't have the same sort
+            // don't assert any assignments here, just keep the term bland. im lazy.
         }
         else
             throw new InvalidOperationException("Unknown types for assignment");
@@ -377,6 +389,7 @@ public class RefiningPass : VerificationPass, IDisposable
     private CompatibilityStatus ComputeTypeCompatibility(VerifexType target, VerifexType source)
     {
         if (target.FundamentalType is CodeGen.Types.UnknownType || source.FundamentalType is CodeGen.Types.UnknownType) return CompatibilityStatus.Incompatible;
+        if (target.FundamentalType is ArrayType && source.FundamentalType is EmptyType) return CompatibilityStatus.Compatible;
         if (target == source) return CompatibilityStatus.Compatible;
         if (target.FundamentalType is AnyType) return CompatibilityStatus.Compatible;
         

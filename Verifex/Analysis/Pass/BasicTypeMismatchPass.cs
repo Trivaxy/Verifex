@@ -112,6 +112,8 @@ public class BasicTypeMismatchPass(VerificationContext context) : VerificationPa
 
     protected override void Visit(IsCheckNode node)
     {
+        base.Visit(node);
+        
         if (!SupportsIsCheck(node.Value.ResolvedType))
             LogDiagnostic(new IsCheckOnNonMaybeType() { Location = node.Location });
     }
@@ -142,7 +144,7 @@ public class BasicTypeMismatchPass(VerificationContext context) : VerificationPa
 
     private static bool SupportsIsCheck(VerifexType type)
     {
-        if (type.EffectiveType is MaybeType) return true;
+        if (type.FundamentalType is MaybeType) return true;
         if (type.EffectiveType is RefinedType refined) return SupportsIsCheck(refined.BaseType);
         return false;
     }

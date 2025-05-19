@@ -205,7 +205,7 @@ public class Z3Mapper
 
     private Z3Expr ConvertIsCheck(IsCheckNode node)
     {
-        if (node.Value.EffectiveType is not MaybeType maybeType)
+        if (node.Value.FundamentalType is not MaybeType maybeType)
             throw new CannotUseIsOnNonMaybeTypeException();
         
         Z3Expr value = ConvertExpr(node.Value);
@@ -237,7 +237,18 @@ public class Z3Mapper
             Z3Expr value = ConvertExpr(node.Elements[i]);
             if (node.Elements[i].FundamentalType is MaybeType maybeType)
                 value = CreateUnbox(value, maybeType, arrayType.ElementType);
+            
+            // if the array's type is a maybe type then we need to box values
+            if (arrayType.ElementType is MaybeType maybeType2)
+            {
+                MaybeTypeZ3Info maybeInfo = GetMaybeTypeZ3Info(maybeType2);
+                if (!maybeInfo.Constructors.TryGetValue(node.Elements[i].EffectiveType, out Constructor? constructor))
+                    throw new MismatchedTypesException(maybeType2.Name, node.Elements[i].ResolvedType.Name);
 
+                FuncDecl constructorDecl = maybeInfo.Constructors[node.Elements[i].EffectiveType].ConstructorDecl;
+                value = _ctx.MkApp(constructorDecl, value);
+            }
+            
             units[i] = _ctx.MkUnit(value);
         }
 
@@ -249,7 +260,7 @@ public class Z3Mapper
         Z3Expr target = ConvertExpr(node.Target);
         Z3Expr index = ConvertExpr(node.Index);
 
-        return _ctx.MkAt(target as Z3SeqExpr, index);
+        return _ctx.MkNth(target as Z3SeqExpr, index);
     }
     
     public Z3Expr CreateTerm(VerifexType type, string name)

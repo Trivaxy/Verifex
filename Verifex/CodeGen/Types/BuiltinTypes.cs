@@ -55,3 +55,13 @@ public class UnknownType : VerifexType
     
     public override VerifexType FundamentalType => this;
 }
+
+// This is a type that gets applied to empty array literals to avoid getting ArrayType<unknown>, which causes issues
+public class EmptyType : VerifexType
+{
+    public override string Name => "empty";
+
+    public override TypeInfo IlType => typeof(List<>).GetTypeInfo();
+    
+    public override VerifexType FundamentalType => this;
+}

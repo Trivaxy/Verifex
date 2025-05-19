@@ -184,6 +184,7 @@ public class TypeAnnotationPass(VerificationContext context) : VerificationPass(
 
     protected override void Visit(IsCheckNode node)
     {
+        base.Visit(node);
         node.ResolvedType = Symbols.GetType("Bool")!;
     }
 
@@ -197,15 +198,22 @@ public class TypeAnnotationPass(VerificationContext context) : VerificationPass(
     {
         base.Visit(node);
         
-        // if the literal is empty, it was likely set explicitly by something like VarDeclNode or AssignmentNode
-        if (node.Elements.Count == 0 && node.ResolvedType != VerifexType.Unknown) return;
-        
-        node.ResolvedType = new ArrayType(node.Elements.Count > 0 ? node.Elements[0].ResolvedType : VerifexType.Unknown);
+        if (node.Elements.Count == 0)
+        {
+            node.ResolvedType = VerifexType.Empty;
+            return;
+        }
+
+        List<VerifexType> elementTypes = node.Elements.Select(e => e.ResolvedType).Distinct().ToList();
+        node.ResolvedType = new ArrayType(elementTypes.Count == 1 ? elementTypes[0] : new MaybeType(elementTypes));
     }
 
     protected override void Visit(IndexAccessNode node)
     {
         base.Visit(node);
-        node.ResolvedType = node.Target.ResolvedType is ArrayType arrayType ? arrayType.ElementType : VerifexType.Unknown;
+        
+        // check is important because if this pass runs after this node's type was narrowed then the narrowed type is erroneously overrided
+        if (node.ResolvedType == VerifexType.Unknown) 
+            node.ResolvedType = node.Target.FundamentalType is ArrayType arrayType ? arrayType.ElementType : VerifexType.Unknown;
     }
 }

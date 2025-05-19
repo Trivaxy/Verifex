@@ -14,6 +14,8 @@ public abstract class VerifexType : IEquatable<VerifexType>
     public abstract VerifexType FundamentalType { get; }
     
     public static readonly VerifexType Unknown = new UnknownType();
+    
+    public static readonly VerifexType Empty = new EmptyType();
 
     public static VerifexType Delayed(Func<VerifexType> resolver) => new DelayedType(resolver);
 
