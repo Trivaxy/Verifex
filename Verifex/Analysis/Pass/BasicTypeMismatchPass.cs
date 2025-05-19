@@ -132,6 +132,14 @@ public class BasicTypeMismatchPass(VerificationContext context) : VerificationPa
         }
     }
 
+    protected override void Visit(IndexAccessNode node)
+    {
+        base.Visit(node);
+        
+        if (node.Index.FundamentalType is not IntegerType)
+            LogDiagnostic(new IndexValueNotInt(node.Index.ResolvedType.Name) { Location = node.Index.Location });
+    }
+
     private static bool SupportsIsCheck(VerifexType type)
     {
         if (type.EffectiveType is MaybeType) return true;

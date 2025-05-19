@@ -143,4 +143,25 @@ public class DefaultNodeVisitor : NodeVisitor
         Visit(node.Value);
         Visit(node.TestedType);
     }
+    
+    protected override void Visit(ArrayLiteralNode node)
+    {
+        foreach (AstNode element in node.Elements)
+            Visit(element);
+    }
+
+    protected override void Visit(ArrayTypeNode node) => Visit(node.ElementType);
+    
+    protected override void Visit(IndexAccessNode node)
+    {
+        Visit(node.Target);
+        Visit(node.Index);
+    }
+    
+    protected override void Visit(ForInLoopNode node)
+    {
+        Visit(node.LoopVariable);
+        Visit(node.Iterable);
+        Visit(node.Body);
+    }
 }

@@ -180,4 +180,22 @@ public class TypeAnnotationPass(VerificationContext context) : VerificationPass(
     {
         node.ResolvedType = Symbols.GetType("Bool")!;
     }
+
+    protected override void Visit(ArrayTypeNode node)
+    {
+        base.Visit(node);
+        node.ResolvedType = new ArrayType(node.ElementType.EffectiveType);
+    }
+
+    protected override void Visit(ArrayLiteralNode node)
+    {
+        base.Visit(node);
+        node.ResolvedType = new ArrayType(node.Elements.Count > 0 ? node.Elements[0].ResolvedType : VerifexType.Unknown);
+    }
+
+    protected override void Visit(IndexAccessNode node)
+    {
+        base.Visit(node);
+        node.ResolvedType = node.Target.ResolvedType is ArrayType arrayType ? arrayType.ElementType : VerifexType.Unknown;
+    }
 }

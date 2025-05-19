@@ -26,6 +26,8 @@ public class TokenStream
         ['&'] = TokenType.BitwiseAnd,
         ['|'] = TokenType.BitwiseOr,
         ['.'] = TokenType.Dot,
+        ['['] = TokenType.LeftBracket,
+        [']'] = TokenType.RightBracket,
     };
 
     public TokenStream(string source)

@@ -48,6 +48,8 @@ public enum TokenType : byte
     FnStatic,
     OrKeyword,
     Is,
+    LeftBracket,
+    RightBracket,
 }
 
 public static class TokenTypeExtensions
@@ -102,6 +104,8 @@ public static class TokenTypeExtensions
             TokenType.FnStatic => "fn!",
             TokenType.OrKeyword => "or",
             TokenType.Is => "is",
+            TokenType.LeftBracket => "[",
+            TokenType.RightBracket => "]",
             _ => throw new ArgumentOutOfRangeException(nameof(token), token, null)
         };
     }

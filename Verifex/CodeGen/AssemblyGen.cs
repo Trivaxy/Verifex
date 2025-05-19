@@ -328,16 +328,25 @@ public class AssemblyGen : DefaultNodeVisitor
             else
                 throw new InvalidOperationException("Identifier node does not have an appropriate symbol");
         }
-        else // this is a struct's field
+        else if (node.Target is MemberAccessNode memberAccess) // this is a struct's field
         {
-            Visit((node.Target as MemberAccessNode)!.Target);
-            _il.Emit(OpCodes.Ldstr, (node.Target as MemberAccessNode)!.Member.Identifier);
+            Visit(memberAccess.Target);
+            _il.Emit(OpCodes.Ldstr, memberAccess.Member.Identifier);
             
             Visit(node.Value);
             EmitConversion(node.Value.ResolvedType!, node.Target.ResolvedType!); // convert to the target type
             EmitConversion(node.Target.ResolvedType!, _symbolTable.GetType("Any")); // then box
             
             _il.Emit(OpCodes.Call, typeof(Dictionary<string, object>).GetMethod("set_Item", [typeof(string), typeof(object)])!);
+        }
+        else if (node.Target is IndexAccessNode indexAccess) // this is an array element
+        {
+            Visit(indexAccess.Target);
+            
+            Visit(indexAccess.Index);
+            EmitConversion(indexAccess.Index.ResolvedType, _symbolTable.GetType("Int")!);
+            
+            _il.Emit(OpCodes.Callvirt, typeof(List<object>).GetMethod("set_Item", [typeof(int)])!);
         }
     }
 
@@ -395,6 +404,28 @@ public class AssemblyGen : DefaultNodeVisitor
         _il.Emit(OpCodes.Isinst, node.TestedType.EffectiveType!.IlType);
         _il.Emit(OpCodes.Ldnull);
         _il.Emit(OpCodes.Cgt_Un);
+    }
+
+    protected override void Visit(ArrayLiteralNode node)
+    {
+        _il.Emit(OpCodes.Newobj, typeof(List<object>).GetConstructor(Type.EmptyTypes)!);
+        
+        foreach (AstNode value in node.Elements)
+        {
+            _il.Emit(OpCodes.Dup);
+            Visit(value);
+            EmitConversion(value.ResolvedType!, _symbolTable.GetType("Any")!); // then box
+            _il.Emit(OpCodes.Callvirt, typeof(List<object>).GetMethod("Add", [typeof(object)])!);
+        }
+    }
+
+    protected override void Visit(IndexAccessNode node)
+    {
+        Visit(node.Target);
+        Visit(node.Index);
+        EmitConversion(node.Index.Symbol?.ResolvedType ?? node.Index.ResolvedType, _symbolTable.GetType("Int")!);
+        _il.Emit(OpCodes.Callvirt, typeof(List<object>).GetMethod("get_Item", [typeof(int)])!);
+        EmitConversion(_symbolTable.GetType("Any")!, node.ResolvedType);
     }
     
     private void EmitConversion(VerifexType from, VerifexType to)

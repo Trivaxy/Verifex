@@ -159,12 +159,6 @@ public class CFGBuilder
             case VarDeclNode varDecl: VisitStatement(varDecl); break;
             case AssignmentNode assignment: VisitStatement(assignment); break;
             case FunctionCallNode funcCall: VisitStatement(funcCall); break;
-            // Expressions are handled implicitly when visiting statements that contain them
-            // BinaryOperationNode, IdentifierNode, NumberNode etc. don't need direct visits here.
-            default:
-                // Ignore nodes that aren't statements affecting control flow at this level
-                // (like expressions, ParamDeclNode etc.)
-                break;
         }
     }
 
@@ -192,7 +186,7 @@ public class CFGBuilder
         _currentBlock = null; // Mark current path as terminated
     }
 
-        private void VisitIfElse(IfElseNode node)
+    private void VisitIfElse(IfElseNode node)
     {
         EnsureCurrentBlock();
         var conditionBlock = _currentBlock!;

@@ -18,6 +18,7 @@ public class Z3Mapper
     private readonly Dictionary<VerifexType, FuncDecl> _toStringFuncDecls;
     private readonly Dictionary<StructType, DatatypeSort> _structToDatatypeSort;
     private readonly Dictionary<MaybeType, MaybeTypeZ3Info> _maybeTypeZ3Infos;
+    private readonly Dictionary<ArrayType, SeqSort> _arrayToSeqSorts;
     private int _nextTermId = 0;
     
     public Z3Expr? CurrentSelfTerm { get; set; }
@@ -34,6 +35,7 @@ public class Z3Mapper
         _toStringFuncDecls = CreateZ3ToStringFuncDecls();
         _structToDatatypeSort = [];
         _maybeTypeZ3Infos = [];
+        _arrayToSeqSorts = [];
         CurrentSelfTerm = null;
     }
     
@@ -52,6 +54,8 @@ public class Z3Mapper
             case FunctionCallNode call: return ConvertFunctionCall(call);
             case MemberAccessNode member: return ConvertMemberAccess(member);
             case IsCheckNode check: return ConvertIsCheck(check);
+            case ArrayLiteralNode array: return ConvertArrayLiteral(array);
+            case IndexAccessNode index: return ConvertIndexAccess(index);
             default: 
                 throw new NotImplementedException($"Z3 conversion not implemented for AST node type: {node.GetType().Name}");
         }
@@ -208,7 +212,7 @@ public class Z3Mapper
         MaybeTypeZ3Info maybe = GetMaybeTypeZ3Info(maybeType);
 
         if (!maybe.Testers.ContainsKey(node.TestedType.EffectiveType))
-            throw new NotComponentOfMaybeType(node.TestedType.Identifier);
+            throw new NotComponentOfMaybeType(node.TestedType.EffectiveType.Name);
         
         FuncDecl tester = maybe.Testers[node.TestedType.EffectiveType!];
         Z3BoolExpr typeCheck = (_ctx.MkApp(tester, value) as Z3BoolExpr)!;
@@ -220,6 +224,31 @@ public class Z3Mapper
         }
 
         return typeCheck;
+    }
+
+    private Z3Expr ConvertArrayLiteral(ArrayLiteralNode node)
+    {
+        ArrayType arrayType = (node.FundamentalType as ArrayType)!;
+        Z3SeqExpr[] units = new Z3SeqExpr[node.Elements.Count];
+
+        for (int i = 0; i < node.Elements.Count; i++)
+        {
+            Z3Expr value = ConvertExpr(node.Elements[i]);
+            if (node.Elements[i].FundamentalType is MaybeType maybeType)
+                value = CreateUnbox(value, maybeType, arrayType.ElementType);
+
+            units[i] = _ctx.MkUnit(value);
+        }
+
+        return _ctx.MkConcat(units);
+    }
+
+    private Z3Expr ConvertIndexAccess(IndexAccessNode node)
+    {
+        Z3Expr target = ConvertExpr(node.Target);
+        Z3Expr index = ConvertExpr(node.Index);
+
+        return _ctx.MkAt(target as Z3SeqExpr, index);
     }
     
     public Z3Expr CreateTerm(VerifexType type, string name)
@@ -242,6 +271,8 @@ public class Z3Mapper
             term = _ctx.MkConst(termName, GetMaybeTypeZ3Info(maybeType).Sort);
         else if (type.FundamentalType is CodeGen.Types.UnknownType)
             term = _ctx.MkConst(termName, _voidSort);
+        else if (type.FundamentalType is ArrayType arrayType)
+            term = _ctx.MkConst(termName, SeqSortForArrayType(arrayType));
         else
             throw new NotImplementedException();
 
@@ -323,6 +354,7 @@ public class Z3Mapper
             AnyType => _anySort,
             StructType structType => DatatypeSortForStruct(structType),
             MaybeType maybeType => GetMaybeTypeZ3Info(maybeType).Sort,
+            ArrayType arrayType => SeqSortForArrayType(arrayType),
             CodeGen.Types.UnknownType => _anySort,
             _ => throw new NotImplementedException($"Type has no known sort: {type.Name}")
         };
@@ -387,6 +419,18 @@ public class Z3Mapper
     {
         info = _maybeTypeZ3Infos.Values.FirstOrDefault(info => info.Sort.Equals(expr.Sort));
         return info != null;
+    }
+
+    public SeqSort SeqSortForArrayType(ArrayType type)
+    {
+        if (_arrayToSeqSorts.TryGetValue(type, out SeqSort? seqSort))
+            return seqSort;
+        
+        Sort elementSort = AsSort(type.ElementType);
+        SeqSort sort = _ctx.MkSeqSort(elementSort);
+        
+        _arrayToSeqSorts[type] = sort;
+        return sort;
     }
 
     public record MaybeTypeZ3Info(

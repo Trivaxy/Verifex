@@ -32,6 +32,10 @@ public abstract class NodeVisitor
     protected abstract void Visit(SimpleTypeNode node);
     protected abstract void Visit(MaybeTypeNode node);
     protected abstract void Visit(IsCheckNode node);
+    protected abstract void Visit(ArrayLiteralNode node);
+    protected abstract void Visit(ArrayTypeNode node);
+    protected abstract void Visit(IndexAccessNode node);
+    protected abstract void Visit(ForInLoopNode node);
     
     protected void Visit(AstNode node)
     {
@@ -120,6 +124,18 @@ public abstract class NodeVisitor
                 break;
             case IsCheckNode isCheckNode:
                 Visit(isCheckNode);
+                break;
+            case ArrayLiteralNode arrayLiteralNode:
+                Visit(arrayLiteralNode);
+                break;
+            case ArrayTypeNode arrayTypeNode:
+                Visit(arrayTypeNode);
+                break;
+            case IndexAccessNode indexAccessNode:
+                Visit(indexAccessNode);
+                break;
+            case ForInLoopNode forInLoopNode:
+                Visit(forInLoopNode);
                 break;
         }
     }

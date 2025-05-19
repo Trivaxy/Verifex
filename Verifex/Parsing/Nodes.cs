@@ -183,13 +183,36 @@ public class MemberAccessNode(AstNode target, IdentifierNode member) : AstNode
 
 public class SimpleTypeNode(string identifier) : IdentifierNode(identifier);
 
-public class MaybeTypeNode(ReadOnlyCollection<SimpleTypeNode> types) : AstNode
+public class MaybeTypeNode(ReadOnlyCollection<AstNode> types) : AstNode
 {
-    public readonly ReadOnlyCollection<SimpleTypeNode> Types = types;
+    public readonly ReadOnlyCollection<AstNode> Types = types;
 }
 
-public class IsCheckNode(AstNode value, SimpleTypeNode testedType) : AstNode
+public class IsCheckNode(AstNode value, AstNode testedType) : AstNode
 {
     public readonly AstNode Value = value;
-    public readonly SimpleTypeNode TestedType = testedType;
+    public readonly AstNode TestedType = testedType;
+}
+
+public class ArrayLiteralNode(ReadOnlyCollection<AstNode> elements) : AstNode
+{
+    public readonly ReadOnlyCollection<AstNode> Elements = elements;
+}
+
+public class ArrayTypeNode(AstNode elementType) : AstNode
+{
+    public readonly AstNode ElementType = elementType;
+}
+
+public class IndexAccessNode(AstNode target, AstNode index) : AstNode
+{
+    public readonly AstNode Target = target;
+    public readonly AstNode Index = index;
+}
+
+public class ForInLoopNode(IdentifierNode loopVariable, AstNode iterable, BlockNode body) : AstNode
+{
+    public readonly IdentifierNode LoopVariable = loopVariable;
+    public readonly AstNode Iterable = iterable;
+    public readonly BlockNode Body = body;
 }

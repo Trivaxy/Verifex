@@ -46,7 +46,26 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
             parser.Expect(TokenType.RightParenthesis);
 
             return expression;
-        }}
+        }},
+        { TokenType.LeftBracket, (parser, token) => // Array Literal
+            {
+                List<AstNode> elements = [];
+                if (parser.Peek().Type != TokenType.RightBracket)
+                {
+                    elements.Add(parser.Do(parser.Expression));
+                    while (parser.Peek().Type == TokenType.Comma)
+                    {
+                        parser.Next(); // consume comma
+                        elements.Add(parser.Do(parser.Expression));
+                    }
+                }
+
+                parser.Expect(TokenType.RightBracket);
+                ArrayLiteralNode arrayLiteralNode = new ArrayLiteralNode(elements.AsReadOnly());
+                
+                return arrayLiteralNode;
+            }
+        },
     };
 
     private static readonly Dictionary<TokenType, Func<Parser, AstNode, Token, AstNode>> InfixParsers = new()
@@ -90,9 +109,17 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
         } },
         { TokenType.Is, (parser, left, _) =>
         {
-            SimpleTypeNode type = parser.Do(parser.SimpleType);
+            AstNode type = parser.Do(parser.SingleType);
             return new IsCheckNode(left, type);
-        } }
+        } },
+        { TokenType.LeftBracket, (parser, left, token) =>
+        {
+            AstNode index = parser.Do(parser.Expression);
+            parser.Expect(TokenType.RightBracket);
+            IndexAccessNode indexAccessNode = new IndexAccessNode(left, index);
+            
+            return indexAccessNode;
+        } },
     };
 
     private static readonly Dictionary<TokenType, int> TokenPrecedences = new()
@@ -112,6 +139,7 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
         { TokenType.Slash, 6 },
         { TokenType.LeftParenthesis, 10 },
         { TokenType.Dot, 11 },
+        { TokenType.LeftBracket, 11 },
     };
 
     public ProgramNode Program()
@@ -465,24 +493,32 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
         return new IdentifierNode(Fetch(identifier).ToString()) { Location = identifier.Range };
     }
 
-    public SimpleTypeNode SimpleType()
+    public AstNode SingleType()
     {
         Token identifier = Expect(TokenType.Identifier);
-        return new SimpleTypeNode(Fetch(identifier).ToString()) { Location = identifier.Range };
+        AstNode type = new SimpleTypeNode(Fetch(identifier).ToString()) { Location = identifier.Range };
+
+        while (tokens.Peek().Type == TokenType.LeftBracket)
+        {
+            tokens.Next();
+            Expect(TokenType.RightBracket);
+            type = new ArrayTypeNode(type);
+        }
+
+        return type;
     }
 
     public AstNode TypeName()
     {
-        List<SimpleTypeNode> types = [Do(SimpleType)];
+        List<AstNode> types = [Do(SingleType)];
 
         while (tokens.Peek().Type == TokenType.OrKeyword)
         {
             tokens.Next();
-            types.Add(Do(SimpleType));
+            types.Add(Do(SingleType));
         }
 
         if (types.Count == 1) return types[0];
-
         return new MaybeTypeNode(types.AsReadOnly());
     }
 

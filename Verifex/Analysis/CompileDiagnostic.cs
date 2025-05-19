@@ -143,6 +143,9 @@ public record NotAValue()
 public record NotAFunction()
     : CompileDiagnostic(DiagnosticLevel.Error, "not a function");
 
+public record IndexValueNotInt(string Type)
+    : CompileDiagnostic(DiagnosticLevel.Error, $"index value must be of type 'Int', but got '{Type}'");
+
 public enum DiagnosticLevel
 {
     Error,
