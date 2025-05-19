@@ -110,7 +110,7 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
         } },
         { TokenType.Is, (parser, left, _) =>
         {
-            AstNode type = parser.Do(parser.SingleType);
+            AstNode type = parser.Do(parser.TypeName);
             return new IsCheckNode(left, type);
         } },
         { TokenType.LeftBracket, (parser, left, token) =>

@@ -179,6 +179,7 @@ public class TypeAnnotationPass(VerificationContext context) : VerificationPass(
 
     protected override void Visit(MaybeTypeNode node)
     {
+        base.Visit(node);
         node.ResolvedType = new MaybeType(node.Types.Select(t => t.ResolvedType).ToList().AsReadOnly()!);
     }
 
