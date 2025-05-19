@@ -102,9 +102,9 @@ public class VerificationPassTests
         bindingPass.Run(ast);
 
         Assert.Single(context.Diagnostics);
-        AssertHasDiagnostic<VarNameAlreadyDeclared>(context, diagnostic =>
+        AssertHasDiagnostic<NameAlreadyInUse>(context, diagnostic =>
         {
-            Assert.Equal("x", diagnostic.VarName);
+            Assert.Equal("x", diagnostic.Name);
             Assert.Equal(DiagnosticLevel.Error, diagnostic.Level);
         });
     }
