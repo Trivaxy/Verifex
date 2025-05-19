@@ -4,7 +4,7 @@ namespace Verifex.CodeGen.Types;
 
 public class ArrayType(VerifexType elementType) : VerifexType
 {
-    public override string Name => $"{elementType.Name}[]";
+    public override string Name => elementType.FundamentalType is MaybeType ? $"({elementType.Name})[]" : $"{elementType.Name}[]";
 
     public override TypeInfo IlType => typeof(List<object>).GetTypeInfo();
 
