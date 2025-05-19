@@ -278,6 +278,21 @@ public class RefiningPass : VerificationPass, IDisposable
         node.ResolvedType = NarrowTypeFor(_z3Mapper.ConvertExpr(node), maybeType);
     }
 
+    protected override void Visit(BinaryOperationNode node)
+    {
+        base.Visit(node);
+
+        if (node.Operator.Type != TokenType.Slash || node.Right.FundamentalType is not IntegerType and not RealType) return;
+
+        Z3Expr denominator = LowerAstNodeToZ3(node.Right);
+        
+        _solver.Push();
+        _solver.Assert(_z3Ctx.MkEq(denominator, denominator.Sort is IntSort ? _z3Ctx.MkInt(0) : _z3Ctx.MkReal(0)));
+        if (_solver.Check() == Status.SATISFIABLE)
+            LogDiagnostic(new MightDivideByZero() { Location = node.Location });
+        _solver.Pop();
+    }
+    
     private void VisitValue(AstNode node)
     {
         Visit(node); // visit the node normally to reach everything

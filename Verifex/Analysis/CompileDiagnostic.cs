@@ -155,6 +155,9 @@ public record ArrayTypeNotKnown()
 public record CannotGetLength(string Type)
     : CompileDiagnostic(DiagnosticLevel.Error, $"cannot get length of type {Type}");
 
+public record MightDivideByZero()
+    : CompileDiagnostic(DiagnosticLevel.Error, "might divide by zero");
+
 public enum DiagnosticLevel
 {
     Error,
