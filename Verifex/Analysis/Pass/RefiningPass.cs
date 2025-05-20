@@ -184,6 +184,21 @@ public class RefiningPass : VerificationPass, IDisposable
     {
         VisitValue(node.Value);
         
+        // special case: if assigning to []
+        if (node.Value.ResolvedType == VerifexType.Empty)
+        {
+            // no resolved type
+            if (node.Target.ResolvedType == VerifexType.Unknown)
+            {
+                LogDiagnostic(new ArrayTypeNotKnown() { Location = node.Location });
+                return;
+            }
+            
+            // important to assign fundamental type here. imagine x = [] and x is NonEmptyIntArray refined type
+            // if we just set the literal's resolved type directly, it would be NonEmptyIntArray, which would be erroneous
+            node.Value.ResolvedType = node.Target.FundamentalType;
+        }
+        
         if (!IsValueAssignable(node.Target.Symbol!.ResolvedType, node.Value))
         {
             // just make a bland term
