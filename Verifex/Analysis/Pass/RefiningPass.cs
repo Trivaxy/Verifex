@@ -274,7 +274,7 @@ public class RefiningPass : VerificationPass, IDisposable
         }
         
         if (node.FundamentalType is not MaybeType maybeType) return;
-        node.ResolvedType = NarrowTypeFor(_z3Mapper.ConvertExpr(node), maybeType);
+        node.ResolvedType = NarrowTypeFor(LowerAstNodeToZ3(node), maybeType);
     }
 
     protected override void Visit(GetLengthNode node)
@@ -288,7 +288,7 @@ public class RefiningPass : VerificationPass, IDisposable
         base.Visit(node);
         
         if (node.FundamentalType is not MaybeType maybeType) return;
-        node.ResolvedType = NarrowTypeFor(_z3Mapper.ConvertExpr(node), maybeType);
+        node.ResolvedType = NarrowTypeFor(LowerAstNodeToZ3(node), maybeType);
     }
 
     protected override void Visit(BinaryOperationNode node)

@@ -283,6 +283,9 @@ public class Z3Mapper
             index = _ctx.MkApp(constructor.AccessorDecls[0], index);
         }
 
+        if (node.Index.FundamentalType is not IntegerType)
+            throw new InvalidIndexType(node.Index.ResolvedType.Name);
+
         return _ctx.MkNth(target as Z3SeqExpr, index);
     }
     
