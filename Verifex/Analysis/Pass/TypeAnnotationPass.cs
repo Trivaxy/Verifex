@@ -83,13 +83,7 @@ public class TypeAnnotationPass(VerificationContext context) : VerificationPass(
             if (node.TypeHint.EffectiveType == VerifexType.Unknown)
                 LogDiagnostic(new UnknownType(node.TypeHint.ToString()!) { Location = node.Location });
             else
-            {
                 node.Symbol!.ResolvedType = node.TypeHint.EffectiveType;
-                
-                // special case: if assigned to [] and the type hint is an array, override
-                if (node.Value is ArrayLiteralNode { Elements.Count: 0 } && node.TypeHint.EffectiveType is ArrayType)
-                    node.Value.ResolvedType = node.TypeHint.EffectiveType;
-            }
         }
         else
             node.Symbol!.ResolvedType = VerifexType.Delayed(() => node.Value.ResolvedType);
@@ -198,6 +192,9 @@ public class TypeAnnotationPass(VerificationContext context) : VerificationPass(
     protected override void Visit(ArrayLiteralNode node)
     {
         base.Visit(node);
+        
+        // important to check for unknown here otherwise we can accidentally override its resolved type when this pass re-runs
+        if (node.ResolvedType != VerifexType.Unknown) return;
         
         if (node.Elements.Count == 0)
         {

@@ -146,13 +146,26 @@ public class RefiningPass : VerificationPass, IDisposable
     {
         if (_termStack.Contains(node.Symbol!)) return; // erroneous duplicate definition, ignore
         
-        // special case: if assigning to [] and there's no type hint, we don't know the type.
-        if (node.Value.ResolvedType == VerifexType.Empty && node.TypeHint == null)
+        // special case: if assigning to []
+        if (node.Value.ResolvedType == VerifexType.Empty)
         {
-            node.Symbol!.ResolvedType = node.Value.ResolvedType = VerifexType.Unknown;
-            AssertAssignment(node.Symbol, _z3Mapper.CreateTerm(node.Symbol!.ResolvedType, node.Name)); // just assign a bland term
-            LogDiagnostic(new ArrayTypeNotKnown() { Location = node.Location });
-            return;
+            // no type hint means we can't know the type
+            if (node.TypeHint == null)
+            {
+                node.Symbol!.ResolvedType = node.Value.ResolvedType = VerifexType.Unknown;
+                AssertAssignment(node.Symbol, _z3Mapper.CreateTerm(node.Symbol!.ResolvedType, node.Name)); // just assign a bland term
+                LogDiagnostic(new ArrayTypeNotKnown() { Location = node.Location });
+                return;
+            }
+            
+            // type hint is present, so we can assign the type
+            if (node.TypeHint.FundamentalType is not ArrayType)
+            {
+                LogDiagnostic(new VarDeclTypeMismatch(node.Name, node.TypeHint.ResolvedType.Name, node.Value.ResolvedType.Name) { Location = node.Location });
+                return;
+            }
+
+            node.Value.ResolvedType = node.Symbol!.ResolvedType; // assign a proper type to []
         }
         
         VisitValue(node.Value);
@@ -293,8 +306,8 @@ public class RefiningPass : VerificationPass, IDisposable
     
     private void VisitValue(AstNode node)
     {
-        Visit(node); // visit the node normally to reach everything
-        VerifexType newType = node.ResolvedType;
+        // visit the node normally to reach everything
+        Visit(node);
         
         // run the type annotator pass on the node, in case any type got narrowed or refined, so we propagate changes
         _miniTypeAnnotationPass.Run(node);
