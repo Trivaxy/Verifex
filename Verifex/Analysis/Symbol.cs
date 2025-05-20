@@ -65,6 +65,8 @@ public class StructSymbol : TypeSymbol
     public required Dictionary<string, StructFieldSymbol> Fields { get; init; }
     
     public required Dictionary<string, FunctionSymbol> Methods { get; init; }
+    
+    public required bool IsArchetype { get; init; }
 }
 
 public class StructFieldSymbol : Symbol
@@ -73,5 +75,3 @@ public class StructFieldSymbol : Symbol
     
     public required int Index { get; init; }
 }
-
-public class SelfSymbol : Symbol; // ephemeral symbol that gets used in type checking

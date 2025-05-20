@@ -167,6 +167,7 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
             TokenType.Fn => FnDeclaration(),
             TokenType.Type => RefinedTypeDeclaration(),
             TokenType.Struct => StructDeclaration(),
+            TokenType.Archetype => ArchetypeDeclaration(),
             _ => ThrowError(new UnexpectedToken(Fetch(tokens.Peek()).ToString()) { Location = tokens.Peek().Range })
         };
         
@@ -523,6 +524,76 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
 
         if (types.Count == 1) return types[0];
         return new MaybeTypeNode(types.AsReadOnly());
+    }
+
+    public FunctionSignatureNode FnSignature()
+    {
+        Expect(TokenType.Fn);
+        Token name = Expect(TokenType.Identifier);
+        Expect(TokenType.LeftParenthesis);
+
+        List<ParamDeclNode> parameters = [];
+        while (tokens.Peek().Type != TokenType.RightParenthesis && tokens.Peek().Type != TokenType.EOF)
+        {
+            ParamDeclNode? parameter = DoSafe(ParameterDeclaration, ParameterSyncTokens);
+            if (parameter is not null)
+                parameters.Add(parameter);
+
+            if (tokens.Peek().Type == TokenType.Comma)
+                tokens.Next();
+            else if (tokens.Peek().Type != TokenType.RightParenthesis)
+            {
+                LogDiagnostic(new ExpectedToken(", or )") { Location = tokens.Peek().Range });
+                Synchronize(ParameterSyncTokens);
+            }
+        }
+
+        Expect(TokenType.RightParenthesis);
+        
+        AstNode? returnType = null;
+        if (tokens.Peek().Type == TokenType.Arrow)
+        {
+            tokens.Next();
+            returnType = Do(TypeName);
+        }
+
+        return new FunctionSignatureNode(Fetch(name).ToString(), parameters.AsReadOnly(), returnType);
+    }
+
+    public ArchetypeDeclNode ArchetypeDeclaration()
+    {
+        Expect(TokenType.Archetype);
+        Token name = Expect(TokenType.Identifier);
+        Expect(TokenType.LeftCurlyBrace);
+
+        List<FunctionSignatureNode> methods = [];
+        List<StructFieldNode> fields = [];
+        while (tokens.Peek().Type != TokenType.RightCurlyBrace && tokens.Peek().Type != TokenType.EOF)
+        {
+            if (tokens.Peek().Type is TokenType.Fn)
+            {
+                FunctionSignatureNode? method = DoSafe(FnSignature, StructMemberSyncTokens);
+                if (method is not null)
+                    methods.Add(method);
+            }
+            else
+            {
+                StructFieldNode? field = DoSafe(StructField, StructMemberSyncTokens);
+                if (field is not null)
+                    fields.Add(field);
+                
+                if (tokens.Peek().Type == TokenType.Comma)
+                    tokens.Next();
+                else if (tokens.Peek().Type is not TokenType.RightCurlyBrace and not TokenType.Fn)
+                {
+                    LogDiagnostic(new ExpectedToken(", or } or fn") { Location = tokens.Peek().Range });
+                    Synchronize(StructMemberSyncTokens);
+                }
+            }
+        }
+        
+        Expect(TokenType.RightCurlyBrace);
+        return new ArchetypeDeclNode(Fetch(name).ToString(), methods.AsReadOnly(), fields.AsReadOnly());
     }
 
     public AstNode Expression() => Expression(0);

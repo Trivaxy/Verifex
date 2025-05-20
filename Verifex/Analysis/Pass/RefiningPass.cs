@@ -43,7 +43,7 @@ public class RefiningPass : VerificationPass, IDisposable
             foreach (StructFieldSymbol field in Symbols.GetSymbol<StructSymbol>(structType.Name).Fields.Values)
             {
                 if (field.ResolvedType == VerifexType.Unknown) continue;
-                AssertAssignment(field, _z3Mapper.CreateTerm(field.ResolvedType, field.Name));
+                AssertAssignment(field, CreateTerm(field.ResolvedType, field.Name));
                 
                 // we also have to link the field node with an equality to the accessor on the self term
                 _solver.Assert(_z3Ctx.MkEq(
@@ -56,7 +56,7 @@ public class RefiningPass : VerificationPass, IDisposable
         foreach (ParamDeclNode param in node.Parameters)
         {
             if (param.ResolvedType == VerifexType.Unknown) continue;
-            _termStack.SetTerm(param.Symbol!, _z3Mapper.CreateTerm(param.Symbol!.ResolvedType, param.Identifier));
+            _termStack.SetTerm(param.Symbol!, CreateTerm(param.Symbol!.ResolvedType, param.Identifier));
         }
 
         ControlFlowGraph cfg = Context.ControlFlowGraphs[(node.Symbol as FunctionSymbol)!];
@@ -153,7 +153,7 @@ public class RefiningPass : VerificationPass, IDisposable
             if (node.TypeHint == null)
             {
                 node.Symbol!.ResolvedType = node.Value.ResolvedType = VerifexType.Unknown;
-                AssertAssignment(node.Symbol, _z3Mapper.CreateTerm(node.Symbol!.ResolvedType, node.Name)); // just assign a bland term
+                AssertAssignment(node.Symbol, CreateTerm(node.Symbol!.ResolvedType, node.Name)); // just assign a bland term
                 LogDiagnostic(new ArrayTypeNotKnown() { Location = node.Location });
                 return;
             }
@@ -173,7 +173,7 @@ public class RefiningPass : VerificationPass, IDisposable
         if (!IsValueAssignable(node.Symbol!.ResolvedType, node.Value))
         {
             // just assign a bland term
-            AssertAssignment(node.Symbol, _z3Mapper.CreateTerm(node.Symbol!.ResolvedType, node.Name));
+            AssertAssignment(node.Symbol, CreateTerm(node.Symbol!.ResolvedType, node.Name));
             LogDiagnostic(new VarDeclTypeMismatch(node.Name, node.Symbol!.ResolvedType.Name, node.Value.ResolvedType.Name) { Location = node.Location });
         }
         else
@@ -202,7 +202,7 @@ public class RefiningPass : VerificationPass, IDisposable
         if (!IsValueAssignable(node.Target.Symbol!.ResolvedType, node.Value))
         {
             // just make a bland term
-            _termStack.SetTerm(node.Target.Symbol!, _z3Mapper.CreateTerm(node.Target.ResolvedType, "arbitrary"));
+            _termStack.SetTerm(node.Target.Symbol!, CreateTerm(node.Target.ResolvedType, "arbitrary"));
             LogDiagnostic(new AssignmentTypeMismatch(node.Target.ResolvedType.Name, node.Value.ResolvedType.Name) { Location = node.Location });
         }
         else
@@ -332,7 +332,7 @@ public class RefiningPass : VerificationPass, IDisposable
 
     private void AssertAssignment(Symbol target, Z3Expr value)
     {
-        _termStack.SetTerm(target, _z3Mapper.CreateTerm(target.ResolvedType, target.Name));
+        _termStack.SetTerm(target, CreateTerm(target.ResolvedType, target.Name));
         
         if (_termStack.GetTerm(target).Sort == value.Sort)
             _solver.Assert(_z3Ctx.MkEq(_termStack.GetTerm(target), value));
@@ -351,6 +351,11 @@ public class RefiningPass : VerificationPass, IDisposable
             // in this case, what's happening is we're assigning two arrays of different types
             // because the type of array A accepts the types in array B, so they won't have the same sort
             // don't assert any assignments here, just keep the term bland. im lazy.
+        }
+        else if (value.Sort is DatatypeSort)
+        {
+            // don't do anything in this case. what's happening here is a struct/archetype is being assigned to another archetype
+            // so just keep the term bland. im lazy as hell.
         }
         else
             throw new InvalidOperationException("Unknown types for assignment");
@@ -377,6 +382,10 @@ public class RefiningPass : VerificationPass, IDisposable
                 _solver.Assert(testAssertion);
                 value = _z3Ctx.MkApp(info.Constructors[target].AccessorDecls[0], value);
             }
+            
+            // if the value is a struct/archetype being assigned to a refined archetype, we need to convert it
+            if (rawValue.EffectiveType is StructType structType && target.FundamentalType is ArcheType arche)
+                value = _z3Mapper.ArchifyStruct(value, arche, structType);
             
             Z3BoolExpr assertion = _z3Ctx.MkNot(_z3Mapper.CreateRefinedTypeConstraintExpr(value, refinedType));
             
@@ -411,6 +420,11 @@ public class RefiningPass : VerificationPass, IDisposable
             // source isn't a literal but it is an array, check if the element type is assignable
             if (rawValue.EffectiveType is ArrayType sourceArrayType)
                 return GetTypeCompatibility(arrayType.ElementType, sourceArrayType.ElementType) == CompatibilityStatus.Compatible;
+        }
+
+        if (target.EffectiveType is ArcheType archetype)
+        {
+            
         }
         
         // target isn't a maybe type or refined type, but if the source is a maybe type, we need to know if the path condition allows narrowing
@@ -485,7 +499,7 @@ public class RefiningPass : VerificationPass, IDisposable
                 CompatibilityStatus status = CompatibilityStatus.Incompatible;
                 
                 using Solver freshSolver = _z3Ctx.MkSolver();
-                Z3Expr sourceTerm = _z3Mapper.CreateTerm(source, "source");
+                Z3Expr sourceTerm = CreateTerm(source, "source");
                 Z3BoolExpr sourcePredicate = _z3Mapper.CreateRefinedTypeConstraintExpr(sourceTerm, sourceRefined);
                 
                 Z3BoolExpr targetPredicate = _z3Mapper.CreateRefinedTypeConstraintExpr(sourceTerm, refinedType);
@@ -528,7 +542,67 @@ public class RefiningPass : VerificationPass, IDisposable
         if (target.FundamentalType is ArrayType targetArray && source.FundamentalType is ArrayType sourceArray)
             return GetTypeCompatibility(targetArray.ElementType, sourceArray.ElementType);
         
-        // the target isn't a refined or maybe type, but the source might be a maybe type
+        // target is an archetype, does the source match?
+        if (target.EffectiveType is ArcheType targetArchetype)
+        {
+            // source is a direct struct/archetype, check for compatibility
+            if (source.EffectiveType is StructType sourceStruct)
+            {
+                StructSymbol sourceStructSymbol = Symbols.GetSymbol<StructSymbol>(sourceStruct.Name);
+                foreach (FieldInfo archeField in targetArchetype.Fields.Values)
+                {
+                    if (!sourceStruct.Fields.TryGetValue(archeField.Name, out FieldInfo? sourceField) || archeField != sourceField)
+                        return CompatibilityStatus.Incompatible;
+                }
+                
+                foreach (VerifexFunction archeMethod in targetArchetype.Methods.Values)
+                {
+                    if (!sourceStructSymbol.Methods.TryGetValue(archeMethod.Name, out FunctionSymbol? sourceMethodSymbol))
+                        return CompatibilityStatus.Incompatible;
+                    
+                    VerifexFunction targetMethod = archeMethod;
+                    VerifexFunction sourceMethod = sourceMethodSymbol.Function;
+                    if (sourceMethod.IsStatic) return CompatibilityStatus.Incompatible;
+                    if (targetMethod.Parameters.Count != sourceMethod.Parameters.Count) return CompatibilityStatus.Incompatible;
+                    
+                    int contextuals = 0;
+                    for (int i = 0; i < sourceMethod.Parameters.Count; i++)
+                    {
+                        CompatibilityStatus status = GetTypeCompatibility(targetMethod.Parameters[i].Type, sourceMethod.Parameters[i].Type);
+                        if (status == CompatibilityStatus.Incompatible) return CompatibilityStatus.Incompatible;
+                        contextuals += status == CompatibilityStatus.Contextual ? 1 : 0;
+                    }
+
+                    if (targetMethod.ReturnType != null && sourceMethod.ReturnType != null)
+                    {
+                        CompatibilityStatus status = GetTypeCompatibility(targetMethod.ReturnType, sourceMethod.ReturnType);
+                        if (status == CompatibilityStatus.Incompatible) return CompatibilityStatus.Incompatible;
+                        contextuals += status == CompatibilityStatus.Contextual ? 1 : 0;
+                    }
+                    else if (targetMethod.ReturnType != null || sourceMethod.ReturnType != null) // one is void and the other isn't
+                        return CompatibilityStatus.Incompatible;
+
+                    return contextuals == 0 ? CompatibilityStatus.Compatible : CompatibilityStatus.Contextual;
+                }
+
+                return CompatibilityStatus.Compatible;
+            }
+            else if (source.EffectiveType is RefinedType) // source is refined, check if the fundamental type is compatible
+                return GetTypeCompatibility(target, source.FundamentalType);
+            else if (source.EffectiveType is MaybeType sourceMaybe) // source is a maybe type, we need to test its arms
+            {
+                if (sourceMaybe.Types.All(s => GetTypeCompatibility(target, s) == CompatibilityStatus.Incompatible))
+                    return CompatibilityStatus.Incompatible;
+                if (sourceMaybe.Types.All(s => GetTypeCompatibility(target, s) == CompatibilityStatus.Compatible))
+                    return CompatibilityStatus.Compatible;
+
+                return CompatibilityStatus.Contextual;
+            }
+
+            return CompatibilityStatus.Incompatible;
+        }
+        
+        // the target isn't a refined, maybe, or archetype, but the source might be a maybe type
         if (source.EffectiveType is MaybeType sourceMaybe2)
         {
             if (sourceMaybe2.Types.All(s => GetTypeCompatibility(target, s) == CompatibilityStatus.Compatible))
@@ -645,6 +719,18 @@ public class RefiningPass : VerificationPass, IDisposable
         if (possibleTypes.Count == maybeType.Types.Count) return maybeType;
 
         return new MaybeType(possibleTypes);
+    }
+
+    private Z3Expr CreateTerm(VerifexType type, string name)
+    {
+        try
+        {
+            return _z3Mapper.CreateTerm(type, name);
+        }
+        catch (Z3MapperException)
+        {
+            return _z3Mapper.CreateTerm(VerifexType.Unknown, name);
+        }
     }
 
     private Z3Expr LowerAstNodeToZ3(AstNode node)

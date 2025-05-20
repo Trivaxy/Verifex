@@ -159,4 +159,22 @@ public class DefaultNodeVisitor : NodeVisitor
     }
 
     protected override void Visit(GetLengthNode node) => Visit(node.Target);
+
+    protected override void Visit(FunctionSignatureNode node)
+    {
+        foreach (ParamDeclNode param in node.Parameters)
+            Visit(param);
+        
+        if (node.ReturnType != null)
+            Visit(node.ReturnType);
+    }
+
+    protected override void Visit(ArchetypeDeclNode node)
+    {
+        foreach (FunctionSignatureNode method in node.Methods)
+            Visit(node);
+        
+        foreach (StructFieldNode field in node.Fields)
+            Visit(field);
+    }
 }

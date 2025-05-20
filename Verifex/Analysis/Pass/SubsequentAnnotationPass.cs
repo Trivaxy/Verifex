@@ -122,13 +122,13 @@ public class SubsequentAnnotationPass(VerificationContext context) : Verificatio
             return;
         }
         
-        if (typeSymbol is not StructSymbol structSymbol)
+        if (typeSymbol is not StructSymbol { IsArchetype: false })
         {
             LogDiagnostic(new TypeCannotHaveInitializer(node.Type.Identifier) { Location = node.Location });
             return;
         }
 
-        node.ResolvedType = structSymbol.ResolvedType;
+        node.ResolvedType = typeSymbol.ResolvedType;
         Visit(node.InitializerList);
     }
     

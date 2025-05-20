@@ -138,6 +138,7 @@ public class TokenStream
             case "struct": return new Token(TokenType.Struct, start.._current);
             case "or": return new Token(TokenType.OrKeyword, start.._current);
             case "is": return new Token(TokenType.Is, start.._current);
+            case "archetype": return new Token(TokenType.Archetype, start.._current);
         }
 
         if (start != _current)

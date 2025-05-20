@@ -214,3 +214,17 @@ public class GetLengthNode(AstNode target) : AstNode
 {
     public readonly AstNode Target = target;
 }
+
+public class FunctionSignatureNode(string name, ReadOnlyCollection<ParamDeclNode> parameters, AstNode? returnType) : AstNode
+{
+    public readonly string Name = name;
+    public readonly ReadOnlyCollection<ParamDeclNode> Parameters = parameters;
+    public readonly AstNode? ReturnType = returnType;
+}
+
+public class ArchetypeDeclNode(string name, ReadOnlyCollection<FunctionSignatureNode> methods, ReadOnlyCollection<StructFieldNode> fields) : AstNode
+{
+    public readonly string Name = name;
+    public readonly ReadOnlyCollection<FunctionSignatureNode> Methods = methods;
+    public readonly ReadOnlyCollection<StructFieldNode> Fields = fields;
+}

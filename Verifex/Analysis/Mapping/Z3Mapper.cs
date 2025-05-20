@@ -153,7 +153,7 @@ public class Z3Mapper
         StructType structType = (node.FundamentalType as StructType)!;
         DatatypeSort datatype = DatatypeSortForStruct(structType);
         InitializerListNode initializers = node.InitializerList;
-        Z3Expr?[] args = new Z3Expr[initializers.Values.Count];
+        Z3Expr?[] args = new Z3Expr[structType.Fields.Count];
 
         foreach (InitializerFieldNode fieldInit in initializers.Values)
         {
@@ -176,8 +176,18 @@ public class Z3Mapper
         }
         
         // if any of the arguments is null, means the user didn't even specify the field, so stop
-        if (args.Any(a => a == null))
-            throw new MissingFieldException();
+        for (int i = 0; i < args.Length; i++)
+        {
+            if (args[i] == null)
+                throw new UnspecifiedField(structType.Fields.Values.ElementAt(i).Name);
+        }
+        
+        // check for fields that were specified which don't even belong to the struct
+        foreach (string fieldName in initializers.Values.Select(i => i.Name.Identifier))
+        {
+            if (!structType.Fields.ContainsKey(fieldName))
+                throw new TypeHasNoField(fieldName);
+        }
         
         return _ctx.MkApp(datatype.Constructors[0], args);
     }
@@ -189,7 +199,9 @@ public class Z3Mapper
 
     private Z3Expr ConvertMemberAccess(MemberAccessNode node)
     {
-        StructType structType = (node.Target.FundamentalType as StructType)!;
+        if (node.Target.FundamentalType is not StructType structType)
+            throw new CannotAccessMember();
+        
         DatatypeSort datatype = DatatypeSortForStruct(structType);
         Z3Expr target = ConvertExpr(node.Target);
 
@@ -364,6 +376,26 @@ public class Z3Mapper
             typeCheck = _ctx.MkAnd(typeCheck, CreateRefinedTypeConstraintExpr(_ctx.MkApp(accessor, term), refinedType));
         
         return typeCheck;
+    }
+
+    public Z3Expr ArchifyStruct(Z3Expr term, ArcheType archetype, StructType structType)
+    {
+        DatatypeSort archeSort = DatatypeSortForStruct(archetype);
+        DatatypeSort structSort = DatatypeSortForStruct(structType);
+        StructSymbol archeSymbol = _symbols.GetGlobalSymbol<StructSymbol>(archetype.Name);
+        StructSymbol structSymbol = _symbols.GetGlobalSymbol<StructSymbol>(structType.Name);
+        Z3Expr[] args = new Z3Expr[archetype.Fields.Count];
+
+        for (int i = 0; i < archetype.Fields.Count; i++)
+        {
+            StructFieldSymbol archeFieldSymbol = archeSymbol.Fields.First(f => f.Value.Index == i).Value;
+            StructFieldSymbol structFieldSymbol = structSymbol.Fields.First(f => f.Value.Index == i).Value;
+            
+            FuncDecl accessor = structSort.Accessors[0][structFieldSymbol.Index];
+            args[archeFieldSymbol.Index] = _ctx.MkApp(accessor, term);
+        }
+        
+        return _ctx.MkApp(archeSort.Constructors[0], args);
     }
     
     private Dictionary<VerifexType, FuncDecl> CreateZ3ToStringFuncDecls()

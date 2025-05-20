@@ -15,3 +15,9 @@ public class NotComponentOfMaybeType(string type) : Z3MapperException($"{type} i
 public class NotSequence() : Z3MapperException("Not a sequence type");
 
 public class InvalidIndexType(string type) : Z3MapperException($"Invalid index type {type}");
+
+public class CannotAccessMember() : Z3MapperException("Type does not have members");
+
+public class TypeHasNoField(string name) : Z3MapperException($"Type has no field '{name}'");
+
+public class UnspecifiedField(string name) : Z3MapperException($"Field '{name}' is not specified");

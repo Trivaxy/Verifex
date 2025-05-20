@@ -122,6 +122,7 @@ public class TopLevelGatheringPass(VerificationContext context) : VerificationPa
                     .ToDictionary(f => f.Name)),
             Fields = fields,
             Methods = methods,
+            IsArchetype = false,
         };
         
         foreach (StructFieldSymbol field in structSymbol.Fields.Values)
@@ -140,4 +141,85 @@ public class TopLevelGatheringPass(VerificationContext context) : VerificationPa
     }
     
     protected override void Visit(StructMethodNode node) {} // no-op
+
+    protected override void Visit(ArchetypeDeclNode node)
+    {
+        Dictionary<string, StructFieldSymbol> fields = [];
+        Dictionary<string, FunctionSymbol> methods = [];
+        
+        int i = 0;
+        foreach (StructFieldNode fieldNode in node.Fields)
+        {
+            if (fields.ContainsKey(fieldNode.Name))
+            {
+                LogDiagnostic(new DuplicateMember(fieldNode.Name) { Location = fieldNode.Location });
+                continue;
+            }
+            
+            fieldNode.Symbol = new StructFieldSymbol()
+            {
+                DeclaringNode = fieldNode,
+                Name = fieldNode.Name,
+                ResolvedType = VerifexType.Delayed(() => fieldNode.Type.ResolvedType),
+                Owner = null!, // set below
+                Index = i,
+            };
+            
+            fields.Add(fieldNode.Symbol.Name, (fieldNode.Symbol as StructFieldSymbol)!);
+            i++;
+        }
+        
+        foreach (FunctionSignatureNode methodNode in node.Methods)
+        {
+            if (fields.ContainsKey(methodNode.Name) || methods.ContainsKey(methodNode.Name))
+            {
+                LogDiagnostic(new DuplicateMember(methodNode.Name) { Location = methodNode.Location });
+                continue;
+            }
+            
+            methodNode.Symbol = new FunctionSymbol()
+            {
+                DeclaringNode = methodNode,
+                Name = methodNode.Name,
+                Function = new VerifexFunction(
+                    methodNode.Name,
+                    methodNode.Parameters.Select(p => 
+                    {
+                        Visit(p);
+                        return new ParameterInfo(p.Identifier, VerifexType.Delayed(() => p.Type.ResolvedType));
+                    }).ToList(),
+                    methodNode.ReturnType != null ? VerifexType.Delayed(() => methodNode.ReturnType.ResolvedType) : null,
+                    VerifexType.Delayed(() => Symbols.GetType(node.Name)),
+                    false),
+            };
+            
+            methods.Add(methodNode.Symbol.Name, (methodNode.Symbol as FunctionSymbol)!);
+        }
+
+        StructSymbol archetypeSymbol = new StructSymbol()
+        {
+            DeclaringNode = node,
+            Name = node.Name,
+            ResolvedType = new ArcheType(node.Name,
+                methods.Select(m => m.Value.Function).ToDictionary(m => m.Name).AsReadOnly(),
+                fields.Select(f => new FieldInfo(f.Key, f.Value.ResolvedType)).ToDictionary(f => f.Name)),
+            Fields = fields,
+            Methods = methods,
+            IsArchetype = true,
+        };
+
+        foreach (StructFieldSymbol field in fields.Values)
+            field.Owner = archetypeSymbol;
+        
+        if (!Symbols.TryAddGlobalSymbol(archetypeSymbol))
+        {
+            LogDiagnostic(new DuplicateTopLevelSymbol(archetypeSymbol.Name) { Location = node.Location });
+            if (Symbols.TryLookupGlobalSymbol(node.Name, out StructSymbol? symbol))
+                node.Symbol = symbol;
+            else
+                node.Symbol = archetypeSymbol;
+        }
+        else
+            node.Symbol = archetypeSymbol;
+    }
 }

@@ -36,6 +36,8 @@ public abstract class NodeVisitor
     protected abstract void Visit(ArrayTypeNode node);
     protected abstract void Visit(IndexAccessNode node);
     protected abstract void Visit(GetLengthNode node);
+    protected abstract void Visit(ArchetypeDeclNode node);
+    protected abstract void Visit(FunctionSignatureNode node);
     
     protected void Visit(AstNode node)
     {
@@ -136,6 +138,12 @@ public abstract class NodeVisitor
                 break;
             case GetLengthNode getLengthNode:
                 Visit(getLengthNode);
+                break;
+            case ArchetypeDeclNode archetypeDeclNode:
+                Visit(archetypeDeclNode);
+                break;
+            case FunctionSignatureNode functionSignatureNode:
+                Visit(functionSignatureNode);
                 break;
         }
     }
