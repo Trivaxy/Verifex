@@ -70,6 +70,8 @@ public class AssemblyGen : DefaultNodeVisitor
         
         foreach (StructSymbol structSymbol in _symbolTable.GetGlobalSymbols<StructSymbol>())
         {
+            if (structSymbol.IsArchetype) continue;
+            
             foreach (FunctionSymbol functionSymbol in structSymbol.Methods.Values)
             {
                 VerifexFunction function = functionSymbol.Function;

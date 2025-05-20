@@ -581,14 +581,14 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
                 StructFieldNode? field = DoSafe(StructField, StructMemberSyncTokens);
                 if (field is not null)
                     fields.Add(field);
-                
-                if (tokens.Peek().Type == TokenType.Comma)
-                    tokens.Next();
-                else if (tokens.Peek().Type is not TokenType.RightCurlyBrace and not TokenType.Fn)
-                {
-                    LogDiagnostic(new ExpectedToken(", or } or fn") { Location = tokens.Peek().Range });
-                    Synchronize(StructMemberSyncTokens);
-                }
+            }
+            
+            if (tokens.Peek().Type == TokenType.Comma)
+                tokens.Next();
+            else if (tokens.Peek().Type is not TokenType.RightCurlyBrace)
+            {
+                LogDiagnostic(new ExpectedToken(", or }") { Location = tokens.Peek().Range });
+                Synchronize(StructMemberSyncTokens);
             }
         }
         

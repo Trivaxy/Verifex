@@ -172,7 +172,7 @@ public class DefaultNodeVisitor : NodeVisitor
     protected override void Visit(ArchetypeDeclNode node)
     {
         foreach (FunctionSignatureNode method in node.Methods)
-            Visit(node);
+            Visit(method);
         
         foreach (StructFieldNode field in node.Fields)
             Visit(field);
