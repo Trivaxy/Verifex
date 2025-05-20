@@ -8,13 +8,7 @@ public abstract class VerificationPass(VerificationContext context) : DefaultNod
 
     protected SymbolTable Symbols => Context.Symbols;
     
-    public void Run(AstNode node)
-    {
-        Visit(node);
-        PostPass();
-    }
-    
-    protected virtual void PostPass() {}
+    public void Run(AstNode node) => Visit(node);
 
     protected void LogDiagnostic(CompileDiagnostic diagnostic) => Context.Diagnostics.Add(diagnostic);
 
@@ -27,8 +21,8 @@ public abstract class VerificationPass(VerificationContext context) : DefaultNod
             new TopLevelGatheringPass(context),
             new CfgConstructionPass(context),
             new FirstBindingPass(context),
-            new PrimitiveTypeAnnotationPass(context),
-            new TypeAnnotationPass(context),
+            new StaticAnnotationPass(context),
+            new SubsequentAnnotationPass(context),
             new SecondBindingPass(context),
             new RefiningPass(context),
             new BasicTypeMismatchPass(context),

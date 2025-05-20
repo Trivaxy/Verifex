@@ -155,8 +155,8 @@ public class VerificationPassTests
         var source = "fn test() { let x: NonExistentType = 5; }";
         var ast = Parse(source);
 
-        var context = RunPassesUntil<TypeAnnotationPass>(ast, out var passes);
-        var typeAnnotationPass = passes.OfType<TypeAnnotationPass>().First();
+        var context = RunPassesUntil<SubsequentAnnotationPass>(ast, out var passes);
+        var typeAnnotationPass = passes.OfType<SubsequentAnnotationPass>().First();
         typeAnnotationPass.Run(ast);
 
         Assert.Single(context.Diagnostics);
@@ -702,10 +702,10 @@ public class VerificationPassTests
             """;
 
         var ast = Parse(source);
-        var context = RunPassesUntil<TypeAnnotationPass>(ast, out var passes);
+        var context = RunPassesUntil<SubsequentAnnotationPass>(ast, out var passes);
 
         // Run the type annotation pass which should detect the unknown type
-        var typeAnnotationPass = passes.OfType<TypeAnnotationPass>().First();
+        var typeAnnotationPass = passes.OfType<SubsequentAnnotationPass>().First();
         typeAnnotationPass.Run(ast);
 
         // Verify there's a diagnostic for unknown type
@@ -789,7 +789,7 @@ public class VerificationPassTests
         var firstBindingPass = passes.OfType<FirstBindingPass>().First();
         firstBindingPass.Run(ast);
 
-        var typeAnnotationPass = passes.OfType<TypeAnnotationPass>().First();
+        var typeAnnotationPass = passes.OfType<SubsequentAnnotationPass>().First();
         typeAnnotationPass.Run(ast);
 
         var secondBindingPass = passes.OfType<SecondBindingPass>().First();

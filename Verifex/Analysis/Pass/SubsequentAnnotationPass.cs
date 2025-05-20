@@ -4,7 +4,7 @@ using Verifex.Parsing;
 namespace Verifex.Analysis.Pass;
 
 // Attach type info to expression nodes, and give symbols types
-public class TypeAnnotationPass(VerificationContext context) : VerificationPass(context)
+public class SubsequentAnnotationPass(VerificationContext context) : VerificationPass(context)
 {
     protected override void Visit(BinaryOperationNode node)
     {
@@ -171,22 +171,10 @@ public class TypeAnnotationPass(VerificationContext context) : VerificationPass(
         }
     }
 
-    protected override void Visit(MaybeTypeNode node)
-    {
-        base.Visit(node);
-        node.ResolvedType = new MaybeType(node.Types.Select(t => t.ResolvedType).ToList().AsReadOnly()!);
-    }
-
     protected override void Visit(IsCheckNode node)
     {
         base.Visit(node);
         node.ResolvedType = Symbols.GetType("Bool")!;
-    }
-
-    protected override void Visit(ArrayTypeNode node)
-    {
-        base.Visit(node);
-        node.ResolvedType = new ArrayType(node.ElementType.EffectiveType);
     }
 
     protected override void Visit(ArrayLiteralNode node)

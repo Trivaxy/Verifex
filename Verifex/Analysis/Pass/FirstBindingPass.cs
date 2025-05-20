@@ -11,7 +11,6 @@ public class FirstBindingPass(VerificationContext context) : VerificationPass(co
     private int _nextParameterIndex;
     private RefinedTypeValueSymbol? _currentValueSymbol;
     private StructSymbol? _currentStruct;
-    private readonly List<SimpleTypeNode> _pendingSimpleTypeNodes = [];
 
     protected override void Visit(StructDeclNode node)
     {
@@ -202,20 +201,5 @@ public class FirstBindingPass(VerificationContext context) : VerificationPass(co
         }
         else
             base.Visit(node);
-    }
-
-    protected override void Visit(SimpleTypeNode node) => _pendingSimpleTypeNodes.Add(node);
-
-    protected override void PostPass()
-    {
-        foreach (SimpleTypeNode node in _pendingSimpleTypeNodes)
-        {
-            string typeName = node.Identifier;
-            
-            if (!Symbols.TryLookupGlobalSymbol(typeName, out TypeSymbol? typeSymbol))
-                LogDiagnostic(new UnknownType(typeName) { Location = node.Location });
-
-            node.Symbol = typeSymbol;
-        }
     }
 }

@@ -235,21 +235,34 @@ public class Z3Mapper
         Z3SeqExpr[] units = new Z3SeqExpr[node.Elements.Count];
         for (int i = 0; i < node.Elements.Count; i++)
         {
-            Z3Expr value = ConvertExpr(node.Elements[i]);
-            if (node.Elements[i].FundamentalType is MaybeType maybeType)
-                value = CreateUnbox(value, maybeType, arrayType.ElementType);
-            
-            // if the array's type is a maybe type then we need to box values
-            if (arrayType.ElementType is MaybeType maybeType2)
-            {
-                MaybeTypeZ3Info maybeInfo = GetMaybeTypeZ3Info(maybeType2);
-                if (!maybeInfo.Constructors.TryGetValue(node.Elements[i].EffectiveType, out Constructor? constructor))
-                    throw new MismatchedTypesException(maybeType2.Name, node.Elements[i].ResolvedType.Name);
+            AstNode element = node.Elements[i];
+            Z3Expr value = ConvertExpr(element);
 
-                FuncDecl constructorDecl = maybeInfo.Constructors[node.Elements[i].EffectiveType].ConstructorDecl;
-                value = _ctx.MkApp(constructorDecl, value);
+            if (element.ResolvedType != arrayType.ElementType)
+            {
+                if (element.FundamentalType is MaybeType maybeType)
+                {
+                    // element is a maybe type but the array's type isn't, so unbox
+                    if (arrayType.ElementType is not MaybeType)
+                        value = CreateUnbox(value, maybeType, arrayType.ElementType);
+                    else
+                        // element is a maybe type and the array's type is too, so we need to silently convert it.
+                        // this happens for cases like (Int or String or Bool)[] <- (Int or String)
+                        value = CreateTerm(arrayType.ElementType, "t");
+                }
+                // if the array's type is a maybe type but the element type isn't then we need to box
+                else if (arrayType.ElementType is MaybeType maybeType2)
+                {
+                    MaybeTypeZ3Info maybeInfo = GetMaybeTypeZ3Info(maybeType2);
+                    if (!maybeInfo.Constructors.TryGetValue(element.EffectiveType,
+                            out Constructor? constructor))
+                        throw new MismatchedTypesException(maybeType2.Name, element.ResolvedType.Name);
+
+                    FuncDecl constructorDecl = maybeInfo.Constructors[element.EffectiveType].ConstructorDecl;
+                    value = _ctx.MkApp(constructorDecl, value);
+                }
             }
-            
+
             units[i] = _ctx.MkUnit(value);
         }
 
@@ -363,7 +376,7 @@ public class Z3Mapper
     private Z3Expr CreateUnbox(Z3Expr value, MaybeType maybeType, VerifexType chosenType)
     {
         MaybeTypeZ3Info info = GetMaybeTypeZ3Info(maybeType);
-        return _ctx.MkApp(info.Constructors[chosenType].AccessorDecls[0], value);
+        return _ctx.MkApp(info.Constructors[chosenType.EffectiveType].AccessorDecls[0], value);
     }
     
     public Sort AsSort(VerifexType type)

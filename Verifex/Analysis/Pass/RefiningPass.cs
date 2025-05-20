@@ -16,7 +16,7 @@ public class RefiningPass : VerificationPass, IDisposable
     private VerifexFunction _currentFunction = null!;
     private readonly HashSet<BasicBlock> _visitedBlocks;
     private readonly Dictionary<VerifexType, Dictionary<VerifexType, CompatibilityStatus>> _typeCompatibilityCache; // key = target, value = sources
-    private readonly TypeAnnotationPass _miniTypeAnnotationPass;
+    private readonly SubsequentAnnotationPass _miniSubsequentAnnotationPass;
 
     public RefiningPass(VerificationContext context) : base(context)
     {
@@ -26,7 +26,7 @@ public class RefiningPass : VerificationPass, IDisposable
         _z3Mapper = new Z3Mapper(_z3Ctx, _solver, _termStack, context.Symbols);
         _visitedBlocks = [];
         _typeCompatibilityCache = [];
-        _miniTypeAnnotationPass = new TypeAnnotationPass(context);
+        _miniSubsequentAnnotationPass = new SubsequentAnnotationPass(context);
     }
     
     protected override void Visit(FunctionDeclNode node)
@@ -310,8 +310,7 @@ public class RefiningPass : VerificationPass, IDisposable
         Visit(node);
         
         // run the type annotator pass on the node, in case any type got narrowed or refined, so we propagate changes
-        _miniTypeAnnotationPass.Run(node);
-        
+        _miniSubsequentAnnotationPass.Run(node);
     }
 
     private void AssertAssignment(Symbol target, Z3Expr value)
