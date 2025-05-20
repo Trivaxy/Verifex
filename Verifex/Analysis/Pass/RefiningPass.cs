@@ -245,8 +245,6 @@ public class RefiningPass : VerificationPass, IDisposable
     {
         foreach (AstNode element in node.Elements)
         {
-            if (element.ResolvedType == VerifexType.Unknown) continue; // some error happened earlier, continue
-            
             VisitValue(element);
             
             if (!IsValueAssignable((node.ResolvedType as ArrayType)!.ElementType, element))
