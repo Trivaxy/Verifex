@@ -87,11 +87,11 @@ public class RefiningPass : VerificationPass, IDisposable
 
             switch (statement)
             {
-                case VarDeclNode varDecl when varDecl.EffectiveType != null && varDecl.Value.EffectiveType != null:
+                case VarDeclNode varDecl:
                     Visit(varDecl);
                     break;
                 
-                case AssignmentNode assNode when assNode.Target.EffectiveType != VerifexType.Unknown && assNode.Value.EffectiveType != VerifexType.Unknown:
+                case AssignmentNode assNode:
                     Visit(assNode);
                     break;
                 
@@ -99,11 +99,11 @@ public class RefiningPass : VerificationPass, IDisposable
                     Visit(callNode);
                     break;
                 
-                case ReturnNode retNode when retNode.Value != null && retNode.Value.ResolvedType != VerifexType.Unknown:
+                case ReturnNode retNode:
                     Visit(retNode);
                     break;
                 
-                case InitializerNode initNode when initNode.Type.EffectiveType != VerifexType.Unknown:
+                case InitializerNode initNode:
                     Visit(initNode);
                     break;
             }
