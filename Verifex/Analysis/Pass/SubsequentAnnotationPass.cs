@@ -78,6 +78,8 @@ public class SubsequentAnnotationPass(VerificationContext context) : Verificatio
     {
         base.Visit(node);
 
+        if (node.Symbol!.DeclaringNode != node) return; // duplicate definition, ignore
+
         if (node.TypeHint != null)
         {
             if (node.TypeHint.EffectiveType == VerifexType.Unknown)
@@ -92,6 +94,8 @@ public class SubsequentAnnotationPass(VerificationContext context) : Verificatio
     protected override void Visit(ParamDeclNode node)
     {
         base.Visit(node);
+        
+        if (node.Symbol!.DeclaringNode != node) return; // duplicate definition, ignore
         
         if (node.Type.EffectiveType == VerifexType.Unknown)
         {
@@ -183,12 +187,6 @@ public class SubsequentAnnotationPass(VerificationContext context) : Verificatio
         
         // important to check for unknown here otherwise we can accidentally override its resolved type when this pass re-runs
         if (node.ResolvedType != VerifexType.Unknown) return;
-        
-        if (node.Elements.Count == 0)
-        {
-            node.ResolvedType = VerifexType.Empty;
-            return;
-        }
 
         List<VerifexType> elementTypes = node.Elements.Select(e => e.ResolvedType).Distinct().ToList();
         node.ResolvedType = new ArrayType(elementTypes.Count == 1 ? elementTypes[0] : new MaybeType(elementTypes));

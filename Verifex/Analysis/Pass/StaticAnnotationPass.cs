@@ -33,4 +33,10 @@ public class StaticAnnotationPass(VerificationContext context) : VerificationPas
         base.Visit(node);
         node.ResolvedType = new ArrayType(node.ElementType.EffectiveType);
     }
+
+    protected override void Visit(ArrayLiteralNode node)
+    {
+        base.Visit(node);
+        if (node.Elements.Count == 0) node.ResolvedType = VerifexType.Empty;
+    }
 }
