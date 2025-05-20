@@ -9,6 +9,8 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
     private readonly List<CompileDiagnostic> _diagnostics = [];
     
     public ReadOnlyCollection<CompileDiagnostic> Diagnostics => _diagnostics.AsReadOnly();
+
+    private const int PrefixPrecedence = 8;
     
     // Synchronization token sets for error recovery
     private static readonly HashSet<TokenType> StatementSyncTokens = 
@@ -26,7 +28,7 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
     private static readonly Dictionary<TokenType, Func<Parser, Token, AstNode>> PrefixParsers = new()
     {
         { TokenType.Minus, (parser, _) => new MinusNegationNode(parser.Expression()) },
-        { TokenType.Not, (parser, _) => new NotNegationNode(parser.Expression()) },
+        { TokenType.Not, (parser, _) => new NotNegationNode(parser.Expression(PrefixPrecedence)) },
         { TokenType.Plus, (parser, _) => parser.Expression() },
         { TokenType.Number, (parser, token) => new NumberNode(parser.Fetch(token).ToString()) { Location = token.Range } },
         { TokenType.Identifier, (parser, token) =>
@@ -66,7 +68,7 @@ public class Parser(TokenStream tokens, ReadOnlyMemory<char> source)
                 return arrayLiteralNode;
             }
         },
-        { TokenType.Hashtag, (parser, token) => new GetLengthNode(parser.Expression()) },
+        { TokenType.Hashtag, (parser, token) => new GetLengthNode(parser.Expression(PrefixPrecedence)) },
     };
 
     private static readonly Dictionary<TokenType, Func<Parser, AstNode, Token, AstNode>> InfixParsers = new()
