@@ -502,8 +502,11 @@ public class RefiningPass : VerificationPass, IDisposable
                 return CompatibilityStatus.Contextual;
             }
             
-            // target is a refined type but source is neither refined or maybe, so we just need to check fundamental compatibility
-            return GetTypeCompatibility(refinedType.FundamentalType, source);
+            // target is a refined type but source is neither refined or maybe
+            // at this point, we just check if they're fundamentally compatible. if yes, then it's contextual
+            return GetTypeCompatibility(refinedType.FundamentalType, source) == CompatibilityStatus.Compatible
+                ? CompatibilityStatus.Contextual
+                : CompatibilityStatus.Incompatible;
         }
         
         // target is an array, but if the source is also an array which is compatible, we need to allow it
