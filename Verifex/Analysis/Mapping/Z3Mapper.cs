@@ -273,6 +273,15 @@ public class Z3Mapper
     {
         Z3Expr target = ConvertExpr(node.Target);
         Z3Expr index = ConvertExpr(node.Index);
+        
+        // if the index is a maybe type we need to try and take out an integer index
+        if (TryGetMaybeTypeInfo(index, out MaybeTypeZ3Info? maybeInfo))
+        {
+            if (!maybeInfo.Constructors.TryGetValue(node.Index.ResolvedType, out Constructor? constructor))
+                throw new MismatchedTypesException(maybeInfo.ToString(), node.Index.ResolvedType.Name);
+            
+            index = _ctx.MkApp(constructor.AccessorDecls[0], index);
+        }
 
         return _ctx.MkNth(target as Z3SeqExpr, index);
     }

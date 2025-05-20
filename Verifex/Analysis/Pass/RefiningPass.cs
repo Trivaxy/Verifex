@@ -285,6 +285,8 @@ public class RefiningPass : VerificationPass, IDisposable
 
     protected override void Visit(IndexAccessNode node)
     {
+        base.Visit(node);
+        
         if (node.FundamentalType is not MaybeType maybeType) return;
         node.ResolvedType = NarrowTypeFor(_z3Mapper.ConvertExpr(node), maybeType);
     }
