@@ -198,6 +198,8 @@ public class RefiningPass : VerificationPass, IDisposable
             // if we just set the literal's resolved type directly, it would be NonEmptyIntArray, which would be erroneous
             node.Value.ResolvedType = node.Target.FundamentalType;
         }
+
+        if (node.Target.Symbol == null) return;
         
         if (!IsValueAssignable(node.Target.Symbol!.ResolvedType, node.Value))
         {

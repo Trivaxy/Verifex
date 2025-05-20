@@ -191,7 +191,12 @@ public class AssemblyGen : DefaultNodeVisitor
     protected override void Visit(FunctionCallNode node)
     {
         if (node.Callee.Symbol is LocalVarSymbol or FunctionSymbol { Function: { IsStatic: false, Owner: not null } })
-            Visit((node.Callee as MemberAccessNode)!.Target);
+        {
+            if (node.Callee is MemberAccessNode accessNode)
+                Visit(accessNode.Target);
+            
+            _il.Emit(OpCodes.Ldarg_0);
+        }
         
         VerifexFunction function = (node.Callee.Symbol as FunctionSymbol)!.Function;
         for (int i = 0; i < node.Arguments.Count; i++)
