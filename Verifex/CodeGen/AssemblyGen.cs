@@ -116,13 +116,19 @@ public class AssemblyGen : DefaultNodeVisitor
         if (node is { FundamentalType: RealType, Left.FundamentalType: IntegerType })
             EmitConversion(_symbolTable.GetType("Int"), _symbolTable.GetType("Real"));
         else if (node is { FundamentalType: StringType, Left.FundamentalType: not StringType })
-            EmitConversion(node.Left.FundamentalType!, _symbolTable.GetType("String"));
-        
+        {
+            EmitConversion(node.Left.FundamentalType!, _symbolTable.GetType("Any"));
+            EmitConversion(_symbolTable.GetType("Any"), _symbolTable.GetType("String"));
+        }
+
         Visit(node.Right);
         if (node.FundamentalType is RealType && node.Right.FundamentalType is IntegerType)
             EmitConversion(_symbolTable.GetType("Int"), _symbolTable.GetType("Real"));
         else if (node.FundamentalType is StringType && node.Right.FundamentalType is not StringType)
-            EmitConversion(node.Right.FundamentalType!, _symbolTable.GetType("String"));
+        {
+            EmitConversion(node.Right.FundamentalType!, _symbolTable.GetType("Any"));
+            EmitConversion(_symbolTable.GetType("Any"), _symbolTable.GetType("String"));
+        }
 
         switch (node.Operator.Type)
         {
