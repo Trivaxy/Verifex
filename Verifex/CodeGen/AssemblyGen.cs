@@ -190,22 +190,29 @@ public class AssemblyGen : DefaultNodeVisitor
 
     protected override void Visit(FunctionCallNode node)
     {
+        VerifexFunction function = (node.Callee.Symbol as FunctionSymbol)!.Function;
+        bool lateCall = function.Owner?.FundamentalType is ArcheType;
+        
+        if (lateCall)
+        {
+            List<Type> paramTypes = function.Parameters.Select(Type (p) => p.Type.IlType).ToList();
+            paramTypes.Insert(0, typeof(Dictionary<string, object>));
+            if (function.ReturnType != null)
+                paramTypes.Add(function.ReturnType.IlType);
+            Type delegateType = function.ReturnType == null ? ActionType(paramTypes.ToArray()) : FuncType(paramTypes.ToArray());
+            
+            Visit((node.Callee as MemberAccessNode)!.Target);
+            _il.Emit(OpCodes.Ldstr, function.Name);
+            _il.Emit(OpCodes.Call, typeof(Dictionary<string, object>).GetMethod("get_Item", [typeof(string)])!);
+            _il.Emit(OpCodes.Castclass, delegateType);
+        }
+        
         if (node.Callee.Symbol is LocalVarSymbol or FunctionSymbol { Function: { IsStatic: false, Owner: not null } })
         {
             if (node.Callee is MemberAccessNode accessNode)
                 Visit(accessNode.Target);
             else
                 _il.Emit(OpCodes.Ldarg_0);
-        }
-
-        bool lateCall = false;
-        VerifexFunction function = (node.Callee.Symbol as FunctionSymbol)!.Function;
-        if (function.Owner?.FundamentalType is ArcheType)
-        {
-            lateCall = true;
-            Visit((node.Callee as MemberAccessNode)!.Target);
-            _il.Emit(OpCodes.Ldstr, function.Name);
-            _il.Emit(OpCodes.Call, typeof(Dictionary<string, object>).GetMethod("get_Item", [typeof(string)])!);
         }
         
         for (int i = 0; i < node.Arguments.Count; i++)
@@ -225,7 +232,6 @@ public class AssemblyGen : DefaultNodeVisitor
                 paramTypes.Add(function.ReturnType.IlType);
             Type delegateType = function.ReturnType == null ? ActionType(paramTypes.ToArray()) : FuncType(paramTypes.ToArray());
             
-            _il.Emit(OpCodes.Castclass, delegateType);
             _il.Emit(OpCodes.Callvirt, delegateType.GetMethod("Invoke")!);
         }
     }
