@@ -430,7 +430,7 @@ public class RefiningPass : VerificationPass, IDisposable
         }
         
         // target isn't a maybe type or refined type, but if the source is a maybe type, we need to know if the path condition allows narrowing
-        if (rawValue.EffectiveType is MaybeType maybeType3)
+        if (rawValue.EffectiveType is MaybeType maybeType3 && GetTypeCompatibility(target, maybeType3) != CompatibilityStatus.Incompatible)
         {
             Z3BoolExpr narrowingAssertion = _z3Mapper.CreateMaybeTypeConstraintExpr(value, maybeType3, target.EffectiveType);
             

@@ -113,9 +113,9 @@ public class AssemblyGen : DefaultNodeVisitor
     protected override void Visit(BinaryOperationNode node)
     {
         Visit(node.Left);
-        if (node.FundamentalType is RealType && node.Left.FundamentalType is IntegerType)
+        if (node is { FundamentalType: RealType, Left.FundamentalType: IntegerType })
             EmitConversion(_symbolTable.GetType("Int"), _symbolTable.GetType("Real"));
-        else if (node.FundamentalType is StringType && node.Left.FundamentalType is not StringType)
+        else if (node is { FundamentalType: StringType, Left.FundamentalType: not StringType })
             EmitConversion(node.Left.FundamentalType!, _symbolTable.GetType("String"));
         
         Visit(node.Right);
