@@ -1,6 +1,5 @@
 ﻿// See https://aka.ms/new-console-template for more information
 
-using System.Diagnostics;
 using Verifex.Analysis;
 using Verifex.Analysis.Pass;
 using Verifex.CodeGen;
@@ -61,72 +60,3 @@ string runtimeConfigContent = @"{
 File.WriteAllText(runtimeConfigPath, runtimeConfigContent);
 
 Console.WriteLine($"Successfully compiled {filePath} to {outputPath}");
-
-// Run the compiled assembly
-var processInfo = new ProcessStartInfo
-{
-    FileName = "dotnet",
-    Arguments = outputPath,
-    UseShellExecute = false,
-    CreateNoWindow = true,
-    RedirectStandardInput = true,
-    RedirectStandardOutput = true,
-    RedirectStandardError = true
-};
-
-Console.WriteLine("Running...");
-
-using (var process = Process.Start(processInfo))
-{
-    if (process == null)
-    {
-        Console.WriteLine("Error: Failed to start the process.");
-        return;
-    }
-    
-    // Set up output reading
-    process.OutputDataReceived += (sender, e) => {
-        if (e.Data != null)
-            Console.WriteLine(e.Data);
-    };
-
-    process.ErrorDataReceived += (sender, e) => {
-        if (e.Data != null)
-            Console.WriteLine(e.Data);
-    };
-
-    process.BeginOutputReadLine();
-    process.BeginErrorReadLine();
-
-    // Forward console input to the process until it exits
-    while (!process.HasExited)
-    {
-        try
-        {
-            if (Console.KeyAvailable)
-            {
-                var key = Console.ReadKey(true);
-            
-                // Handle Enter key specially
-                if (key.Key == ConsoleKey.Enter)
-                {
-                    Console.WriteLine(); // Echo the newline to console
-                    process.StandardInput.WriteLine(); // Send newline to process
-                }
-                else
-                {
-                    Console.Write(key.KeyChar); // Echo other characters
-                    process.StandardInput.Write(key.KeyChar);
-                }
-            
-                process.StandardInput.Flush();
-            }
-        
-            Thread.Sleep(10); // Avoid busy waiting
-        }
-        catch (InvalidOperationException) {} // shut up
-    }
-    
-    Console.WriteLine("----------------------------");
-    Console.WriteLine($"Program exited with code: {process.ExitCode}");
-}
