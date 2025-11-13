@@ -55,20 +55,6 @@ fn try_divide(num: Real, denom: Real) -> Real or String {
 
 The verifier tracks the `if (denom != 0)` guard, proves `denom` is a `NonZeroReal` inside the true branch, and warns if any path may still divide by zero.
 
-## Verification Pipeline
-
-Each compilation pass is explicit (see `Verifex/Analysis/Pass/*.cs`):
-
-1. **TopLevelGatheringPass** – collect functions, structs, refined types, archetypes.
-2. **CfgConstructionPass** – build basic-block control‑flow graphs per function.
-3. **First/Second Binding Passes** – bind identifiers to symbols (locals, fields, members) with scope tracking.
-4. **Static + Subsequent Annotation Passes** – infer/propagate types, construct `MaybeType`, `ArrayType`, `RefinedType` instances.
-5. **RefiningPass** – run Z3 to narrow types, validate refined constraints, catch hazards (e.g., possible divide-by-zero, impossible assignments).
-6. **BasicTypeMismatch / MutationCheck / ReturnFlow / …** – ensure arithmetic compatibility, enforce immutability, demand returns on all paths, verify struct initializers, etc.
-7. **AssemblyGen** – lower the verified AST to IL and package it as a runnable assembly.
-
-Diagnostics from any stage are surfaced together after compilation, keeping the workflow tight.
-
 ## Tests
 
 Run all tests:
