@@ -319,7 +319,7 @@ public class RefiningPass : VerificationPass, IDisposable
         _solver.Push();
         _solver.Assert(_z3Ctx.MkEq(denominator, denominator.Sort is IntSort ? _z3Ctx.MkInt(0) : _z3Ctx.MkReal(0)));
         if (_solver.Check() == Status.SATISFIABLE)
-            LogDiagnostic(new MightDivideByZero() { Location = node.Location });
+            LogDiagnostic(new MightDivideByZero() { Location = node.Right.Location });
         _solver.Pop();
     }
     
