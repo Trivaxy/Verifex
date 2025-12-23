@@ -19,6 +19,19 @@ if (!File.Exists(filePath))
 }
 
 string program = File.ReadAllText(filePath);
+const string builtinPrelude = @"type NonNegativeReal = Real where value >= 0.0;
+type PositiveReal = Real where value > 0.0;
+type NonPositiveReal = Real where value <= 0.0;
+type NegativeReal = Real where value < 0.0;
+
+type NonNegativeInt = Int where value >= 0;
+type PositiveInt = Int where value > 0;
+type NonPositiveInt = Int where value <= 0;
+type NegativeInt = Int where value < 0;
+";
+if (!program.EndsWith("\n", StringComparison.Ordinal))
+    program += "\n";
+program += builtinPrelude;
 string outputFileName = Path.GetFileNameWithoutExtension(filePath);
 string outputPath = $"{outputFileName}.exe";
 

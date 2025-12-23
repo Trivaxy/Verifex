@@ -123,6 +123,12 @@ public class SymbolTable
             symbols.GetType("Int"),
             typeof(Convert).GetMethod("ToInt32", [typeof(double)])!)
             ));
+
+        symbols.TryAddGlobalSymbol(BuiltinFunctionSymbol.Create(new BuiltinFunction("sqrt",
+            [new ParameterInfo("value", VerifexType.Delayed(() => symbols.GetType("NonNegativeReal")!))],
+            VerifexType.Delayed(() => symbols.GetType("NonNegativeReal")!),
+            typeof(Math).GetMethod("Sqrt", [typeof(double)])!)
+            ));
         
         symbols.TryAddGlobalSymbol(BuiltinFunctionSymbol.Create(new BuiltinFunction("read",
             [],
